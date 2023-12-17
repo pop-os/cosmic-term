@@ -1,2 +1,2 @@
 # cosmic-term
-WIP COSMIC terminal emulator
+WIP COSMIC terminal emulator, built using alacritty\_terminal.
