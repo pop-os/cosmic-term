@@ -21,7 +21,7 @@ use tiny_skia::{ColorU8, Paint, PixmapMut, PixmapPaint, PixmapRef, Rect, Transfo
 use winit::{
     event::{ElementState, Event as WinitEvent, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
-    keyboard::ModifiersState,
+    keyboard::{Key, ModifiersState, NamedKey},
     window::WindowBuilder,
 };
 
@@ -340,7 +340,8 @@ fn main() {
                         WindowEvent::KeyboardInput {
                             event:
                                 KeyEvent {
-                                    text: Some(text),
+                                    logical_key,
+                                    text: text_opt,
                                     state: ElementState::Pressed,
                                     ..
                                 },
@@ -348,31 +349,59 @@ fn main() {
                         },
                     window_id,
                 } if window_id == window.id() => {
-                    println!("{:?} {:?}", modifiers, text);
+                    println!("{:?} {:?}", modifiers, text_opt);
                     match (
                         modifiers.state().contains(ModifiersState::SUPER),
                         modifiers.state().contains(ModifiersState::CONTROL),
                         modifiers.state().contains(ModifiersState::ALT),
                     ) {
                         (true, _, _) => {} // Ignore super
-                        (false, true, _) => {
-                            // Control keys
-                            if text.len() == 1 {
+                        (false, true, _) => match text_opt {
+                            Some(text) if text.len() == 1 => {
+                                // Control keys
                                 let c = text.chars().next().unwrap_or_default();
                                 if c >= 'a' && c <= 'z' {
                                     notifier.notify(vec![(c as u8) - b'a' + 1]);
                                 }
                             }
-                        }
-                        (false, false, true) => {
-                            // Alt keys
-                            let mut bytes = text.as_bytes().to_vec();
-                            bytes.insert(0, b'\x1B');
-                            notifier.notify(bytes);
-                        }
-                        (false, false, false) => {
-                            notifier.notify(text.as_bytes().to_vec());
-                        }
+                            _ => {}
+                        },
+                        (false, false, true) => match text_opt {
+                            Some(text) => {
+                                // Alt keys
+                                //TODO: handle alt keys with no text
+                                let mut bytes = text.as_bytes().to_vec();
+                                bytes.insert(0, b'\x1B');
+                                notifier.notify(bytes);
+                            }
+                            None => {}
+                        },
+                        (false, false, false) => match text_opt {
+                            Some(text) => {
+                                notifier.notify(text.as_bytes().to_vec());
+                            }
+                            None => match logical_key {
+                                Key::Named(NamedKey::ArrowUp) => {
+                                    notifier.notify(b"\x1B[A".as_slice());
+                                }
+                                Key::Named(NamedKey::ArrowDown) => {
+                                    notifier.notify(b"\x1B[B".as_slice());
+                                }
+                                Key::Named(NamedKey::ArrowRight) => {
+                                    notifier.notify(b"\x1B[C".as_slice());
+                                }
+                                Key::Named(NamedKey::ArrowLeft) => {
+                                    notifier.notify(b"\x1B[D".as_slice());
+                                }
+                                Key::Named(NamedKey::End) => {
+                                    notifier.notify(b"\x1B[F".as_slice());
+                                }
+                                Key::Named(NamedKey::Home) => {
+                                    notifier.notify(b"\x1B[H".as_slice());
+                                }
+                                _ => {}
+                            },
+                        },
                     }
                 }
                 WinitEvent::WindowEvent {
