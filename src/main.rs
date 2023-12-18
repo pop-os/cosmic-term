@@ -143,7 +143,7 @@ fn main() {
         // Use size of space to determine cell size
         buffer.set_text(&mut font_system, " ", default_attrs, Shaping::Advanced);
         let layout = buffer.line_layout(&mut font_system, 0).unwrap();
-        (layout[0].w, layout[0].max_ascent + layout[0].max_descent)
+        (layout[0].w, metrics.line_height)
     };
     println!("{}, {}", cell_width, cell_height);
 
