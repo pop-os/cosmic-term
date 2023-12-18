@@ -203,19 +203,13 @@ fn main() {
             } if window_id == window.id() => {
                 match (modifiers.logo(), modifiers.ctrl(), modifiers.alt()) {
                     (true, _, _) => {} // Ignore super
-                    (false, true, _) => {
-                        // Control keys
-                        if c >= 'a' && c <= 'z' {
-                            notifier.notify(vec![(c as u8) - b'a' + 1]);
-                        }
-                    }
-                    (false, false, true) => {
+                    (false, _, true) => {
                         // Alt keys
                         let mut buf = [0x1B, 0, 0, 0, 0];
                         let str = c.encode_utf8(&mut buf[1..]);
                         notifier.notify(str.as_bytes().to_vec());
                     }
-                    (false, false, false) => {
+                    (false, _, false) => {
                         let mut buf = [0, 0, 0, 0];
                         let str = c.encode_utf8(&mut buf);
                         notifier.notify(str.as_bytes().to_vec());
