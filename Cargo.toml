@@ -7,3 +7,10 @@ edition = "2021"
 
 [dependencies]
 alacritty_terminal = "0.19"
+softbuffer = "0.4"
+tiny-skia = "0.11"
+winit = "0.29"
+
+[dependencies.cosmic-text]
+git = "https://github.com/pop-os/cosmic-text.git"
+branch = "refactor"
