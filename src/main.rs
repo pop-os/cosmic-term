@@ -14,10 +14,10 @@ use alacritty_terminal::{
 };
 use cosmic_text::{
     Attrs, AttrsList, Buffer, BufferLine, Family, FontSystem, Metrics, Shaping, Style, SwashCache,
-    Weight, Wrap,
+    SwashContent, Weight, Wrap,
 };
-use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
-use tiny_skia::{Paint, PixmapMut, Rect, Transform};
+use std::{mem, num::NonZeroU32, rc::Rc, slice, sync::Arc, time::Instant};
+use tiny_skia::{ColorU8, Paint, PixmapMut, PixmapPaint, PixmapRef, Rect, Transform};
 use winit::{
     event::{ElementState, Event as WinitEvent, KeyEvent, Modifiers, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
@@ -192,6 +192,8 @@ fn main() {
                     window_id,
                     event: WindowEvent::RedrawRequested,
                 } if window_id == window.id() => {
+                    let instant = Instant::now();
+
                     let (width, height) = {
                         let size = window.inner_size();
                         (size.width, size.height)
@@ -225,17 +227,8 @@ fn main() {
 
                     let mut paint = Paint::default();
                     paint.anti_alias = false;
+                    let pixmap_paint = PixmapPaint::default();
                     let transform = Transform::identity();
-                    let mut f = |x: f32, y: f32, w: f32, h: f32, color: cosmic_text::Color| {
-                        // Have to swap RGB for BGR
-                        paint.set_color_rgba8(color.b(), color.g(), color.r(), color.a());
-                        pixmap.fill_rect(
-                            Rect::from_xywh(x, y, w, h).unwrap(),
-                            &paint,
-                            transform,
-                            None,
-                        );
-                    };
                     for run in buffer.layout_runs() {
                         for glyph in run.glyphs.iter() {
                             let physical_glyph = glyph.physical((0., 0.), 1.0);
@@ -246,34 +239,101 @@ fn main() {
                             };
 
                             let background_color = cosmic_text::Color(glyph.metadata as u32);
+                            if background_color.0 != 0xFF000000 {
+                                //TODO: Have to swap RGB for BGR
+                                paint.set_color_rgba8(
+                                    background_color.b(),
+                                    background_color.g(),
+                                    background_color.r(),
+                                    background_color.a(),
+                                );
+                                pixmap.fill_rect(
+                                    Rect::from_xywh(
+                                        glyph.x,
+                                        run.line_top,
+                                        glyph.w,
+                                        metrics.line_height,
+                                    )
+                                    .unwrap(),
+                                    &paint,
+                                    transform,
+                                    None,
+                                );
+                            }
 
-                            f(
-                                glyph.x,
-                                run.line_top,
-                                glyph.w,
-                                metrics.line_height,
-                                background_color,
-                            );
-
-                            swash_cache.with_pixels(
-                                &mut font_system,
-                                physical_glyph.cache_key,
-                                glyph_color,
-                                |x, y, color| {
-                                    f(
-                                        (physical_glyph.x + x) as f32,
-                                        run.line_y + (physical_glyph.y + y) as f32,
-                                        1.0,
-                                        1.0,
-                                        color,
+                            match swash_cache.get_image(&mut font_system, physical_glyph.cache_key)
+                            {
+                                Some(image) if !image.data.is_empty() => {
+                                    let mut data = Vec::with_capacity(
+                                        (image.placement.width * image.placement.height) as usize,
                                     );
-                                },
-                            );
+                                    match image.content {
+                                        SwashContent::Mask => {
+                                            let mut i = 0;
+                                            while i < image.data.len() {
+                                                //TODO: Have to swap RGB for BGR
+                                                data.push(
+                                                    ColorU8::from_rgba(
+                                                        glyph_color.b(),
+                                                        glyph_color.g(),
+                                                        glyph_color.r(),
+                                                        image.data[i],
+                                                    )
+                                                    .premultiply(),
+                                                );
+                                                i += 1;
+                                            }
+                                        }
+                                        SwashContent::Color => {
+                                            let mut i = 0;
+                                            while i < image.data.len() {
+                                                //TODO: Have to swap RGB for BGR
+                                                data.push(
+                                                    ColorU8::from_rgba(
+                                                        image.data[i + 2],
+                                                        image.data[i + 1],
+                                                        image.data[i],
+                                                        image.data[i + 3],
+                                                    )
+                                                    .premultiply(),
+                                                );
+                                                i += 4;
+                                            }
+                                        }
+                                        SwashContent::SubpixelMask => {
+                                            todo!("TODO: SubpixelMask");
+                                        }
+                                    }
+
+                                    let glyph_pixmap = PixmapRef::from_bytes(
+                                        unsafe {
+                                            slice::from_raw_parts(
+                                                data.as_ptr() as *const u8,
+                                                data.len() * 4,
+                                            )
+                                        },
+                                        image.placement.width,
+                                        image.placement.height,
+                                    )
+                                    .unwrap();
+                                    pixmap.draw_pixmap(
+                                        physical_glyph.x + image.placement.left,
+                                        run.line_y as i32 + physical_glyph.y - image.placement.top,
+                                        glyph_pixmap,
+                                        &pixmap_paint,
+                                        transform,
+                                        None,
+                                    );
+                                }
+                                _ => {}
+                            }
                         }
                     }
                     buffer.set_redraw(false);
 
                     surface_buffer.present().unwrap();
+
+                    println!("draw {:?}", instant.elapsed());
                 }
                 WinitEvent::WindowEvent {
                     event:
@@ -329,6 +389,7 @@ fn main() {
                     dimensions.height = physical_size.height as f32;
                     notifier.on_resize(dimensions.into());
                     term.lock().resize(dimensions);
+                    window.request_redraw();
                 }
                 WinitEvent::WindowEvent {
                     event: WindowEvent::CloseRequested,
@@ -344,13 +405,17 @@ fn main() {
                         _ => {}
                     }
 
+                    let instant = Instant::now();
+
                     //TODO: is redraw needed after all events?
                     //TODO: use LineDamageBounds
                     {
                         let mut last_point = Point::new(Line(0), Column(0));
                         let mut text = String::new();
                         let mut attrs_list = AttrsList::new(default_attrs);
-                        for indexed in term.lock().grid().display_iter() {
+                        let term_guard = term.lock();
+                        let grid = term_guard.grid();
+                        for indexed in grid.display_iter() {
                             if indexed.point.line != last_point.line {
                                 let line_i = last_point.line.0 as usize;
                                 while line_i >= buffer.lines.len() {
@@ -397,9 +462,15 @@ fn main() {
                             };
 
                             let mut attrs = default_attrs;
-                            attrs = attrs.color(convert_color(indexed.cell.fg));
+                            let mut fg = convert_color(indexed.cell.fg);
+                            let mut bg = convert_color(indexed.cell.bg);
+                            //TODO: better handling of cursor
+                            if indexed.point == grid.cursor.point {
+                                mem::swap(&mut fg, &mut bg);
+                            }
+                            attrs = attrs.color(fg);
                             // Use metadata as background color
-                            attrs = attrs.metadata(convert_color(indexed.cell.bg).0 as usize);
+                            attrs = attrs.metadata(bg.0 as usize);
                             //TODO: more flags
                             if indexed.cell.flags.contains(Flags::BOLD) {
                                 attrs = attrs.weight(Weight::BOLD);
@@ -433,6 +504,8 @@ fn main() {
                     if buffer.redraw() {
                         window.request_redraw();
                     }
+
+                    println!("buffer update {:?}", instant.elapsed());
                 }
                 _ => {}
             }
