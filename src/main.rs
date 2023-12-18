@@ -429,8 +429,11 @@ fn main() {
                 WinitEvent::UserEvent(user_event) => {
                     println!("{:?}", user_event);
                     match user_event {
-                        TermEvent::PtyWrite(text) => notifier.notify(text.into_bytes()),
                         TermEvent::Exit => elwt.exit(),
+                        TermEvent::PtyWrite(text) => notifier.notify(text.into_bytes()),
+                        TermEvent::Title(title) => {
+                            window.set_title(&title);
+                        }
                         _ => {}
                     }
 
@@ -465,8 +468,19 @@ fn main() {
                             }
                             //TODO: use indexed.point.column?
 
+                            //TODO: skip leading spacer?
+                            if indexed.cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+                                // Skip wide spacers (cells after wide characters)
+                                continue;
+                            }
+
                             let start = text.len();
                             text.push(indexed.cell.c);
+                            if let Some(zerowidth) = indexed.cell.zerowidth() {
+                                for &c in zerowidth {
+                                    text.push(c);
+                                }
+                            }
                             let end = text.len();
 
                             let convert_color = |color| {
