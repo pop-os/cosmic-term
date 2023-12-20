@@ -324,12 +324,24 @@ impl Terminal {
         self.term.lock().scroll_display(scroll);
     }
 
+    pub fn scroll_to(&self, ratio: f32) {
+        let mut term = self.term.lock();
+        let grid = term.grid();
+        let total = grid.history_size() + grid.screen_lines();
+        let old_display_offset = grid.display_offset() as i32;
+        let new_display_offset =
+            ((total as f32) * (1.0 - ratio)) as i32 - grid.screen_lines() as i32;
+        term.scroll_display(TerminalScroll::Delta(
+            new_display_offset - old_display_offset,
+        ));
+    }
+
     pub fn scrollbar(&self) -> (f32, f32) {
         let term = self.term.lock();
         let grid = term.grid();
         let total = grid.history_size() + grid.screen_lines();
-        let start = total - grid.display_offset();
-        let end = total - (grid.display_offset() + grid.screen_lines());
+        let start = total - grid.display_offset() - grid.screen_lines();
+        let end = total - grid.display_offset();
         (
             (start as f32) / (total as f32),
             (end as f32) / (total as f32),

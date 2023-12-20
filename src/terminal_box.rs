@@ -188,10 +188,10 @@ where
         let view_position =
             layout.position() + [self.padding.left as f32, self.padding.top as f32].into();
         let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
-            - self.padding.horizontal() as i32;
-        let view_h = cmp::min(viewport.height as i32, layout.bounds().height as i32)
-            - self.padding.vertical() as i32
+            - self.padding.horizontal() as i32
             - scrollbar_w as i32;
+        let view_h = cmp::min(viewport.height as i32, layout.bounds().height as i32)
+            - self.padding.vertical() as i32;
         let scale_factor = style.scale_factor as f32;
 
         if view_w <= 0 || view_h <= 0 {
@@ -270,22 +270,24 @@ where
         let (start, end) = terminal.scrollbar();
         let scrollbar_y = start * view_h as f32;
         let scrollbar_h = end * view_h as f32 - scrollbar_y;
+        let scrollbar_rect = Rectangle::new(
+            [view_w as f32, scrollbar_y].into(),
+            Size::new(scrollbar_w, scrollbar_h),
+        );
         let scrollbar_alpha = match &state.dragging {
             Some(Dragging::Scrollbar { .. }) => 0.5,
             _ => 0.25,
         };
         renderer.fill_quad(
             Quad {
-                bounds: Rectangle::new(
-                    view_position + Vector::new(view_w as f32, scrollbar_y),
-                    Size::new(scrollbar_w, scrollbar_h),
-                ),
+                bounds: scrollbar_rect + Vector::new(view_position.x, view_position.y),
                 border_radius: 0.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
             },
             Color::new(1.0, 1.0, 1.0, scrollbar_alpha),
         );
+        state.scrollbar_rect.set(scrollbar_rect);
 
         let duration = instant.elapsed();
         log::debug!("redraw {}, {}: {:?}", view_w, view_h, duration);
@@ -434,7 +436,6 @@ where
                 }
                 status = Status::Captured;
             }
-            /*TODO
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     // Handle left click drag
@@ -458,6 +459,7 @@ where
                                 } else {
                                     ClickKind::Single
                                 };
+                            /*TODO
                             match click_kind {
                                 ClickKind::Single => editor.action(Action::Click {
                                     x: x as i32,
@@ -472,27 +474,22 @@ where
                                     y: y as i32,
                                 }),
                             }
+                            */
                             state.click = Some((click_kind, Instant::now()));
                             state.dragging = Some(Dragging::Buffer);
                         } else if scrollbar_rect.contains(Point::new(x_logical, y_logical)) {
                             state.dragging = Some(Dragging::Scrollbar {
                                 start_y: y,
-                                start_scroll: editor.with_buffer(|buffer| buffer.scroll()),
+                                start_scroll: terminal.scrollbar(),
                             });
                         } else if x_logical >= scrollbar_rect.x
                             && x_logical < (scrollbar_rect.x + scrollbar_rect.width)
                         {
-                            editor.with_buffer_mut(|buffer| {
-                                let scroll_line =
-                                    ((y / buffer.size().1) * buffer.lines.len() as f32) as i32;
-                                buffer.set_scroll(Scroll::new(
-                                    scroll_line.try_into().unwrap_or_default(),
-                                    0,
-                                ));
-                                state.dragging = Some(Dragging::Scrollbar {
-                                    start_y: y,
-                                    start_scroll: buffer.scroll(),
-                                });
+                            let scroll_ratio = terminal.with_buffer(|buffer| y / buffer.size().1);
+                            terminal.scroll_to(scroll_ratio);
+                            state.dragging = Some(Dragging::Scrollbar {
+                                start_y: y,
+                                start_scroll: terminal.scrollbar(),
                             });
                         }
                     }
@@ -524,33 +521,26 @@ where
                         let y = y_logical * scale_factor;
                         match dragging {
                             Dragging::Buffer => {
+                                /*TODO
                                 editor.action(Action::Drag {
                                     x: x as i32,
                                     y: y as i32,
                                 });
+                                */
                             }
                             Dragging::Scrollbar {
                                 start_y,
                                 start_scroll,
                             } => {
-                                editor.with_buffer_mut(|buffer| {
-                                    let scroll_offset = (((y - start_y) / buffer.size().1)
-                                        * buffer.lines.len() as f32)
-                                        as i32;
-                                    buffer.set_scroll(Scroll::new(
-                                        (start_scroll.line as i32 + scroll_offset)
-                                            .try_into()
-                                            .unwrap_or_default(),
-                                        0,
-                                    ));
-                                });
+                                let scroll_offset = terminal
+                                    .with_buffer(|buffer| ((y - start_y) / buffer.size().1));
+                                terminal.scroll_to(start_scroll.0 + scroll_offset);
                             }
                         }
                     }
                     status = Status::Captured;
                 }
             }
-            */
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
                 if let Some(_p) = cursor_position.position_in(layout.bounds()) {
                     match delta {
@@ -610,7 +600,10 @@ enum ClickKind {
 
 enum Dragging {
     Buffer,
-    Scrollbar { start_y: f32, start_scroll: Scroll },
+    Scrollbar {
+        start_y: f32,
+        start_scroll: (f32, f32),
+    },
 }
 
 pub struct State {
