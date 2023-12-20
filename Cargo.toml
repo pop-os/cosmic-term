@@ -7,36 +7,19 @@ edition = "2021"
 
 [dependencies]
 alacritty_terminal = "0.19"
-bytemuck = "1.14"
 env_logger = "0.10"
 log = "0.4"
-tiny-skia = "0.11"
+tokio = { version = "1.35", features = ["sync"] }
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
 branch = "refactor"
 
-[dependencies.glyphon]
-git = "https://github.com/jackpot51/glyphon.git"
-branch = "refactor"
-optional = true
-
-[dependencies.pollster]
-version = "0.3"
-optional = true
-
-[dependencies.softbuffer]
-git = "https://github.com/pop-os/softbuffer.git"
-branch = "cosmic"
-
-[dependencies.wgpu]
-version = "0.18"
-optional = true
-
-[dependencies.winit]
-git = "https://github.com/pop-os/winit.git"
-branch = "master"
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic.git"
+default-features = false
+features = ["tokio", "winit"]
 
 [features]
-default = []
-wgpu = ["dep:glyphon", "dep:pollster", "dep:wgpu"]
+default = ["wgpu"]
+wgpu = ["libcosmic/wgpu"]
