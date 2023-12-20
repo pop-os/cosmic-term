@@ -26,7 +26,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::Terminal;
+use crate::{Terminal, TerminalScroll};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -183,7 +183,7 @@ where
         let mut terminal = self.terminal.lock().unwrap();
 
         //TODO: make this configurable
-        let scrollbar_w = 0.0;
+        let scrollbar_w = 8.0;
 
         let view_position =
             layout.position() + [self.padding.left as f32, self.padding.top as f32].into();
@@ -266,22 +266,26 @@ where
             clip_bounds: Rectangle::new(view_position, Size::new(view_w as f32, view_h as f32)),
         });
 
-        /*TODO
         // Draw scrollbar
+        let (start, end) = terminal.scrollbar();
+        let scrollbar_y = start * view_h as f32;
+        let scrollbar_h = end * view_h as f32 - scrollbar_y;
         let scrollbar_alpha = match &state.dragging {
             Some(Dragging::Scrollbar { .. }) => 0.5,
             _ => 0.25,
         };
         renderer.fill_quad(
             Quad {
-                bounds: state.scrollbar_rect.get() + Vector::new(view_position.x, view_position.y),
+                bounds: Rectangle::new(
+                    view_position + Vector::new(view_w as f32, scrollbar_y),
+                    Size::new(scrollbar_w, scrollbar_h),
+                ),
                 border_radius: 0.0.into(),
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
             },
             Color::new(1.0, 1.0, 1.0, scrollbar_alpha),
         );
-        */
 
         let duration = instant.elapsed();
         log::debug!("redraw {}, {}: {:?}", view_w, view_h, duration);
@@ -349,11 +353,19 @@ where
                     status = Status::Captured;
                 }
                 KeyCode::End => {
-                    terminal.input(b"\x1B[F".as_slice());
+                    if modifiers.shift() {
+                        terminal.scroll(TerminalScroll::Bottom);
+                    } else {
+                        terminal.input(b"\x1B[F".as_slice());
+                    }
                     status = Status::Captured;
                 }
                 KeyCode::Home => {
-                    terminal.input(b"\x1B[H".as_slice());
+                    if modifiers.shift() {
+                        terminal.scroll(TerminalScroll::Top);
+                    } else {
+                        terminal.input(b"\x1B[H".as_slice());
+                    }
                     status = Status::Captured;
                 }
                 KeyCode::Insert => {
@@ -365,11 +377,19 @@ where
                     status = Status::Captured;
                 }
                 KeyCode::PageUp => {
-                    terminal.input(b"\x1B[5~".as_slice());
+                    if modifiers.shift() {
+                        terminal.scroll(TerminalScroll::PageUp);
+                    } else {
+                        terminal.input(b"\x1B[5~".as_slice());
+                    }
                     status = Status::Captured;
                 }
                 KeyCode::PageDown => {
-                    terminal.input(b"\x1B[6~".as_slice());
+                    if modifiers.shift() {
+                        terminal.scroll(TerminalScroll::PageDown);
+                    } else {
+                        terminal.input(b"\x1B[6~".as_slice());
+                    }
                     status = Status::Captured;
                 }
                 //TODO: F1-F12 keys
@@ -530,6 +550,7 @@ where
                     status = Status::Captured;
                 }
             }
+            */
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
                 if let Some(_p) = cursor_position.position_in(layout.bounds()) {
                     match delta {
@@ -538,7 +559,7 @@ where
                             state.scroll_pixels = 0.0;
                             let lines = (-y * 6.0) as i32;
                             if lines != 0 {
-                                editor.action(Action::Scroll { lines });
+                                terminal.scroll(TerminalScroll::Delta(-lines));
                             }
                             status = Status::Captured;
                         }
@@ -546,7 +567,7 @@ where
                             //TODO: this adjustment is just a guess!
                             state.scroll_pixels -= y * 6.0;
                             let mut lines = 0;
-                            let metrics = editor.with_buffer(|buffer| buffer.metrics());
+                            let metrics = terminal.with_buffer(|buffer| buffer.metrics());
                             while state.scroll_pixels <= -metrics.line_height {
                                 lines -= 1;
                                 state.scroll_pixels += metrics.line_height;
@@ -556,14 +577,13 @@ where
                                 state.scroll_pixels -= metrics.line_height;
                             }
                             if lines != 0 {
-                                editor.action(Action::Scroll { lines });
+                                terminal.scroll(TerminalScroll::Delta(-lines));
                             }
                             status = Status::Captured;
                         }
                     }
                 }
             }
-            */
             _ => (),
         }
 

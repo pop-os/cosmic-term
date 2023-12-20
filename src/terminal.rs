@@ -1,5 +1,5 @@
 use alacritty_terminal::{
-    ansi::{Color, NamedColor},
+    ansi::{Color, Handler, NamedColor},
     config::{Config, PtyConfig},
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier, State},
@@ -24,6 +24,8 @@ use std::{
     time::Instant,
 };
 use tokio::sync::mpsc;
+
+pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -318,6 +320,22 @@ impl Terminal {
         }
     }
 
+    pub fn scroll(&self, scroll: TerminalScroll) {
+        self.term.lock().scroll_display(scroll);
+    }
+
+    pub fn scrollbar(&self) -> (f32, f32) {
+        let term = self.term.lock();
+        let grid = term.grid();
+        let total = grid.history_size() + grid.screen_lines();
+        let start = total - grid.display_offset();
+        let end = total - (grid.display_offset() + grid.screen_lines());
+        (
+            (start as f32) / (total as f32),
+            (end as f32) / (total as f32),
+        )
+    }
+
     pub fn update(&mut self) -> bool {
         let instant = Instant::now();
 
@@ -326,15 +344,15 @@ impl Terminal {
         {
             let mut buffer = Arc::make_mut(&mut self.buffer);
 
-            let mut last_point = Point::new(Line(0), Column(0));
+            let mut line_i = 0;
+            let mut last_point = None;
             let mut text = String::new();
             let mut attrs_list = AttrsList::new(self.default_attrs);
             {
                 let term_guard = self.term.lock();
                 let grid = term_guard.grid();
                 for indexed in grid.display_iter() {
-                    if indexed.point.line != last_point.line {
-                        let line_i = last_point.line.0 as usize;
+                    if indexed.point.line != last_point.unwrap_or(indexed.point).line {
                         while line_i >= buffer.lines.len() {
                             buffer.lines.push(BufferLine::new(
                                 "",
@@ -347,6 +365,7 @@ impl Terminal {
                         if buffer.lines[line_i].set_text(text.clone(), attrs_list.clone()) {
                             buffer.set_redraw(true);
                         }
+                        line_i += 1;
 
                         text.clear();
                         attrs_list.clear_spans();
@@ -389,12 +408,11 @@ impl Terminal {
                         attrs_list.add_span(start..end, attrs);
                     }
 
-                    last_point = indexed.point;
+                    last_point = Some(indexed.point);
                 }
             }
 
             //TODO: do not repeat!
-            let line_i = last_point.line.0 as usize;
             while line_i >= buffer.lines.len() {
                 buffer.lines.push(BufferLine::new(
                     "",
@@ -407,9 +425,10 @@ impl Terminal {
             if buffer.lines[line_i].set_text(text, attrs_list) {
                 buffer.set_redraw(true);
             }
+            line_i += 1;
 
-            if buffer.lines.len() != line_i + 1 {
-                buffer.lines.truncate(line_i + 1);
+            if buffer.lines.len() != line_i {
+                buffer.lines.truncate(line_i);
                 buffer.set_redraw(true);
             }
 

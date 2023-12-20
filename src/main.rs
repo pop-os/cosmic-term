@@ -20,7 +20,7 @@ use cosmic::{
 use std::{any::TypeId, sync::Mutex};
 use tokio::sync::mpsc;
 
-use self::terminal::Terminal;
+use self::terminal::{Terminal, TerminalScroll};
 mod terminal;
 
 use self::terminal_box::terminal_box;
@@ -179,7 +179,7 @@ impl cosmic::Application for App {
                     self.tab_model.text_set(entity, title);
                     return self.update_title();
                 }
-                TermEvent::Wakeup => {
+                TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                         let mut terminal = terminal.lock().unwrap();
                         terminal.update();
