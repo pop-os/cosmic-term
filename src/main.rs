@@ -152,7 +152,7 @@ impl cosmic::Application for App {
                         let terminal = terminal.lock().unwrap();
                         let rgb = terminal.colors()[index].unwrap_or_default();
                         let text = f(rgb);
-                        terminal.input(text.into_bytes());
+                        terminal.input_no_scroll(text.into_bytes());
                     }
                 }
                 TermEvent::Exit => {
@@ -161,7 +161,7 @@ impl cosmic::Application for App {
                 TermEvent::PtyWrite(text) => {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                         let terminal = terminal.lock().unwrap();
-                        terminal.input(text.into_bytes());
+                        terminal.input_no_scroll(text.into_bytes());
                     }
                 }
                 TermEvent::ResetTitle => {
@@ -172,7 +172,7 @@ impl cosmic::Application for App {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                         let terminal = terminal.lock().unwrap();
                         let text = f(terminal.size().into());
-                        terminal.input(text.into_bytes());
+                        terminal.input_no_scroll(text.into_bytes());
                     }
                 }
                 TermEvent::Title(title) => {

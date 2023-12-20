@@ -290,8 +290,13 @@ impl Terminal {
         self.with_buffer_mut(|buffer| buffer.set_redraw(redraw));
     }
 
-    pub fn input<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
+    pub fn input_no_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
         self.notifier.notify(input);
+    }
+
+    pub fn input_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
+        self.input_no_scroll(input);
+        self.scroll(TerminalScroll::Bottom);
     }
 
     pub fn resize(&mut self, width: u32, height: u32, scale_factor: f32) {
