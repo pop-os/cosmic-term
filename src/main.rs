@@ -1,7 +1,7 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use alacritty_terminal::event::Event as TermEvent;
+use alacritty_terminal::{event::Event as TermEvent, term::color::Colors as TermColors};
 use cosmic::{
     app::{Command, Core, Settings},
     cosmic_theme, executor,
@@ -17,7 +17,7 @@ use cosmic::{
     widget::{self, segmented_button},
     ApplicationExt, Element,
 };
-use std::{any::TypeId, sync::Mutex};
+use std::{any::TypeId, collections::HashMap, sync::Mutex};
 use tokio::sync::mpsc;
 
 use self::terminal::{Terminal, TerminalScroll};
@@ -25,6 +25,8 @@ mod terminal;
 
 use self::terminal_box::terminal_box;
 mod terminal_box;
+
+mod terminal_theme;
 
 /// Runs application with these settings
 #[rustfmt::skip]
@@ -62,6 +64,8 @@ pub struct App {
     core: Core,
     tab_model: segmented_button::Model<segmented_button::SingleSelect>,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
+    terminal_theme: String,
+    terminal_themes: HashMap<String, TermColors>,
 }
 
 /// Implement [`cosmic::Application`] to integrate with COSMIC.
@@ -92,6 +96,8 @@ impl cosmic::Application for App {
             core,
             tab_model: segmented_button::ModelBuilder::default().build(),
             term_event_tx_opt: None,
+            terminal_theme: "gruvbox-dark".to_string(),
+            terminal_themes: terminal_theme::terminal_themes(),
         };
 
         let command = app.update_title();
@@ -127,18 +133,23 @@ impl cosmic::Application for App {
                 return self.update_title();
             }
             Message::TabNew => match &self.term_event_tx_opt {
-                Some(term_event_tx) => {
-                    let entity = self
-                        .tab_model
-                        .insert()
-                        .text("New Terminal")
-                        .closable()
-                        .activate()
-                        .id();
-                    let terminal = Terminal::new(entity, term_event_tx.clone());
-                    self.tab_model
-                        .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
-                }
+                Some(term_event_tx) => match self.terminal_themes.get(&self.terminal_theme) {
+                    Some(colors) => {
+                        let entity = self
+                            .tab_model
+                            .insert()
+                            .text("New Terminal")
+                            .closable()
+                            .activate()
+                            .id();
+                        let terminal = Terminal::new(entity, term_event_tx.clone(), colors.clone());
+                        self.tab_model
+                            .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                    }
+                    None => {
+                        log::error!("failed to find terminal theme {:?}", self.terminal_theme);
+                    }
+                },
                 None => {
                     log::warn!("tried to create new tab before having event channel");
                 }

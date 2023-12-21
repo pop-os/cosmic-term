@@ -25,6 +25,8 @@ use std::{
 };
 use tokio::sync::mpsc;
 
+use crate::terminal_theme;
+
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 #[derive(Clone, Copy, Debug)]
@@ -73,124 +75,6 @@ impl EventListener for EventProxy {
     }
 }
 
-fn auto_colors() -> Colors {
-    let mut colors = Colors::default();
-
-    // These colors come from `ransid`: https://gitlab.redox-os.org/redox-os/ransid/-/blob/master/src/color.rs
-    /* Indexed colors */
-    for value in 16..=231 {
-        let convert = |value: u8| -> u8 {
-            match value {
-                0 => 0,
-                _ => value * 0x28 + 0x28,
-            }
-        };
-
-        let r = convert((value - 16) / 36 % 6);
-        let g = convert((value - 16) / 6 % 6);
-        let b = convert((value - 16) % 6);
-        colors[value as usize] = Some(Rgb { r, g, b });
-    }
-
-    /* Grays */
-    for value in 232..=255 {
-        let gray = (value - 232) * 10 + 8;
-        colors[value as usize] = Some(Rgb {
-            r: gray,
-            g: gray,
-            b: gray,
-        });
-    }
-
-    colors
-}
-
-fn gruvbox_dark_colors() -> Colors {
-    let mut colors = auto_colors();
-
-    let encode_rgb = |r: u8, g: u8, b: u8| -> Rgb { Rgb { r, g, b } };
-
-    colors[NamedColor::Black] = Some(encode_rgb(0x28, 0x28, 0x28));
-    colors[NamedColor::Red] = Some(encode_rgb(0xcc, 0x24, 0x1d));
-    colors[NamedColor::Green] = Some(encode_rgb(0x98, 0x97, 0x1a));
-    colors[NamedColor::Yellow] = Some(encode_rgb(0xd7, 0x99, 0x21));
-    colors[NamedColor::Blue] = Some(encode_rgb(0x45, 0x85, 0x88));
-    colors[NamedColor::Magenta] = Some(encode_rgb(0xb1, 0x62, 0x86));
-    colors[NamedColor::Cyan] = Some(encode_rgb(0x68, 0x9d, 0x6a));
-    colors[NamedColor::White] = Some(encode_rgb(0xa8, 0x99, 0x84));
-    colors[NamedColor::BrightBlack] = Some(encode_rgb(0x92, 0x83, 0x74));
-    colors[NamedColor::BrightRed] = Some(encode_rgb(0xfb, 0x49, 0x34));
-    colors[NamedColor::BrightGreen] = Some(encode_rgb(0xb8, 0xbb, 0x26));
-    colors[NamedColor::BrightYellow] = Some(encode_rgb(0xfa, 0xbd, 0x2f));
-    colors[NamedColor::BrightBlue] = Some(encode_rgb(0x83, 0xa5, 0x98));
-    colors[NamedColor::BrightMagenta] = Some(encode_rgb(0xd3, 0x86, 0x9b));
-    colors[NamedColor::BrightCyan] = Some(encode_rgb(0x8e, 0xc0, 0x7c));
-    colors[NamedColor::BrightWhite] = Some(encode_rgb(0xeb, 0xdb, 0xb2));
-
-    // Set special colors
-    colors[NamedColor::Foreground] = colors[NamedColor::BrightWhite];
-    colors[NamedColor::Background] = colors[NamedColor::Black];
-    colors[NamedColor::Cursor] = colors[NamedColor::BrightWhite];
-    /*TODO
-    colors[NamedColor::DimBlack] = colors[NamedColor::];
-    colors[NamedColor::DimRed] = colors[NamedColor::];
-    colors[NamedColor::DimGreen] = colors[NamedColor::];
-    colors[NamedColor::DimYellow] = colors[NamedColor::];
-    colors[NamedColor::DimBlue] = colors[NamedColor::];
-    colors[NamedColor::DimMagenta] = colors[NamedColor::];
-    colors[NamedColor::DimCyan] = colors[NamedColor::];
-    colors[NamedColor::DimWhite] = colors[NamedColor::];
-    */
-    colors[NamedColor::BrightForeground] = colors[NamedColor::BrightWhite];
-    //TODO colors[NamedColor::DimForeground] = colors[NamedColor::];
-
-    colors
-}
-
-fn pop_colors() -> Colors {
-    let mut colors = auto_colors();
-
-    let encode_rgb = |r: u8, g: u8, b: u8| -> Rgb { Rgb { r, g, b } };
-
-    // Pop colors (from pop-desktop gsettings)
-    colors[NamedColor::Black] = Some(encode_rgb(51, 51, 51));
-    colors[NamedColor::Red] = Some(encode_rgb(204, 0, 0));
-    colors[NamedColor::Green] = Some(encode_rgb(78, 154, 6));
-    colors[NamedColor::Yellow] = Some(encode_rgb(196, 160, 0));
-    colors[NamedColor::Blue] = Some(encode_rgb(52, 101, 164));
-    colors[NamedColor::Magenta] = Some(encode_rgb(117, 80, 123));
-    colors[NamedColor::Cyan] = Some(encode_rgb(6, 152, 154));
-    colors[NamedColor::White] = Some(encode_rgb(211, 215, 207));
-    colors[NamedColor::BrightBlack] = Some(encode_rgb(136, 128, 124));
-    colors[NamedColor::BrightRed] = Some(encode_rgb(241, 93, 34));
-    colors[NamedColor::BrightGreen] = Some(encode_rgb(115, 196, 143));
-    colors[NamedColor::BrightYellow] = Some(encode_rgb(255, 206, 81));
-    colors[NamedColor::BrightBlue] = Some(encode_rgb(72, 185, 199));
-    colors[NamedColor::BrightMagenta] = Some(encode_rgb(173, 127, 168));
-    colors[NamedColor::BrightCyan] = Some(encode_rgb(52, 226, 226));
-    colors[NamedColor::BrightWhite] = Some(encode_rgb(238, 238, 236));
-
-    // Set special colors
-    // Pop colors (from pop-desktop gsettings)
-    colors[NamedColor::Foreground] = Some(encode_rgb(242, 242, 242));
-    colors[NamedColor::Background] = Some(encode_rgb(51, 51, 51));
-    colors[NamedColor::Cursor] = colors[NamedColor::BrightWhite];
-    /*TODO
-    colors[NamedColor::DimBlack] = colors[NamedColor::];
-    colors[NamedColor::DimRed] = colors[NamedColor::];
-    colors[NamedColor::DimGreen] = colors[NamedColor::];
-    colors[NamedColor::DimYellow] = colors[NamedColor::];
-    colors[NamedColor::DimBlue] = colors[NamedColor::];
-    colors[NamedColor::DimMagenta] = colors[NamedColor::];
-    colors[NamedColor::DimCyan] = colors[NamedColor::];
-    colors[NamedColor::DimWhite] = colors[NamedColor::];
-    */
-    colors[NamedColor::BrightForeground] = colors[NamedColor::BrightWhite];
-    //TODO colors[NamedColor::DimForeground] = colors[NamedColor::];
-
-    colors
-}
-
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
@@ -213,7 +97,6 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
 }
 
 pub struct Terminal {
-    metrics: Metrics,
     default_attrs: Attrs<'static>,
     buffer: Arc<Buffer>,
     size: Size,
@@ -228,9 +111,8 @@ impl Terminal {
     pub fn new(
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
+        colors: Colors,
     ) -> Self {
-        let colors = gruvbox_dark_colors();
-
         let metrics = Metrics::new(14.0, 20.0);
         //TODO: set color to default fg
         let default_attrs = Attrs::new()
@@ -279,7 +161,6 @@ impl Terminal {
 
         Self {
             colors,
-            metrics,
             default_attrs,
             buffer: Arc::new(buffer),
             size,
