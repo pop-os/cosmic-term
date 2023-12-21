@@ -80,7 +80,7 @@ impl cosmic::Application for App {
     /// Default async executor to use with the app.
     type Executor = executor::Default;
 
-    /// Argument received [`cosmic::Application::new`].
+    /// Argument received
     type Flags = TermConfig;
 
     /// Message type specific to our [`App`].
@@ -221,6 +221,19 @@ impl cosmic::Application for App {
         Command::none()
     }
 
+    fn header_start(&self) -> Vec<Element<Self::Message>> {
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+
+        vec![row![
+            widget::button(widget::icon::from_name("list-add-symbolic").size(16).icon())
+                .on_press(Message::TabNew)
+                .padding(space_xxs)
+                .style(style::Button::Icon)
+        ]
+        .align_items(Alignment::Center)
+        .into()]
+    }
+
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
         let cosmic_theme::Spacing {
@@ -231,21 +244,16 @@ impl cosmic::Application for App {
 
         let mut tab_column = widget::column::with_capacity(1).padding([space_none, space_xxs]);
 
-        tab_column = tab_column.push(
-            row![
+        if self.tab_model.iter().count() > 1 {
+            tab_column = tab_column.push(
                 widget::view_switcher::horizontal(&self.tab_model)
                     .button_height(32)
                     .button_spacing(space_xxs)
                     .on_activate(Message::TabActivate)
                     .on_close(Message::TabClose)
                     .width(Length::Shrink),
-                widget::button(widget::icon::from_name("list-add-symbolic").size(16).icon())
-                    .on_press(Message::TabNew)
-                    .padding(space_xxs)
-                    .style(style::Button::Icon)
-            ]
-            .align_items(Alignment::Center),
-        );
+            );
+        }
 
         match self
             .tab_model
