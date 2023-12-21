@@ -98,7 +98,9 @@ impl cosmic::Application for App {
     }
 
     /// Creates the application, and optionally emits command on initialize.
-    fn init(core: Core, term_config: Self::Flags) -> (Self, Command<Self::Message>) {
+    fn init(mut core: Core, term_config: Self::Flags) -> (Self, Command<Self::Message>) {
+        core.window.content_container = false;
+
         let mut app = App {
             core,
             tab_model: segmented_button::ModelBuilder::default().build(),
