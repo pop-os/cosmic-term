@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .antialiasing(true)
         .client_decorations(true)
         .debug(false)
-        .default_icon_theme("Pop")
+        .default_icon_theme("Cosmic")
         .default_text_size(16.0)
         .scale_factor(1.0)
         .size(Size::new(1024., 768.))

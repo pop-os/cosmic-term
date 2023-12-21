@@ -150,14 +150,11 @@ where
         }
 
         if let Some(p) = cursor_position.position_in(layout.bounds()) {
-            let scale_factor = state.scale_factor.get();
             let terminal = self.terminal.lock().unwrap();
             let buffer_size = terminal.with_buffer(|buffer| buffer.size());
 
-            let x_logical = p.x - self.padding.left;
-            let y_logical = p.y - self.padding.top;
-            let x = x_logical * scale_factor;
-            let y = y_logical * scale_factor;
+            let x = p.x - self.padding.left;
+            let y = p.y - self.padding.top;
             if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
                 return mouse::Interaction::Text;
             }
@@ -192,7 +189,6 @@ where
             - scrollbar_w as i32;
         let view_h = cmp::min(viewport.height as i32, layout.bounds().height as i32)
             - self.padding.vertical() as i32;
-        let scale_factor = style.scale_factor as f32;
 
         if view_w <= 0 || view_h <= 0 {
             // Zero sized image
@@ -200,10 +196,7 @@ where
         }
 
         // Ensure terminal is the right size
-        terminal.resize(view_w as u32, view_h as u32, scale_factor);
-
-        // Cache scale factor
-        state.scale_factor.set(scale_factor);
+        terminal.resize(view_w as u32, view_h as u32);
 
         // Ensure terminal is shaped
         terminal.with_buffer_mut(|buffer| {
@@ -305,7 +298,6 @@ where
         _viewport: &Rectangle<f32>,
     ) -> Status {
         let state = tree.state.downcast_mut::<State>();
-        let scale_factor = state.scale_factor.get();
         let scrollbar_rect = state.scrollbar_rect.get();
         let mut terminal = self.terminal.lock().unwrap();
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
@@ -440,10 +432,8 @@ where
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     // Handle left click drag
                     if let Button::Left = button {
-                        let x_logical = p.x - self.padding.left;
-                        let y_logical = p.y - self.padding.top;
-                        let x = x_logical * scale_factor;
-                        let y = y_logical * scale_factor;
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
                         if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
                             let click_kind =
                                 if let Some((click_kind, click_time)) = state.click.take() {
@@ -477,13 +467,13 @@ where
                             */
                             state.click = Some((click_kind, Instant::now()));
                             state.dragging = Some(Dragging::Buffer);
-                        } else if scrollbar_rect.contains(Point::new(x_logical, y_logical)) {
+                        } else if scrollbar_rect.contains(Point::new(x, y)) {
                             state.dragging = Some(Dragging::Scrollbar {
                                 start_y: y,
                                 start_scroll: terminal.scrollbar(),
                             });
-                        } else if x_logical >= scrollbar_rect.x
-                            && x_logical < (scrollbar_rect.x + scrollbar_rect.width)
+                        } else if x >= scrollbar_rect.x
+                            && x < (scrollbar_rect.x + scrollbar_rect.width)
                         {
                             let scroll_ratio = terminal.with_buffer(|buffer| y / buffer.size().1);
                             terminal.scroll_to(scroll_ratio);
@@ -515,10 +505,8 @@ where
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if let Some(dragging) = &state.dragging {
                     if let Some(p) = cursor_position.position() {
-                        let x_logical = (p.x - layout.bounds().x) - self.padding.left;
-                        let y_logical = (p.y - layout.bounds().y) - self.padding.top;
-                        let x = x_logical * scale_factor;
-                        let y = y_logical * scale_factor;
+                        let x = (p.x - layout.bounds().x) - self.padding.left;
+                        let y = (p.y - layout.bounds().y) - self.padding.top;
                         match dragging {
                             Dragging::Buffer => {
                                 /*TODO
@@ -610,7 +598,6 @@ pub struct State {
     modifiers: Modifiers,
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
-    scale_factor: Cell<f32>,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
 }
@@ -622,7 +609,6 @@ impl State {
             modifiers: Modifiers::empty(),
             click: None,
             dragging: None,
-            scale_factor: Cell::new(1.0),
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
         }

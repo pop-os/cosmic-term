@@ -299,8 +299,7 @@ impl Terminal {
         self.scroll(TerminalScroll::Bottom);
     }
 
-    pub fn resize(&mut self, width: u32, height: u32, scale_factor: f32) {
-        //TODO: check scale factor
+    pub fn resize(&mut self, width: u32, height: u32) {
         if width != self.size.width || height != self.size.height {
             let instant = Instant::now();
 
@@ -310,14 +309,12 @@ impl Terminal {
             self.notifier.on_resize(self.size.into());
             self.term.lock().resize(self.size);
 
-            let metrics = self.metrics.scale(scale_factor);
             self.with_buffer_mut(|buffer| {
                 let mut font_system = font_system().write().unwrap();
-                buffer.set_metrics_and_size(
+                buffer.set_size(
                     font_system.raw(),
-                    metrics,
-                    (width as f32) * scale_factor,
-                    (height as f32) * scale_factor,
+                    width as f32,
+                    height as f32,
                 );
             });
 
