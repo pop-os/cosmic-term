@@ -6,7 +6,6 @@ use cosmic::{
     app::{Command, Core, Settings},
     cosmic_theme, executor,
     iced::{
-        self,
         futures::SinkExt,
         subscription::{self, Subscription},
         widget::row,
@@ -91,7 +90,7 @@ impl cosmic::Application for App {
     }
 
     /// Creates the application, and optionally emits command on initialize.
-    fn init(core: Core, input: Self::Flags) -> (Self, Command<Self::Message>) {
+    fn init(core: Core, _flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let mut app = App {
             core,
             tab_model: segmented_button::ModelBuilder::default().build(),

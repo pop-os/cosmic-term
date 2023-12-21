@@ -1,10 +1,9 @@
 use alacritty_terminal::{
-    ansi::{Color, Handler, NamedColor},
-    config::{Config, PtyConfig},
+    ansi::{Color, NamedColor},
+    config::Config,
     event::{Event, EventListener, Notify, OnResize, WindowSize},
-    event_loop::{EventLoop, Msg, Notifier, State},
+    event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
-    index::{Column, Line, Point},
     sync::FairMutex,
     term::{
         cell::Flags,
@@ -14,18 +13,15 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, Family, FontSystem, Metrics, Shaping, Style, Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Shaping, Style, Weight, Wrap,
 };
 use std::{
     borrow::Cow,
     mem,
     sync::{Arc, Weak},
-    thread::JoinHandle,
     time::Instant,
 };
 use tokio::sync::mpsc;
-
-use crate::terminal_theme;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
@@ -103,7 +99,6 @@ pub struct Terminal {
     term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
     notifier: Notifier,
-    pty_join_handle: JoinHandle<(EventLoop<tty::Pty, EventProxy>, State)>,
 }
 
 impl Terminal {
@@ -133,7 +128,7 @@ impl Terminal {
         };
 
         let config = Config::default();
-        let mut size = Size {
+        let size = Size {
             width: (80.0 * cell_width).ceil() as u32,
             height: (24.0 * cell_height).ceil() as u32,
             cell_width,
@@ -157,7 +152,7 @@ impl Terminal {
             false,
         );
         let notifier = Notifier(pty_event_loop.channel());
-        let pty_join_handle = pty_event_loop.spawn();
+        let _pty_join_handle = pty_event_loop.spawn();
 
         Self {
             colors,
@@ -166,7 +161,6 @@ impl Terminal {
             size,
             term,
             notifier,
-            pty_join_handle,
         }
     }
 
@@ -266,7 +260,7 @@ impl Terminal {
         //TODO: is redraw needed after all events?
         //TODO: use LineDamageBounds
         {
-            let mut buffer = Arc::make_mut(&mut self.buffer);
+            let buffer = Arc::make_mut(&mut self.buffer);
 
             let mut line_i = 0;
             let mut last_point = None;

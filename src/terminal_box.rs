@@ -18,7 +18,6 @@ use cosmic::{
         Shell,
     },
 };
-use cosmic_text::{Action, Edit, Metrics, Motion, Scroll};
 use std::{
     cell::Cell,
     cmp,
@@ -168,7 +167,7 @@ where
         tree: &widget::Tree,
         renderer: &mut Renderer,
         _theme: &Renderer::Theme,
-        style: &renderer::Style,
+        _style: &renderer::Style,
         layout: Layout<'_>,
         _cursor_position: mouse::Cursor,
         viewport: &Rectangle,
@@ -299,9 +298,8 @@ where
     ) -> Status {
         let state = tree.state.downcast_mut::<State>();
         let scrollbar_rect = state.scrollbar_rect.get();
-        let mut terminal = self.terminal.lock().unwrap();
+        let terminal = self.terminal.lock().unwrap();
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
-        let mut font_system = font_system().write().unwrap();
 
         let mut status = Status::Ignored;
         match event {
@@ -505,7 +503,7 @@ where
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if let Some(dragging) = &state.dragging {
                     if let Some(p) = cursor_position.position() {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
+                        let _x = (p.x - layout.bounds().x) - self.padding.left;
                         let y = (p.y - layout.bounds().y) - self.padding.top;
                         match dragging {
                             Dragging::Buffer => {
