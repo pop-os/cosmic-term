@@ -327,7 +327,7 @@ where
                     status = Status::Captured;
                 }
                 KeyCode::Enter => {
-                    terminal.input_scroll(b"\n".as_slice());
+                    terminal.input_scroll(b"\r".as_slice());
                     status = Status::Captured;
                 }
                 KeyCode::Escape => {
