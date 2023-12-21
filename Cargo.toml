@@ -23,3 +23,10 @@ features = ["tokio", "winit"]
 [features]
 default = ["wgpu"]
 wgpu = ["libcosmic/wgpu"]
+
+[patch.crates-io]
+smithay-client-toolkit = { git = "https://github.com/pop-os/client-toolkit", branch = "wayland-resize" }
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true

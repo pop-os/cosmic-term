@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: cosmic-term
+Upstream-Contact: Jeremy Soller <jeremy@system76.com>
+Source: https://github.com/pop-os/cosmic-term
+Files: *
+Copyright: System76 <info@system76.com>
+License: GPL-3.0

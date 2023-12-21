@@ -1,1 +1,8 @@
-/target
+/.cargo/
+/debian/*debhelper*
+/debian/cosmic-term.substvars
+/debian/cosmic-term/
+/debian/files
+/target/
+/vendor.tar
+/vendor/

@@ -1,0 +1,10 @@
+#TODO: more build-out, desktop actions, translations?
+[Desktop Entry]
+Name=COSMIC Terminal
+Exec=cosmic-term
+Terminal=false
+Type=Application
+StartupNotify=true
+Icon=utilities-terminal
+Categories=COSMIC;System;TerminalEmulator;
+Keywords=Command;Shell;Terminal;
