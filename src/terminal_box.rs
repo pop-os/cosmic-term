@@ -315,7 +315,7 @@ where
                 modifiers,
             }) => match key_code {
                 KeyCode::Backspace => {
-                    terminal.input_scroll(b"\x08".as_slice());
+                    terminal.input_scroll(b"\x7F".as_slice());
                     status = Status::Captured;
                 }
                 KeyCode::Tab => {
