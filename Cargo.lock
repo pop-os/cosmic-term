@@ -874,7 +874,7 @@ dependencies = [
 [[package]]
 name = "cosmic-config"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "atomicwrites",
  "cosmic-config-derive",
@@ -888,7 +888,7 @@ dependencies = [
 [[package]]
 name = "cosmic-config-derive"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -929,7 +929,7 @@ dependencies = [
 [[package]]
 name = "cosmic-theme"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "almost",
  "cosmic-config",
@@ -1958,7 +1958,7 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 [[package]]
 name = "iced"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "iced_accessibility",
  "iced_core",
@@ -1973,7 +1973,7 @@ dependencies = [
 [[package]]
 name = "iced_accessibility"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -1982,7 +1982,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "bitflags 1.3.2",
  "instant",
@@ -1998,7 +1998,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "futures",
  "iced_core",
@@ -2011,7 +2011,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "bitflags 1.3.2",
  "bytemuck",
@@ -2034,7 +2034,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -2047,7 +2047,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2057,7 +2057,7 @@ dependencies = [
 [[package]]
 name = "iced_style"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "iced_core",
  "once_cell",
@@ -2067,7 +2067,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2085,7 +2085,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "bitflags 1.3.2",
  "bytemuck",
@@ -2105,7 +2105,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -2119,7 +2119,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.12.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2382,7 +2382,7 @@ checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
 [[package]]
 name = "libcosmic"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/libcosmic.git?branch=content-container#5e7b82f6b5a7396e888c4ca819f22663efcf6111"
+source = "git+https://github.com/pop-os/libcosmic.git#b8f1a366dd030b90ed72e50f521e3da1d6a676ce"
 dependencies = [
  "apply",
  "ashpd",
@@ -3443,9 +3443,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.70"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39278fbbf5fb4f646ce651690877f89d1c5811a3d4acb27700c1cb3cdb78fd3b"
+checksum = "75cb1540fadbd5b8fbccc4dddad2734eba435053f725621c070711a14bb5f4b8"
 dependencies = [
  "unicode-ident",
 ]

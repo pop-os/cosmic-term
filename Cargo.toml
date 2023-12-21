@@ -17,7 +17,6 @@ branch = "refactor"
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
-branch = "content-container"
 default-features = false
 features = ["tokio", "winit"]
 #path = "../libcosmic"
