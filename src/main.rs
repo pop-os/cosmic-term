@@ -96,7 +96,7 @@ impl cosmic::Application for App {
             core,
             tab_model: segmented_button::ModelBuilder::default().build(),
             term_event_tx_opt: None,
-            terminal_theme: "gruvbox-dark".to_string(),
+            terminal_theme: "OneHalfDark".to_string(),
             terminal_themes: terminal_theme::terminal_themes(),
         };
 
@@ -289,7 +289,7 @@ where
                 tab_title.to_string(),
                 format!("{tab_title} — COSMIC Terminal"),
             ),
-            None => ("No Tab Open".to_string(), "COSMIC Terminal".to_string()),
+            None => (String::new(), "COSMIC Terminal".to_string()),
         };
         self.set_header_title(header_title);
         self.set_window_title(window_title)
