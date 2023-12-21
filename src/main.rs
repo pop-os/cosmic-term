@@ -1,7 +1,9 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use alacritty_terminal::{event::Event as TermEvent, term::color::Colors as TermColors};
+use alacritty_terminal::{
+    config::Config as TermConfig, event::Event as TermEvent, term::color::Colors as TermColors, tty,
+};
 use cosmic::{
     app::{Command, Core, Settings},
     cosmic_theme, executor,
@@ -32,6 +34,13 @@ mod terminal_theme;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
+    // Set up environmental variables for terminal
+    {
+        let mut term_config = TermConfig::default();
+        // Override TERM for better compatibility
+        term_config.env.insert("TERM".to_string(), "xterm-256color".to_string());
+        tty::setup_env(&term_config);
+    }
 
     let settings = Settings::default()
         .antialiasing(true)
