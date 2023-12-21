@@ -208,7 +208,10 @@ where
             let background_color = cosmic_text::Color(terminal.default_attrs().metadata as u32);
             renderer.fill_quad(
                 Quad {
-                    bounds: Rectangle::new(view_position, Size::new(view_w as f32, view_h as f32)),
+                    bounds: Rectangle::new(
+                        view_position,
+                        Size::new(view_w as f32 + scrollbar_w, view_h as f32),
+                    ),
                     border_radius: 0.0.into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
@@ -259,27 +262,30 @@ where
         });
 
         // Draw scrollbar
-        let (start, end) = terminal.scrollbar();
-        let scrollbar_y = start * view_h as f32;
-        let scrollbar_h = end * view_h as f32 - scrollbar_y;
-        let scrollbar_rect = Rectangle::new(
-            [view_w as f32, scrollbar_y].into(),
-            Size::new(scrollbar_w, scrollbar_h),
-        );
-        let scrollbar_alpha = match &state.dragging {
-            Some(Dragging::Scrollbar { .. }) => 0.5,
-            _ => 0.25,
-        };
-        renderer.fill_quad(
-            Quad {
-                bounds: scrollbar_rect + Vector::new(view_position.x, view_position.y),
-                border_radius: 0.0.into(),
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-            },
-            Color::new(1.0, 1.0, 1.0, scrollbar_alpha),
-        );
-        state.scrollbar_rect.set(scrollbar_rect);
+        if let Some((start, end)) = terminal.scrollbar() {
+            let scrollbar_y = start * view_h as f32;
+            let scrollbar_h = end * view_h as f32 - scrollbar_y;
+            let scrollbar_rect = Rectangle::new(
+                [view_w as f32, scrollbar_y].into(),
+                Size::new(scrollbar_w, scrollbar_h),
+            );
+            let scrollbar_alpha = match &state.dragging {
+                Some(Dragging::Scrollbar { .. }) => 0.5,
+                _ => 0.25,
+            };
+            renderer.fill_quad(
+                Quad {
+                    bounds: scrollbar_rect + Vector::new(view_position.x, view_position.y),
+                    border_radius: 0.0.into(),
+                    border_width: 0.0,
+                    border_color: Color::TRANSPARENT,
+                },
+                Color::new(1.0, 1.0, 1.0, scrollbar_alpha),
+            );
+            state.scrollbar_rect.set(scrollbar_rect);
+        } else {
+            state.scrollbar_rect.set(Rectangle::default())
+        }
 
         let duration = instant.elapsed();
         log::debug!("redraw {}, {}: {:?}", view_w, view_h, duration);
@@ -466,19 +472,24 @@ where
                             state.click = Some((click_kind, Instant::now()));
                             state.dragging = Some(Dragging::Buffer);
                         } else if scrollbar_rect.contains(Point::new(x, y)) {
-                            state.dragging = Some(Dragging::Scrollbar {
-                                start_y: y,
-                                start_scroll: terminal.scrollbar(),
-                            });
+                            if let Some(start_scroll) = terminal.scrollbar() {
+                                state.dragging = Some(Dragging::Scrollbar {
+                                    start_y: y,
+                                    start_scroll,
+                                });
+                            }
                         } else if x >= scrollbar_rect.x
                             && x < (scrollbar_rect.x + scrollbar_rect.width)
                         {
-                            let scroll_ratio = terminal.with_buffer(|buffer| y / buffer.size().1);
-                            terminal.scroll_to(scroll_ratio);
-                            state.dragging = Some(Dragging::Scrollbar {
-                                start_y: y,
-                                start_scroll: terminal.scrollbar(),
-                            });
+                            if let Some(start_scroll) = terminal.scrollbar() {
+                                let scroll_ratio =
+                                    terminal.with_buffer(|buffer| y / buffer.size().1);
+                                terminal.scroll_to(scroll_ratio);
+                                state.dragging = Some(Dragging::Scrollbar {
+                                    start_y: y,
+                                    start_scroll,
+                                });
+                            }
                         }
                     }
 

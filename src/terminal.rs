@@ -242,16 +242,20 @@ impl Terminal {
         ));
     }
 
-    pub fn scrollbar(&self) -> (f32, f32) {
+    pub fn scrollbar(&self) -> Option<(f32, f32)> {
         let term = self.term.lock();
         let grid = term.grid();
-        let total = grid.history_size() + grid.screen_lines();
-        let start = total - grid.display_offset() - grid.screen_lines();
-        let end = total - grid.display_offset();
-        (
-            (start as f32) / (total as f32),
-            (end as f32) / (total as f32),
-        )
+        if grid.history_size() > 0 {
+            let total = grid.history_size() + grid.screen_lines();
+            let start = total - grid.display_offset() - grid.screen_lines();
+            let end = total - grid.display_offset();
+            Some((
+                (start as f32) / (total as f32),
+                (end as f32) / (total as f32),
+            ))
+        } else {
+            None
+        }
     }
 
     pub fn update(&mut self) -> bool {
