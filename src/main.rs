@@ -236,13 +236,9 @@ impl cosmic::Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
-        let cosmic_theme::Spacing {
-            space_none,
-            space_xxs,
-            ..
-        } = self.core().system_theme().cosmic().spacing;
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
 
-        let mut tab_column = widget::column::with_capacity(1).padding([space_none, space_xxs]);
+        let mut tab_column = widget::column::with_capacity(1);
 
         if self.tab_model.iter().count() > 1 {
             tab_column = tab_column.push(
