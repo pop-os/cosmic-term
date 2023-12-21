@@ -27,10 +27,10 @@ pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
-    width: u32,
-    height: u32,
-    cell_width: f32,
-    cell_height: f32,
+    pub width: u32,
+    pub height: u32,
+    pub cell_width: f32,
+    pub cell_height: f32,
 }
 
 impl Dimensions for Size {
@@ -59,7 +59,7 @@ impl From<Size> for WindowSize {
 }
 
 #[derive(Clone)]
-struct EventProxy(
+pub struct EventProxy(
     segmented_button::Entity,
     mpsc::Sender<(segmented_button::Entity, Event)>,
 );
@@ -96,7 +96,7 @@ pub struct Terminal {
     default_attrs: Attrs<'static>,
     buffer: Arc<Buffer>,
     size: Size,
-    term: Arc<FairMutex<Term<EventProxy>>>,
+    pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
     notifier: Notifier,
 }

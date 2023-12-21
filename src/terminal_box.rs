@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use alacritty_terminal::{
+    index::{Column as TermColumn, Line as TermLine, Point as TermPoint, Side as TermSide},
+    selection::{Selection, SelectionType},
+};
 use cosmic::{
     iced::{
         advanced::graphics::text::{font_system, Raw},
@@ -453,22 +457,32 @@ where
                                 } else {
                                     ClickKind::Single
                                 };
-                            /*TODO
-                            match click_kind {
-                                ClickKind::Single => editor.action(Action::Click {
-                                    x: x as i32,
-                                    y: y as i32,
-                                }),
-                                ClickKind::Double => editor.action(Action::DoubleClick {
-                                    x: x as i32,
-                                    y: y as i32,
-                                }),
-                                ClickKind::Triple => editor.action(Action::TripleClick {
-                                    x: x as i32,
-                                    y: y as i32,
-                                }),
+                            //TODO: better calculation of position
+                            let col = x / terminal.size().cell_width;
+                            let row = y / terminal.size().cell_height;
+                            //TODO: scroll row
+                            let location =
+                                TermPoint::new(TermLine(row as i32), TermColumn(col as usize));
+                            let side = if col.fract() < 0.5 {
+                                TermSide::Left
+                            } else {
+                                TermSide::Right
+                            };
+                            let selection = match click_kind {
+                                ClickKind::Single => {
+                                    Selection::new(SelectionType::Simple, location, side)
+                                }
+                                ClickKind::Double => {
+                                    Selection::new(SelectionType::Semantic, location, side)
+                                }
+                                ClickKind::Triple => {
+                                    Selection::new(SelectionType::Lines, location, side)
+                                }
+                            };
+                            {
+                                let mut term = terminal.term.lock();
+                                term.selection = Some(selection);
                             }
-                            */
                             state.click = Some((click_kind, Instant::now()));
                             state.dragging = Some(Dragging::Buffer);
                         } else if scrollbar_rect.contains(Point::new(x, y)) {
@@ -514,16 +528,27 @@ where
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if let Some(dragging) = &state.dragging {
                     if let Some(p) = cursor_position.position() {
-                        let _x = (p.x - layout.bounds().x) - self.padding.left;
+                        let x = (p.x - layout.bounds().x) - self.padding.left;
                         let y = (p.y - layout.bounds().y) - self.padding.top;
                         match dragging {
                             Dragging::Buffer => {
-                                /*TODO
-                                editor.action(Action::Drag {
-                                    x: x as i32,
-                                    y: y as i32,
-                                });
-                                */
+                                //TODO: better calculation of position
+                                let col = x / terminal.size().cell_width;
+                                let row = y / terminal.size().cell_height;
+                                //TODO: scroll row
+                                let location =
+                                    TermPoint::new(TermLine(row as i32), TermColumn(col as usize));
+                                let side = if col.fract() < 0.5 {
+                                    TermSide::Left
+                                } else {
+                                    TermSide::Right
+                                };
+                                {
+                                    let mut term = terminal.term.lock();
+                                    if let Some(selection) = &mut term.selection {
+                                        selection.update(location, side);
+                                    }
+                                }
                             }
                             Dragging::Scrollbar {
                                 start_y,
