@@ -106,6 +106,7 @@ impl Terminal {
     pub fn new(
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
+        config: &Config,
         colors: Colors,
     ) -> Self {
         let metrics = Metrics::new(14.0, 20.0);
@@ -127,7 +128,6 @@ impl Terminal {
             (layout[0].w, metrics.line_height)
         };
 
-        let config = Config::default();
         let size = Size {
             width: (80.0 * cell_width).ceil() as u32,
             height: (24.0 * cell_height).ceil() as u32,

@@ -35,12 +35,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     // Set up environmental variables for terminal
-    {
-        let mut term_config = TermConfig::default();
-        // Override TERM for better compatibility
-        term_config.env.insert("TERM".to_string(), "xterm-256color".to_string());
-        tty::setup_env(&term_config);
-    }
+    let mut term_config = TermConfig::default();
+    // Override TERM for better compatibility
+    term_config.env.insert("TERM".to_string(), "xterm-256color".to_string());
+    tty::setup_env(&term_config);
 
     let settings = Settings::default()
         .antialiasing(true)
@@ -52,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .size(Size::new(1024., 768.))
         .theme(cosmic::Theme::dark());
 
-    cosmic::app::run::<App>(settings, ())?;
+    cosmic::app::run::<App>(settings, term_config)?;
 
     Ok(())
 }
@@ -72,6 +70,7 @@ pub struct App {
     core: Core,
     tab_model: segmented_button::Model<segmented_button::SingleSelect>,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
+    term_config: TermConfig,
     terminal_theme: String,
     terminal_themes: HashMap<String, TermColors>,
 }
@@ -82,7 +81,7 @@ impl cosmic::Application for App {
     type Executor = executor::Default;
 
     /// Argument received [`cosmic::Application::new`].
-    type Flags = ();
+    type Flags = TermConfig;
 
     /// Message type specific to our [`App`].
     type Message = Message;
@@ -99,11 +98,12 @@ impl cosmic::Application for App {
     }
 
     /// Creates the application, and optionally emits command on initialize.
-    fn init(core: Core, _flags: Self::Flags) -> (Self, Command<Self::Message>) {
+    fn init(core: Core, term_config: Self::Flags) -> (Self, Command<Self::Message>) {
         let mut app = App {
             core,
             tab_model: segmented_button::ModelBuilder::default().build(),
             term_event_tx_opt: None,
+            term_config,
             terminal_theme: "OneHalfDark".to_string(),
             terminal_themes: terminal_theme::terminal_themes(),
         };
@@ -150,7 +150,12 @@ impl cosmic::Application for App {
                             .closable()
                             .activate()
                             .id();
-                        let terminal = Terminal::new(entity, term_event_tx.clone(), colors.clone());
+                        let terminal = Terminal::new(
+                            entity,
+                            term_event_tx.clone(),
+                            &self.term_config,
+                            colors.clone(),
+                        );
                         self.tab_model
                             .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
                     }
