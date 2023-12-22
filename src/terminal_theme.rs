@@ -36,6 +36,55 @@ fn auto_colors() -> Colors {
     colors
 }
 
+fn cosmic_dark() -> Colors {
+    let mut colors = auto_colors();
+
+    let encode_rgb = |data: u32| -> Rgb {
+        Rgb {
+            r: (data >> 16) as u8,
+            g: (data >> 8) as u8,
+            b: data as u8,
+        }
+    };
+
+    colors[NamedColor::Black] = Some(encode_rgb(0x1B1B1B));
+    colors[NamedColor::Red] = Some(encode_rgb(0xF16161));
+    colors[NamedColor::Green] = Some(encode_rgb(0x7CB987));
+    colors[NamedColor::Yellow] = Some(encode_rgb(0xDDC74C));
+    colors[NamedColor::Blue] = Some(encode_rgb(0x6296BE));
+    colors[NamedColor::Magenta] = Some(encode_rgb(0xBE6DEE));
+    colors[NamedColor::Cyan] = Some(encode_rgb(0x49BAC8));
+    colors[NamedColor::White] = Some(encode_rgb(0xBEBEBE));
+
+    colors[NamedColor::BrightBlack] = Some(encode_rgb(0x808080));
+    colors[NamedColor::BrightRed] = Some(encode_rgb(0xFF8985));
+    colors[NamedColor::BrightGreen] = Some(encode_rgb(0x97D5A0));
+    colors[NamedColor::BrightYellow] = Some(encode_rgb(0xFAE365));
+    colors[NamedColor::BrightBlue] = Some(encode_rgb(0x7DB1DA));
+    colors[NamedColor::BrightMagenta] = Some(encode_rgb(0xD68EFF));
+    colors[NamedColor::BrightCyan] = Some(encode_rgb(0x49BAC8));
+    colors[NamedColor::BrightWhite] = Some(encode_rgb(0xC4C4C4));
+
+    // Set special colors
+    colors[NamedColor::Foreground] = colors[NamedColor::BrightWhite];
+    colors[NamedColor::Background] = colors[NamedColor::Black];
+    colors[NamedColor::Cursor] = colors[NamedColor::BrightWhite];
+    /*TODO
+    colors[NamedColor::DimBlack] = colors[NamedColor::];
+    colors[NamedColor::DimRed] = colors[NamedColor::];
+    colors[NamedColor::DimGreen] = colors[NamedColor::];
+    colors[NamedColor::DimYellow] = colors[NamedColor::];
+    colors[NamedColor::DimBlue] = colors[NamedColor::];
+    colors[NamedColor::DimMagenta] = colors[NamedColor::];
+    colors[NamedColor::DimCyan] = colors[NamedColor::];
+    colors[NamedColor::DimWhite] = colors[NamedColor::];
+    */
+    colors[NamedColor::BrightForeground] = colors[NamedColor::BrightWhite];
+    //TODO colors[NamedColor::DimForeground] = colors[NamedColor::];
+
+    colors
+}
+
 fn gruvbox_dark() -> Colors {
     let mut colors = auto_colors();
 
@@ -180,6 +229,7 @@ fn pop_dark() -> Colors {
 
 pub fn terminal_themes() -> HashMap<String, Colors> {
     let mut themes = HashMap::new();
+    themes.insert("Cosmic Dark".to_string(), cosmic_dark());
     themes.insert("gruvbox-dark".to_string(), gruvbox_dark());
     themes.insert("OneHalfDark".to_string(), one_half_dark());
     themes.insert("Pop Dark".to_string(), pop_dark());

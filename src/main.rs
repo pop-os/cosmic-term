@@ -106,7 +106,7 @@ impl cosmic::Application for App {
             tab_model: segmented_button::ModelBuilder::default().build(),
             term_event_tx_opt: None,
             term_config,
-            terminal_theme: "OneHalfDark".to_string(),
+            terminal_theme: "Cosmic Dark".to_string(),
             terminal_themes: terminal_theme::terminal_themes(),
         };
 

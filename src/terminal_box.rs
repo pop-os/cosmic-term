@@ -224,7 +224,7 @@ where
                     background_color.r() as f32 / 255.0,
                     background_color.g() as f32 / 255.0,
                     background_color.b() as f32 / 255.0,
-                    0.85, /* background_color.a() as f32 / 255.0 */
+                    background_color.a() as f32 / 255.0
                 ),
             );
         }
