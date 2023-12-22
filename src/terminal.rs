@@ -4,11 +4,12 @@ use alacritty_terminal::{
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
+    index::Point,
     sync::FairMutex,
     term::{
         cell::Flags,
         color::{Colors, Rgb},
-        TermMode,
+        viewport_to_point, TermMode,
     },
     tty, Term,
 };
@@ -398,6 +399,11 @@ impl Terminal {
         log::debug!("buffer update {:?}", instant.elapsed());
 
         self.buffer.redraw()
+    }
+
+    pub fn viewport_to_point(&self, point: Point<usize>) -> Point {
+        let term = self.term.lock();
+        viewport_to_point(term.grid().display_offset(), point)
     }
 }
 

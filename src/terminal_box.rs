@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
-    index::{Column as TermColumn, Line as TermLine, Point as TermPoint, Side as TermSide},
+    index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
 };
 use cosmic::{
@@ -466,9 +466,10 @@ where
                             //TODO: better calculation of position
                             let col = x / terminal.size().cell_width;
                             let row = y / terminal.size().cell_height;
-                            //TODO: scroll row
-                            let location =
-                                TermPoint::new(TermLine(row as i32), TermColumn(col as usize));
+                            let location = terminal.viewport_to_point(TermPoint::new(
+                                row as usize,
+                                TermColumn(col as usize),
+                            ));
                             let side = if col.fract() < 0.5 {
                                 TermSide::Left
                             } else {
@@ -542,9 +543,10 @@ where
                                 //TODO: better calculation of position
                                 let col = x / terminal.size().cell_width;
                                 let row = y / terminal.size().cell_height;
-                                //TODO: scroll row
-                                let location =
-                                    TermPoint::new(TermLine(row as i32), TermColumn(col as usize));
+                                let location = terminal.viewport_to_point(TermPoint::new(
+                                    row as usize,
+                                    TermColumn(col as usize),
+                                ));
                                 let side = if col.fract() < 0.5 {
                                     TermSide::Left
                                 } else {
