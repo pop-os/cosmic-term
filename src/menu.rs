@@ -11,7 +11,7 @@ use cosmic::{
     Element,
 };
 
-use crate::{fl, Action, ContextPage, Message};
+use crate::{fl, Action, Config, Message};
 
 macro_rules! menu_button {
     ($($x:expr),+ $(,)?) => (
@@ -28,9 +28,25 @@ macro_rules! menu_button {
     );
 }
 
-pub fn context_menu<'a>(entity: segmented_button::Entity) -> Element<'a, Message> {
+pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> Element<'a, Message> {
     let menu_action = |label, action| {
         menu_button!(widget::text(label)).on_press(Message::TabContextAction(entity, action))
+    };
+
+    let menu_checkbox = |label, value, action| {
+        let check: Element<_> = if value {
+            widget::icon::from_name("object-select-symbolic")
+                .size(16)
+                .into()
+        } else {
+            widget::Space::with_width(Length::Fixed(16.0)).into()
+        };
+        menu_button!(
+            check,
+            widget::Space::with_width(Length::Fixed(8.0)),
+            widget::text(label),
+        )
+        .on_press(Message::TabContextAction(entity, action))
     };
 
     widget::container(column!(
@@ -40,6 +56,11 @@ pub fn context_menu<'a>(entity: segmented_button::Entity) -> Element<'a, Message
         horizontal_rule(1),
         menu_action(fl!("new-tab"), Action::TabNew),
         menu_action(fl!("settings"), Action::Settings),
+        menu_checkbox(
+            fl!("show-headerbar"),
+            config.show_headerbar,
+            Action::ShowHeaderBar(!config.show_headerbar)
+        ),
     ))
     .padding(1)
     //TODO: move style to libcosmic

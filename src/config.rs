@@ -31,6 +31,7 @@ pub struct Config {
     pub app_theme: AppTheme,
     pub font_name: String,
     pub font_size: u16,
+    pub show_headerbar: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
 }
@@ -41,6 +42,7 @@ impl Default for Config {
             app_theme: AppTheme::System,
             font_name: "Fira Mono".to_string(),
             font_size: 14,
+            show_headerbar: true,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
         }

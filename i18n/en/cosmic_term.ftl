@@ -19,3 +19,4 @@ copy = Copy
 paste = Paste
 select-all = Select all
 new-tab = New tab
+show-headerbar = Show header bar

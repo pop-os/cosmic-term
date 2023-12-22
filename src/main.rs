@@ -115,6 +115,7 @@ pub enum Action {
     Paste,
     SelectAll,
     Settings,
+    ShowHeaderBar(bool),
     TabNew,
 }
 
@@ -125,6 +126,7 @@ impl Action {
             Action::Paste => Message::Paste(Some(entity)),
             Action::SelectAll => Message::SelectAll(Some(entity)),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
+            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
             Action::TabNew => Message::TabNew,
         }
     }
@@ -141,6 +143,7 @@ pub enum Message {
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
+    ShowHeaderBar(bool),
     SystemThemeModeChange(cosmic_theme::ThemeMode),
     SyntaxTheme(usize, bool),
     TabActivate(segmented_button::Entity),
@@ -193,6 +196,8 @@ impl App {
                 terminal.set_config(&self.config, &self.themes);
             }
         }
+
+        self.core.window.show_headerbar = self.config.show_headerbar;
         cosmic::app::command::set_theme(self.config.app_theme.theme())
     }
 
@@ -288,6 +293,10 @@ impl App {
                     }),
                 ),
             )
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
             .into()])
         .into()
     }
@@ -318,6 +327,7 @@ impl Application for App {
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
         core.window.content_container = false;
+        core.window.show_headerbar = flags.config.show_headerbar;
 
         // Update font name from config
         {
@@ -462,6 +472,12 @@ impl Application for App {
                 if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
                     terminal.select_all();
+                }
+            }
+            Message::ShowHeaderBar(show_headerbar) => {
+                if show_headerbar != self.config.show_headerbar {
+                    self.config.show_headerbar = show_headerbar;
+                    return self.save_config();
                 }
             }
             Message::SystemThemeModeChange(_theme_mode) => {
@@ -695,7 +711,7 @@ impl Application for App {
                 let tab_element: Element<'_, Message> = match context_menu {
                     Some(position) => widget::popover(
                         terminal_box.context_menu(position),
-                        menu::context_menu(entity),
+                        menu::context_menu(&self.config, entity),
                     )
                     .position(position)
                     .into(),
