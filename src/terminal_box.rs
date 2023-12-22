@@ -308,7 +308,7 @@ where
     ) -> Status {
         let state = tree.state.downcast_mut::<State>();
         let scrollbar_rect = state.scrollbar_rect.get();
-        let terminal = self.terminal.lock().unwrap();
+        let mut terminal = self.terminal.lock().unwrap();
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
 
         let mut status = Status::Ignored;
@@ -483,6 +483,7 @@ where
                                 let mut term = terminal.term.lock();
                                 term.selection = Some(selection);
                             }
+                            terminal.update();
                             state.click = Some((click_kind, Instant::now()));
                             state.dragging = Some(Dragging::Buffer);
                         } else if scrollbar_rect.contains(Point::new(x, y)) {
@@ -549,6 +550,7 @@ where
                                         selection.update(location, side);
                                     }
                                 }
+                                terminal.update();
                             }
                             Dragging::Scrollbar {
                                 start_y,

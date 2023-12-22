@@ -271,8 +271,8 @@ impl Terminal {
             let mut text = String::new();
             let mut attrs_list = AttrsList::new(self.default_attrs);
             {
-                let term_guard = self.term.lock();
-                let grid = term_guard.grid();
+                let term = self.term.lock();
+                let grid = term.grid();
                 for indexed in grid.display_iter() {
                     if indexed.point.line != last_point.unwrap_or(indexed.point).line {
                         while line_i >= buffer.lines.len() {
@@ -312,10 +312,23 @@ impl Terminal {
                     let mut attrs = self.default_attrs;
                     let mut fg = convert_color(&self.colors, indexed.cell.fg);
                     let mut bg = convert_color(&self.colors, indexed.cell.bg);
-                    //TODO: better handling of cursor
+
+                    // Change color if cursor
                     if indexed.point == grid.cursor.point {
+                        //TODO: better handling of cursor
                         mem::swap(&mut fg, &mut bg);
                     }
+
+                    // Change color if selected
+                    if let Some(selection) = &term.selection {
+                        if let Some(range) = selection.to_range(&term) {
+                            if range.contains(indexed.point) {
+                                //TODO: better handling of selection
+                                mem::swap(&mut fg, &mut bg);
+                            }
+                        }
+                    }
+
                     attrs = attrs.color(fg);
                     // Use metadata as background color
                     attrs = attrs.metadata(bg.0 as usize);
