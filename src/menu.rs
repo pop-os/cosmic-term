@@ -29,21 +29,17 @@ macro_rules! menu_button {
 }
 
 pub fn context_menu<'a>(entity: segmented_button::Entity) -> Element<'a, Message> {
-    let menu_message = |label, message| menu_button!(widget::text(label)).on_press(message);
-
-    let menu_action =
-        |label, action| menu_message(label, Message::TabContextAction(entity, action));
+    let menu_action = |label, action| {
+        menu_button!(widget::text(label)).on_press(Message::TabContextAction(entity, action))
+    };
 
     widget::container(column!(
         menu_action(fl!("copy"), Action::Copy),
         menu_action(fl!("paste"), Action::Paste),
         menu_action(fl!("select-all"), Action::SelectAll),
         horizontal_rule(1),
-        menu_message(fl!("new-tab"), Message::TabNew),
-        menu_message(
-            fl!("settings"),
-            Message::ToggleContextPage(ContextPage::Settings)
-        ),
+        menu_action(fl!("new-tab"), Action::TabNew),
+        menu_action(fl!("settings"), Action::Settings),
     ))
     .padding(1)
     //TODO: move style to libcosmic
