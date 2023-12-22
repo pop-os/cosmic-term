@@ -276,16 +276,15 @@ impl cosmic::Application for App {
 
         if self.tab_model.iter().count() > 1 {
             tab_column = tab_column.push(
-                widget::container(row![
+                widget::container(
                     widget::view_switcher::horizontal(&self.tab_model)
                         .button_height(32)
                         .button_spacing(space_xxs)
                         .on_activate(Message::TabActivate)
-                        .on_close(Message::TabClose)
-                        .width(Length::Shrink),
-                    widget::horizontal_space(Length::Fill)
-                ])
-                .style(style::Container::Background),
+                        .on_close(Message::TabClose),
+                )
+                .style(style::Container::Background)
+                .width(Length::Fill),
             );
         }
 
@@ -319,6 +318,16 @@ impl cosmic::Application for App {
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                         Some(Message::Copy)
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::T,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::TabNew)
                     } else {
                         None
                     }
