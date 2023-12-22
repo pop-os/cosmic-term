@@ -8,6 +8,7 @@ use alacritty_terminal::{
     term::{
         cell::Flags,
         color::{Colors, Rgb},
+        TermMode,
     },
     tty, Term,
 };
@@ -205,6 +206,27 @@ impl Terminal {
     pub fn input_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
         self.input_no_scroll(input);
         self.scroll(TerminalScroll::Bottom);
+    }
+
+    pub fn paste(&self, value: String) {
+        // This code is ported from alacritty
+        let bracketed_paste = {
+            let term = self.term.lock();
+            term.mode().contains(TermMode::BRACKETED_PASTE)
+        };
+        if bracketed_paste {
+            self.input_no_scroll(&b"\x1b[200~"[..]);
+            self.input_no_scroll(value.replace('\x1b', "").into_bytes());
+            self.input_scroll(&b"\x1b[201~"[..]);
+        } else {
+            // In non-bracketed (ie: normal) mode, terminal applications cannot distinguish
+            // pasted data from keystrokes.
+            // In theory, we should construct the keystrokes needed to produce the data we are
+            // pasting... since that's neither practical nor sensible (and probably an impossible
+            // task to solve in a general way), we'll just replace line breaks (windows and unix
+            // style) with a single carriage return (\r, which is what the Enter key produces).
+            self.input_scroll(value.replace("\r\n", "\r").replace('\n', "\r").into_bytes());
+        }
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {

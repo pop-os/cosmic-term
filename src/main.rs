@@ -5,13 +5,15 @@ use alacritty_terminal::{
     config::Config as TermConfig, event::Event as TermEvent, term::color::Colors as TermColors, tty,
 };
 use cosmic::{
-    app::{Command, Core, Settings},
+    app::{message, Command, Core, Settings},
     cosmic_theme, executor,
     iced::{
+        clipboard, event,
         futures::SinkExt,
+        keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
         widget::row,
-        window, Alignment, Length,
+        window, Alignment, Event, Length,
     },
     iced_core::Size,
     style,
@@ -58,6 +60,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Messages that are used specifically by our [`App`].
 #[derive(Clone, Debug)]
 pub enum Message {
+    Copy,
+    Paste,
+    PasteValue(String),
     TabActivate(segmented_button::Entity),
     TabClose(segmented_button::Entity),
     TabNew,
@@ -118,6 +123,33 @@ impl cosmic::Application for App {
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
+            Message::Copy => {
+                if let Some(terminal) = self
+                    .tab_model
+                    .data::<Mutex<Terminal>>(self.tab_model.active())
+                {
+                    let terminal = terminal.lock().unwrap();
+                    let term = terminal.term.lock();
+                    if let Some(text) = term.selection_to_string() {
+                        return clipboard::write(text);
+                    }
+                }
+            }
+            Message::Paste => {
+                return clipboard::read(|value_opt| match value_opt {
+                    Some(value) => message::app(Message::PasteValue(value)),
+                    None => message::none(),
+                });
+            }
+            Message::PasteValue(value) => {
+                if let Some(terminal) = self
+                    .tab_model
+                    .data::<Mutex<Terminal>>(self.tab_model.active())
+                {
+                    let terminal = terminal.lock().unwrap();
+                    terminal.paste(value);
+                }
+            }
             Message::TabActivate(entity) => {
                 self.tab_model.activate(entity);
                 return self.update_title();
@@ -279,26 +311,51 @@ impl cosmic::Application for App {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         struct TerminalEventWorker;
-        subscription::channel(
-            TypeId::of::<TerminalEventWorker>(),
-            100,
-            |mut output| async move {
-                let (event_tx, mut event_rx) = mpsc::channel(100);
-                output.send(Message::TermEventTx(event_tx)).await.unwrap();
-
-                // Create first terminal tab
-                output.send(Message::TabNew).await.unwrap();
-
-                while let Some((entity, event)) = event_rx.recv().await {
-                    output
-                        .send(Message::TermEvent(entity, event))
-                        .await
-                        .unwrap();
+        Subscription::batch([
+            event::listen_with(|event, _status| match event {
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::C,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::Copy)
+                    } else {
+                        None
+                    }
                 }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::V,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::Paste)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }),
+            subscription::channel(
+                TypeId::of::<TerminalEventWorker>(),
+                100,
+                |mut output| async move {
+                    let (event_tx, mut event_rx) = mpsc::channel(100);
+                    output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
-                panic!("terminal event channel closed");
-            },
-        )
+                    // Create first terminal tab
+                    output.send(Message::TabNew).await.unwrap();
+
+                    while let Some((entity, event)) = event_rx.recv().await {
+                        output
+                            .send(Message::TermEvent(entity, event))
+                            .await
+                            .unwrap();
+                    }
+
+                    panic!("terminal event channel closed");
+                },
+            ),
+        ])
     }
 }
 

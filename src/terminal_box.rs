@@ -224,7 +224,7 @@ where
                     background_color.r() as f32 / 255.0,
                     background_color.g() as f32 / 255.0,
                     background_color.b() as f32 / 255.0,
-                    background_color.a() as f32 / 255.0
+                    background_color.a() as f32 / 255.0,
                 ),
             );
         }
@@ -405,36 +405,42 @@ where
                     state.modifiers.logo(),
                     state.modifiers.control(),
                     state.modifiers.alt(),
+                    state.modifiers.shift(),
                 ) {
-                    (true, _, _) => {
+                    (true, _, _, _) => {
                         // Ignore super
                     }
-                    (false, true, _) => {
+                    (false, true, _, false) => {
                         // Handle ctrl for control characters (Ctrl-A to Ctrl-Z)
                         if character.is_control() {
                             let mut buf = [0, 0, 0, 0];
                             let str = character.encode_utf8(&mut buf);
                             terminal.input_scroll(str.as_bytes().to_vec());
+                            status = Status::Captured;
                         }
                     }
-                    (false, false, true) => {
+                    (false, true, _, true) => {
+                        // Ignore ctrl+shift
+                    }
+                    (false, false, true, _) => {
                         if !character.is_control() {
                             // Handle alt for non-control characters
                             let mut buf = [0x1B, 0, 0, 0, 0];
                             let str = character.encode_utf8(&mut buf[1..]);
                             terminal.input_scroll(str.as_bytes().to_vec());
+                            status = Status::Captured;
                         }
                     }
-                    (false, false, false) => {
+                    (false, false, false, _) => {
                         // Handle no modifiers for non-control characters
                         if !character.is_control() {
                             let mut buf = [0, 0, 0, 0];
                             let str = character.encode_utf8(&mut buf);
                             terminal.input_scroll(str.as_bytes().to_vec());
+                            status = Status::Captured;
                         }
                     }
                 }
-                status = Status::Captured;
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
