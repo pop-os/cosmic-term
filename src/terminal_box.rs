@@ -313,89 +313,152 @@ where
 
         let mut status = Status::Ignored;
         match event {
-            //TODO: Alt keys when they are control characters
             Event::Keyboard(KeyEvent::KeyPressed {
                 key_code,
                 modifiers,
-            }) => match key_code {
-                KeyCode::Backspace => {
-                    terminal.input_scroll(b"\x7F".as_slice());
-                    status = Status::Captured;
+            }) => match (
+                modifiers.logo(),
+                modifiers.control(),
+                modifiers.alt(),
+                modifiers.shift(),
+            ) {
+                (true, _, _, _) => {
+                    // Ignore super keys
                 }
-                KeyCode::Tab => {
-                    if modifiers.shift() {
-                        terminal.input_scroll(b"\x1B[Z".as_slice());
-                    } else {
-                        terminal.input_scroll(b"\t".as_slice());
-                    }
-                    status = Status::Captured;
+                (_, true, _, _) => {
+                    // Ignore ctrl keys
                 }
-                KeyCode::Enter => {
-                    terminal.input_scroll(b"\r".as_slice());
-                    status = Status::Captured;
+                (_, _, true, _) => {
+                    // Ignore alt keys
+                    //TODO: alt keys for control characters
                 }
-                KeyCode::Escape => {
-                    terminal.input_scroll(b"\x1B".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::Up => {
-                    terminal.input_scroll(b"\x1B[A".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::Down => {
-                    terminal.input_scroll(b"\x1B[B".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::Right => {
-                    terminal.input_scroll(b"\x1B[C".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::Left => {
-                    terminal.input_scroll(b"\x1B[D".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::End => {
-                    if modifiers.shift() {
+                // Handle shift keys
+                (_, _, _, true) => match key_code {
+                    KeyCode::End => {
                         terminal.scroll(TerminalScroll::Bottom);
-                    } else {
-                        terminal.input_scroll(b"\x1B[F".as_slice());
                     }
-                    status = Status::Captured;
-                }
-                KeyCode::Home => {
-                    if modifiers.shift() {
+                    KeyCode::Home => {
                         terminal.scroll(TerminalScroll::Top);
-                    } else {
-                        terminal.input_scroll(b"\x1B[H".as_slice());
                     }
-                    status = Status::Captured;
-                }
-                KeyCode::Insert => {
-                    terminal.input_scroll(b"\x1B[2~".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::Delete => {
-                    terminal.input_scroll(b"\x1B[3~".as_slice());
-                    status = Status::Captured;
-                }
-                KeyCode::PageUp => {
-                    if modifiers.shift() {
-                        terminal.scroll(TerminalScroll::PageUp);
-                    } else {
-                        terminal.input_scroll(b"\x1B[5~".as_slice());
-                    }
-                    status = Status::Captured;
-                }
-                KeyCode::PageDown => {
-                    if modifiers.shift() {
+                    KeyCode::PageDown => {
                         terminal.scroll(TerminalScroll::PageDown);
-                    } else {
-                        terminal.input_scroll(b"\x1B[6~".as_slice());
                     }
-                    status = Status::Captured;
-                }
-                //TODO: F1-F12 keys
-                _ => (),
+                    KeyCode::PageUp => {
+                        terminal.scroll(TerminalScroll::PageUp);
+                    }
+                    KeyCode::Tab => {
+                        terminal.input_scroll(b"\x1B[Z".as_slice());
+                    }
+                    _ => {}
+                },
+                // Handle keys with no modifiers
+                (_, _, _, false) => match key_code {
+                    KeyCode::Backspace => {
+                        terminal.input_scroll(b"\x7F".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Tab => {
+                        terminal.input_scroll(b"\t".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Enter => {
+                        terminal.input_scroll(b"\r".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Escape => {
+                        terminal.input_scroll(b"\x1B".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Up => {
+                        terminal.input_scroll(b"\x1B[A".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Down => {
+                        terminal.input_scroll(b"\x1B[B".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Right => {
+                        terminal.input_scroll(b"\x1B[C".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Left => {
+                        terminal.input_scroll(b"\x1B[D".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::End => {
+                        terminal.input_scroll(b"\x1B[F".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Home => {
+                        terminal.input_scroll(b"\x1B[H".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Insert => {
+                        terminal.input_scroll(b"\x1B[2~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Delete => {
+                        terminal.input_scroll(b"\x1B[3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::PageUp => {
+                        terminal.input_scroll(b"\x1B[5~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::PageDown => {
+                        terminal.input_scroll(b"\x1B[6~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F1 => {
+                        terminal.input_scroll(b"\x1BOP".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F2 => {
+                        terminal.input_scroll(b"\x1BOQ".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F3 => {
+                        terminal.input_scroll(b"\x1BOR".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F4 => {
+                        terminal.input_scroll(b"\x1BOS".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F5 => {
+                        terminal.input_scroll(b"\x1B[15~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F6 => {
+                        terminal.input_scroll(b"\x1B[17~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F7 => {
+                        terminal.input_scroll(b"\x1B[18~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F8 => {
+                        terminal.input_scroll(b"\x1B[19~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F9 => {
+                        terminal.input_scroll(b"\x1B[20~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F10 => {
+                        terminal.input_scroll(b"\x1B[21~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F11 => {
+                        terminal.input_scroll(b"\x1B[23~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F12 => {
+                        terminal.input_scroll(b"\x1B[24~".as_slice());
+                        status = Status::Captured;
+                    }
+                    _ => (),
+                },
             },
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
@@ -426,8 +489,11 @@ where
                         if !character.is_control() {
                             // Handle alt for non-control characters
                             let mut buf = [0x1B, 0, 0, 0, 0];
-                            let str = character.encode_utf8(&mut buf[1..]);
-                            terminal.input_scroll(str.as_bytes().to_vec());
+                            let len = {
+                                let str = character.encode_utf8(&mut buf[1..]);
+                                str.len() + 1
+                            };
+                            terminal.input_scroll(buf[..len].to_vec());
                             status = Status::Captured;
                         }
                     }
