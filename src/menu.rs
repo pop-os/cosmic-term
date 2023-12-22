@@ -34,17 +34,13 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
     };
 
     let menu_checkbox = |label, value, action| {
-        let check: Element<_> = if value {
-            widget::icon::from_name("object-select-symbolic")
-                .size(16)
-                .into()
-        } else {
-            widget::Space::with_width(Length::Fixed(16.0)).into()
-        };
         menu_button!(
-            check,
-            widget::Space::with_width(Length::Fixed(8.0)),
             widget::text(label),
+            widget::horizontal_space(Length::Fill),
+            widget::toggler(None, value, move |_| Message::TabContextAction(
+                entity, action
+            ))
+            .size(16.0),
         )
         .on_press(Message::TabContextAction(entity, action))
     };

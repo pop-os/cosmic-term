@@ -290,7 +290,10 @@ impl Terminal {
             let mut term = self.term.lock();
             let grid = term.grid();
             let start = Point::new(Line(-(grid.history_size() as i32)), Column(0));
-            let end = Point::new(Line(grid.screen_lines() as i32 - 1), Column(grid.columns() - 1));
+            let end = Point::new(
+                Line(grid.screen_lines() as i32 - 1),
+                Column(grid.columns() - 1),
+            );
             let mut selection = Selection::new(SelectionType::Lines, start, Side::Left);
             selection.update(end, Side::Right);
             term.selection = Some(selection);

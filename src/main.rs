@@ -109,7 +109,7 @@ pub struct Flags {
     term_config: TermConfig,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Action {
     Copy,
     Paste,
