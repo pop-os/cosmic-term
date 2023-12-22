@@ -22,9 +22,12 @@ default: build-release
 clean:
     cargo clean
 
-# `cargo clean` and removes vendored dependencies
-clean-dist: clean
+# Removes vendored dependencies
+clean-vendor:
     rm -rf .cargo vendor vendor.tar
+
+# `cargo clean` and removes vendored dependencies
+clean-dist: clean clean-vendor
 
 # Compiles with debug profile
 build-debug *args:
