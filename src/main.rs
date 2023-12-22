@@ -114,6 +114,8 @@ pub enum Action {
     Copy,
     Paste,
     SelectAll,
+    Settings,
+    TabNew,
 }
 
 impl Action {
@@ -122,6 +124,8 @@ impl Action {
             Action::Copy => Message::Copy(Some(entity)),
             Action::Paste => Message::Paste(Some(entity)),
             Action::SelectAll => Message::SelectAll(Some(entity)),
+            Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
+            Action::TabNew => Message::TabNew,
         }
     }
 }
