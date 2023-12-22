@@ -8,8 +8,14 @@ edition = "2021"
 [dependencies]
 alacritty_terminal = "0.19"
 env_logger = "0.10"
+lazy_static = "1"
 log = "0.4"
-tokio = { version = "1.35", features = ["sync"] }
+serde = { version = "1", features = ["serde_derive"] }
+tokio = { version = "1", features = ["sync"] }
+# Internationalization
+i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
+i18n-embed-fl = "0.6"
+rust-embed = "6"
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
@@ -31,3 +37,6 @@ smithay-client-toolkit = { git = "https://github.com/pop-os/client-toolkit", bra
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+
+[target.'cfg(unix)'.dependencies]
+fork = "0.1"

@@ -8,7 +8,7 @@ use alacritty_terminal::{
     sync::FairMutex,
     term::{
         cell::Flags,
-        color::{Colors, Rgb},
+        color::{self, Colors, Rgb},
         viewport_to_point, TermMode,
     },
     tty, Term,
@@ -19,6 +19,7 @@ use cosmic_text::{
 };
 use std::{
     borrow::Cow,
+    collections::HashMap,
     mem,
     sync::{Arc, Weak},
     time::Instant,
@@ -279,6 +280,71 @@ impl Terminal {
         } else {
             None
         }
+    }
+
+    pub fn set_config(&mut self, config: &crate::Config, themes: &HashMap<String, Colors>) {
+        let mut update_cell_size = false;
+        let mut update = false;
+
+        let metrics = config.metrics();
+        if metrics != self.buffer.metrics() {
+            {
+                let mut font_system = font_system().write().unwrap();
+                self.with_buffer_mut(|buffer| buffer.set_metrics(font_system.raw(), metrics));
+            }
+            update_cell_size = true;
+        }
+
+        if let Some(colors) = themes.get(config.syntax_theme()) {
+            let mut changed = false;
+            for i in 0..color::COUNT {
+                if self.colors[i] != colors[i] {
+                    self.colors[i] = colors[i];
+                    changed = true;
+                }
+            }
+            if changed {
+                self.default_attrs = Attrs::new()
+                    .family(Family::Monospace)
+                    .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
+                    .metadata(
+                        convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize,
+                    );
+                update = true;
+            }
+        }
+
+        if update_cell_size {
+            self.update_cell_size();
+        } else if update {
+            self.update();
+        }
+    }
+
+    pub fn update_cell_size(&mut self) {
+        let default_attrs = self.default_attrs;
+        let (cell_width, cell_height) = {
+            let mut font_system = font_system().write().unwrap();
+            self.with_buffer_mut(|buffer| {
+                buffer.set_wrap(font_system.raw(), Wrap::None);
+
+                // Use size of space to determine cell size
+                buffer.set_text(font_system.raw(), " ", default_attrs, Shaping::Advanced);
+                let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
+                (layout[0].w, buffer.metrics().line_height)
+            })
+        };
+
+        let old_size = self.size;
+        self.size = Size {
+            width: 0,
+            height: 0,
+            cell_width,
+            cell_height,
+        };
+        self.resize(old_size.width, old_size.height);
+
+        self.update();
     }
 
     pub fn update(&mut self) -> bool {
