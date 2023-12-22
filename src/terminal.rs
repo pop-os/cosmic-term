@@ -4,7 +4,8 @@ use alacritty_terminal::{
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
-    index::Point,
+    index::{Column, Line, Point, Side},
+    selection::{Selection, SelectionType},
     sync::FairMutex,
     term::{
         cell::Flags,
@@ -282,6 +283,19 @@ impl Terminal {
         } else {
             None
         }
+    }
+
+    pub fn select_all(&mut self) {
+        {
+            let mut term = self.term.lock();
+            let grid = term.grid();
+            let start = Point::new(Line(-(grid.history_size() as i32)), Column(0));
+            let end = Point::new(Line(grid.screen_lines() as i32), Column(grid.columns()));
+            let mut selection = Selection::new(SelectionType::Lines, start, Side::Left);
+            selection.update(end, Side::Right);
+            term.selection = Some(selection);
+        }
+        self.update();
     }
 
     pub fn set_config(&mut self, config: &crate::Config, themes: &HashMap<String, Colors>) {

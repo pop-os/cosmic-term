@@ -456,7 +456,8 @@ impl Application for App {
             Message::SelectAll(entity_opt) => {
                 let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
                 if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                    log::warn!("TODO: SELECT ALL");
+                    let mut terminal = terminal.lock().unwrap();
+                    terminal.select_all();
                 }
             }
             Message::SystemThemeModeChange(_theme_mode) => {
