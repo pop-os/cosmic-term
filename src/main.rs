@@ -15,7 +15,7 @@ use cosmic::{
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
         widget::row,
-        window, Alignment, Event, Length,
+        window, Alignment, Event, Length, Point,
     },
     style,
     widget::{self, segmented_button},
@@ -29,6 +29,8 @@ use config::{AppTheme, Config, CONFIG_VERSION};
 mod config;
 
 mod localize;
+
+mod menu;
 
 use self::terminal::{Terminal, TerminalScroll};
 mod terminal;
@@ -107,20 +109,40 @@ pub struct Flags {
     term_config: TermConfig,
 }
 
+#[derive(Clone, Debug)]
+pub enum Action {
+    Copy,
+    Paste,
+    SelectAll,
+}
+
+impl Action {
+    pub fn message(self, entity: segmented_button::Entity) -> Message {
+        match self {
+            Action::Copy => Message::Copy(Some(entity)),
+            Action::Paste => Message::Paste(Some(entity)),
+            Action::SelectAll => Message::SelectAll(Some(entity)),
+        }
+    }
+}
+
 /// Messages that are used specifically by our [`App`].
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
     Config(Config),
-    Copy,
+    Copy(Option<segmented_button::Entity>),
     DefaultFont(usize),
     DefaultFontSize(usize),
-    Paste,
-    PasteValue(String),
+    Paste(Option<segmented_button::Entity>),
+    PasteValue(Option<segmented_button::Entity>, String),
+    SelectAll(Option<segmented_button::Entity>),
     SystemThemeModeChange(cosmic_theme::ThemeMode),
     SyntaxTheme(usize, bool),
     TabActivate(segmented_button::Entity),
     TabClose(segmented_button::Entity),
+    TabContextAction(segmented_button::Entity, Action),
+    TabContextMenu(segmented_button::Entity, Option<Point>),
     TabNew,
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
@@ -370,11 +392,9 @@ impl Application for App {
                     return self.update_config();
                 }
             }
-            Message::Copy => {
-                if let Some(terminal) = self
-                    .tab_model
-                    .data::<Mutex<Terminal>>(self.tab_model.active())
-                {
+            Message::Copy(entity_opt) => {
+                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
+                if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                     let terminal = terminal.lock().unwrap();
                     let term = terminal.term.lock();
                     if let Some(text) = term.selection_to_string() {
@@ -420,19 +440,23 @@ impl Application for App {
                     log::warn!("failed to find font with index {}", index);
                 }
             },
-            Message::Paste => {
-                return clipboard::read(|value_opt| match value_opt {
-                    Some(value) => message::app(Message::PasteValue(value)),
+            Message::Paste(entity_opt) => {
+                return clipboard::read(move |value_opt| match value_opt {
+                    Some(value) => message::app(Message::PasteValue(entity_opt, value)),
                     None => message::none(),
                 });
             }
-            Message::PasteValue(value) => {
-                if let Some(terminal) = self
-                    .tab_model
-                    .data::<Mutex<Terminal>>(self.tab_model.active())
-                {
+            Message::PasteValue(entity_opt, value) => {
+                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
+                if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                     let terminal = terminal.lock().unwrap();
                     terminal.paste(value);
+                }
+            }
+            Message::SelectAll(entity_opt) => {
+                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
+                if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
+                    log::warn!("TODO: SELECT ALL");
                 }
             }
             Message::SystemThemeModeChange(_theme_mode) => {
@@ -474,6 +498,30 @@ impl Application for App {
                 }
 
                 return self.update_title();
+            }
+            Message::TabContextAction(entity, action) => {
+                match self.tab_model.data::<Mutex<Terminal>>(entity) {
+                    Some(terminal) => {
+                        // Close context menu
+                        {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = None;
+                        }
+                        // Run action's message
+                        return self.update(action.message(entity));
+                    }
+                    _ => {}
+                }
+            }
+            Message::TabContextMenu(entity, position_opt) => {
+                match self.tab_model.data::<Mutex<Terminal>>(entity) {
+                    Some(terminal) => {
+                        // Update context menu position
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.context_menu = position_opt;
+                    }
+                    _ => {}
+                }
             }
             Message::TabNew => match &self.term_event_tx_opt {
                 Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
@@ -627,13 +675,28 @@ impl Application for App {
             );
         }
 
-        match self
-            .tab_model
-            .data::<Mutex<Terminal>>(self.tab_model.active())
-        {
+        let entity = self.tab_model.active();
+        match self.tab_model.data::<Mutex<Terminal>>(entity) {
             Some(terminal) => {
-                //TODO
-                tab_column = tab_column.push(terminal_box(terminal));
+                let terminal_box = terminal_box(terminal).on_context_menu(move |position_opt| {
+                    Message::TabContextMenu(entity, position_opt)
+                });
+
+                let context_menu = {
+                    let terminal = terminal.lock().unwrap();
+                    terminal.context_menu
+                };
+
+                let tab_element: Element<'_, Message> = match context_menu {
+                    Some(position) => widget::popover(
+                        terminal_box.context_menu(position),
+                        menu::context_menu(entity),
+                    )
+                    .position(position)
+                    .into(),
+                    None => terminal_box.into(),
+                };
+                tab_column = tab_column.push(tab_element);
             }
             None => {
                 //TODO
@@ -655,11 +718,21 @@ impl Application for App {
         Subscription::batch([
             event::listen_with(|event, _status| match event {
                 Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::A,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::SelectAll(None))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
                     key_code: KeyCode::C,
                     modifiers,
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::Copy)
+                        Some(Message::Copy(None))
                     } else {
                         None
                     }
@@ -679,7 +752,7 @@ impl Application for App {
                     modifiers,
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::Paste)
+                        Some(Message::Paste(None))
                     } else {
                         None
                     }

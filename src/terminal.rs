@@ -102,6 +102,7 @@ pub struct Terminal {
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
     notifier: Notifier,
+    pub context_menu: Option<cosmic::iced::Point>,
 }
 
 impl Terminal {
@@ -164,6 +165,7 @@ impl Terminal {
             size,
             term,
             notifier,
+            context_menu: None,
         }
     }
 

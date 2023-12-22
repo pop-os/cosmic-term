@@ -13,3 +13,9 @@ syntax-dark = Syntax dark
 syntax-light = Syntax light
 default-font = Default font
 default-font-size = Default font size
+
+# Context menu
+copy = Copy
+paste = Paste
+select-all = Select all
+new-tab = New tab
