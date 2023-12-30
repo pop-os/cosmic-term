@@ -3,6 +3,7 @@
 use alacritty_terminal::{
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
+    term::TermMode,
 };
 use cosmic::{
     iced::{
@@ -311,6 +312,9 @@ where
         let mut terminal = self.terminal.lock().unwrap();
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
 
+        let is_app_cursor = terminal.term.lock().mode()
+            .contains(TermMode::APP_CURSOR);
+
         let mut status = Status::Ignored;
         match event {
             Event::Keyboard(KeyEvent::KeyPressed {
@@ -370,27 +374,63 @@ where
                         status = Status::Captured;
                     }
                     KeyCode::Up => {
-                        terminal.input_scroll(b"\x1B[A".as_slice());
+                        let code = if is_app_cursor {
+                            b"\x1BOA"
+                        } else {
+                            b"\x1B[A"
+                        };
+
+                        terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Down => {
-                        terminal.input_scroll(b"\x1B[B".as_slice());
+                        let code = if is_app_cursor {
+                            b"\x1BOB"
+                        } else {
+                            b"\x1B[B"
+                        };
+
+                        terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Right => {
-                        terminal.input_scroll(b"\x1B[C".as_slice());
+                        let code = if is_app_cursor {
+                            b"\x1BOC"
+                        } else {
+                            b"\x1B[C"
+                        };
+
+                        terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Left => {
-                        terminal.input_scroll(b"\x1B[D".as_slice());
+                        let code = if is_app_cursor {
+                            b"\x1BOD"
+                        } else {
+                            b"\x1B[D"
+                        };
+
+                        terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
-                    KeyCode::End => {
-                        terminal.input_scroll(b"\x1B[F".as_slice());
+                    KeyCode::End=> {
+                        let code = if is_app_cursor {
+                            b"\x1BOF"
+                        } else {
+                            b"\x1B[F"
+                        };
+
+                        terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Home => {
-                        terminal.input_scroll(b"\x1B[H".as_slice());
+                        let code = if is_app_cursor {
+                            b"\x1BOH"
+                        } else {
+                            b"\x1B[H"
+                        };
+
+                        terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Insert => {
