@@ -421,8 +421,18 @@ impl Terminal {
                     let end = text.len();
 
                     let mut attrs = self.default_attrs;
-                    let mut fg = convert_color(&self.colors, indexed.cell.fg);
-                    let mut bg = convert_color(&self.colors, indexed.cell.bg);
+
+                    let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
+                        (
+                            convert_color(&self.colors, indexed.cell.bg),
+                            convert_color(&self.colors, indexed.cell.fg),
+                        )
+                    } else {
+                        (
+                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, indexed.cell.bg),
+                        )
+                    };
 
                     // Change color if cursor
                     if indexed.point == grid.cursor.point {
