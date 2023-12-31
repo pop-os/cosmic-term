@@ -1,6 +1,4 @@
 use alacritty_terminal::{
-    ansi::{Color, NamedColor},
-    config::Config,
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
@@ -9,10 +7,13 @@ use alacritty_terminal::{
     sync::FairMutex,
     term::{
         cell::Flags,
-        color::{self, Colors, Rgb},
+        color::{self, Colors},
+        Config,
         viewport_to_point, TermMode,
     },
-    tty, Term,
+    tty::{self, Options},
+    Term,
+    vte::ansi::{Color, NamedColor, Rgb},
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
@@ -111,7 +112,7 @@ impl Terminal {
     pub fn new(
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
-        config: &Config,
+        config: Config,
         colors: Colors,
     ) -> Self {
         let metrics = Metrics::new(14.0, 20.0);
@@ -141,19 +142,21 @@ impl Terminal {
         };
         let event_proxy = EventProxy(entity, event_tx);
         let term = Arc::new(FairMutex::new(Term::new(
-            &config,
+            config,
             &size,
             event_proxy.clone(),
         )));
 
         let window_id = 0;
-        let pty = tty::new(&config.pty_config, size.into(), window_id).unwrap();
+        let options = Options::default();
+
+        let pty = tty::new(&options, size.into(), window_id).unwrap();
 
         let pty_event_loop = EventLoop::new(
             term.clone(),
             event_proxy,
             pty,
-            config.pty_config.hold,
+            options.hold,
             false,
         );
         let notifier = Notifier(pty_event_loop.channel());
