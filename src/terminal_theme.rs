@@ -1,6 +1,6 @@
 use alacritty_terminal::{
-    ansi::NamedColor,
-    term::color::{Colors, Rgb},
+    term::color::Colors,
+    vte::ansi::{NamedColor, Rgb},
 };
 use std::collections::HashMap;
 

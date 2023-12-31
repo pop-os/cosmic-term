@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
-    config::Config as TermConfig, event::Event as TermEvent, term::color::Colors as TermColors, tty,
+    event::Event as TermEvent, term::color::Colors as TermColors, term::Config as TermConfig, tty,
 };
 use cosmic::{
     app::{message, Command, Core, Settings},
@@ -22,7 +22,7 @@ use cosmic::{
     Application, ApplicationExt, Element,
 };
 use cosmic_text::Family;
-use std::{any::TypeId, collections::HashMap, process, sync::Mutex};
+use std::{any::TypeId, collections::HashMap, env, process, sync::Mutex};
 use tokio::sync::mpsc;
 
 use config::{AppTheme, Config, CONFIG_VERSION};
@@ -74,11 +74,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let term_config = TermConfig::default();
     // Set up environmental variables for terminal
-    let mut term_config = TermConfig::default();
+    tty::setup_env();
     // Override TERM for better compatibility
-    term_config.env.insert("TERM".to_string(), "xterm-256color".to_string());
-    tty::setup_env(&term_config);
+    env::set_var("TERM", "xterm-256color");
 
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
@@ -557,7 +557,7 @@ impl Application for App {
                         let terminal = Terminal::new(
                             entity,
                             term_event_tx.clone(),
-                            &self.term_config,
+                            self.term_config.clone(),
                             colors.clone(),
                         );
                         self.tab_model
