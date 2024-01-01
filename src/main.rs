@@ -554,12 +554,13 @@ impl Application for App {
                             .closable()
                             .activate()
                             .id();
-                        let terminal = Terminal::new(
+                        let mut terminal = Terminal::new(
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
                             colors.clone(),
                         );
+                        terminal.set_config(&self.config, &self.themes);
                         self.tab_model
                             .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
                     }
