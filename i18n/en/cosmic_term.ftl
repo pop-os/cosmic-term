@@ -13,6 +13,7 @@ syntax-dark = Syntax dark
 syntax-light = Syntax light
 default-font = Default font
 default-font-size = Default font size
+default-zoom-step = Default zoom step
 
 # Context menu
 copy = Copy

@@ -140,6 +140,10 @@ pub enum Message {
     Copy(Option<segmented_button::Entity>),
     DefaultFont(usize),
     DefaultFontSize(usize),
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
+    DefaultZoomStep(usize),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
@@ -179,6 +183,8 @@ pub struct App {
     font_names: Vec<String>,
     font_size_names: Vec<String>,
     font_sizes: Vec<u16>,
+    zoom_step_names: Vec<String>,
+    zoom_steps: Vec<u16>,
     theme_names: Vec<String>,
     themes: HashMap<String, TermColors>,
     context_page: ContextPage,
@@ -251,6 +257,10 @@ impl App {
             .font_sizes
             .iter()
             .position(|font_size| font_size == &self.config.font_size);
+        let zoom_step_selected = self
+            .zoom_steps
+            .iter()
+            .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
         widget::settings::view_column(vec![widget::settings::view_section(fl!("appearance"))
             .add(
                 widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
@@ -290,6 +300,13 @@ impl App {
                 widget::settings::item::builder(fl!("default-font-size")).control(
                     widget::dropdown(&self.font_size_names, font_size_selected, |index| {
                         Message::DefaultFontSize(index)
+                    }),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-zoom-step")).control(
+                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
+                        Message::DefaultZoomStep(index)
                     }),
                 ),
             )
@@ -366,6 +383,13 @@ impl Application for App {
             font_sizes.push(font_size);
         }
 
+        let mut zoom_step_names = Vec::new();
+        let mut zoom_steps = Vec::new();
+        for zoom_step in [25, 50, 75, 100, 150, 200] {
+            zoom_step_names.push(format!("{}px", f32::from(zoom_step) / 100.0));
+            zoom_steps.push(zoom_step);
+        }
+
         let themes = terminal_theme::terminal_themes();
         let mut theme_names: Vec<_> = themes.keys().map(|x| x.clone()).collect();
         theme_names.sort();
@@ -379,6 +403,8 @@ impl Application for App {
             font_names,
             font_size_names,
             font_sizes,
+            zoom_step_names,
+            zoom_steps,
             theme_names,
             themes,
             context_page: ContextPage::Settings,
@@ -445,9 +471,32 @@ impl Application for App {
                     }
                 }
             }
+            Message::ZoomIn => {
+                self.config.font_size_zoom_adj = self.config.font_size_zoom_adj.saturating_add(1);
+                return self.save_config();
+            },
+            Message::ZoomOut => {
+                self.config.font_size_zoom_adj = self.config.font_size_zoom_adj.saturating_sub(1);
+                return self.save_config();
+            },
+            Message::ZoomReset => {
+                self.config.font_size_zoom_adj = 0;
+                return self.save_config();
+            },
+            Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
+                Some(zoom_step) => {
+                    self.config.font_size_zoom_step_mul_100 = *zoom_step;
+                    self.config.font_size_zoom_adj = 0; // reset zoom
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find zoom step with index {}", index);
+                }
+            },
             Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
                 Some(font_size) => {
                     self.config.font_size = *font_size;
+                    self.config.font_size_zoom_adj = 0; // reset zoom
                     return self.save_config();
                 }
                 None => {
@@ -775,6 +824,36 @@ impl Application for App {
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                         Some(Message::Paste(None))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Equals,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL {
+                        Some(Message::ZoomIn)
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Minus,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL {
+                        Some(Message::ZoomOut)
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Key0,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL {
+                        Some(Message::ZoomReset)
                     } else {
                         None
                     }
