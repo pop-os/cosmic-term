@@ -184,7 +184,6 @@ pub struct App {
     context_page: ContextPage,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
     term_config: TermConfig,
-    config_subscribed: bool,
 }
 
 impl App {
@@ -385,7 +384,6 @@ impl Application for App {
             context_page: ContextPage::Settings,
             term_config: flags.term_config,
             term_event_tx_opt: None,
-            config_subscribed: false,
         };
 
         let command = app.update_title();
@@ -407,7 +405,6 @@ impl Application for App {
                     self.config = config;
                     return self.update_config();
                 }
-                self.config_subscribed = true;
             }
             Message::Copy(entity_opt) => {
                 let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
@@ -547,9 +544,8 @@ impl Application for App {
                     _ => {}
                 }
             }
-            Message::TabNew => match (self.config_subscribed, &self.term_event_tx_opt) {
-                (false, _) => log::info!("must wait for config subscription before creating first tab"),
-                (true, Some(term_event_tx)) => match self.themes.get(self.config.syntax_theme()) {
+            Message::TabNew => match &self.term_event_tx_opt {
+                Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
                     Some(colors) => {
                         let entity = self
                             .tab_model
@@ -576,7 +572,7 @@ impl Application for App {
                         //TODO: fall back to known good theme
                     }
                 },
-                (true, None) => {
+                None => {
                     log::warn!("tried to create new tab before having event channel");
                 }
             },
