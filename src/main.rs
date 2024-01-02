@@ -247,6 +247,14 @@ impl App {
     }
 
     fn set_curr_font_weights_and_stretches(&mut self) {
+        // check if config font_name is available first, if not, set it to first name in list
+        if !self.font_names.contains(&self.config.font_name) {
+            log::error!("'{}' is not in the font list", self.config.font_name);
+            log::error!("setting font name to '{}'", self.font_names[0]);
+            self.config.font_name = self.font_names[0].clone();
+            let _ = self.save_config();
+        }
+
         let curr_font_faces = &self.font_name_faces_map[&self.config.font_name];
 
         self.curr_font_stretches = curr_font_faces
