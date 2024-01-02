@@ -17,6 +17,7 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
+    CacheKeyFlags,
     Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Shaping, Style, Weight, Wrap,
 };
 use std::{
@@ -458,7 +459,8 @@ impl Terminal {
                         attrs = attrs.weight(Weight::BOLD);
                     }
                     if indexed.cell.flags.contains(Flags::ITALIC) {
-                        attrs = attrs.style(Style::Italic);
+                        //TODO: automatically use fake italic
+                        attrs = attrs.cache_key_flags(CacheKeyFlags::FAKE_ITALIC);
                     }
                     if attrs != attrs_list.defaults() {
                         attrs_list.add_span(start..end, attrs);
