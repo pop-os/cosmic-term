@@ -1853,7 +1853,7 @@ dependencies = [
 [[package]]
 name = "glyphon"
 version = "0.3.0"
-source = "git+https://github.com/jackpot51/glyphon.git?branch=refactor#cd704e6bd5d0ddb815d08358766ad205fd70fada"
+source = "git+https://github.com/jackpot51/glyphon.git?branch=refactor#c28dc99c86b6b598633e6623096b21632f266976"
 dependencies = [
  "cosmic-text",
  "etagere",

@@ -96,6 +96,25 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     cosmic_text::Color::rgb(rgb.r, rgb.g, rgb.b)
 }
 
+fn linear_color(color: cosmic_text::Color) -> cosmic_text::Color {
+    // As described in: https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
+    fn linear_component(byte: u8) -> u8 {
+        let float = byte as f32 / 255.0;
+        let linear = if float < 0.04045 {
+            float / 12.92
+        } else {
+            ((float + 0.055) / 1.055).powf(2.4)
+        };
+        (linear * 255.0).round() as u8
+    }
+    cosmic_text::Color::rgba(
+        linear_component(color.r()),
+        linear_component(color.g()),
+        linear_component(color.b()),
+        color.a(),
+    )
+}
+
 pub struct Terminal {
     default_attrs: Attrs<'static>,
     buffer: Arc<Buffer>,
@@ -443,7 +462,8 @@ impl Terminal {
                         }
                     }
 
-                    attrs = attrs.color(fg);
+                    // Convert foreground to linear
+                    attrs = attrs.color(linear_color(fg));
                     // Use metadata as background color
                     attrs = attrs.metadata(bg.0 as usize);
                     //TODO: more flags
