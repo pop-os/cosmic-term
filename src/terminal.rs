@@ -8,17 +8,15 @@ use alacritty_terminal::{
     term::{
         cell::Flags,
         color::{self, Colors},
-        Config,
-        viewport_to_point, TermMode,
+        viewport_to_point, Config, TermMode,
     },
     tty::{self, Options},
-    Term,
     vte::ansi::{Color, NamedColor, Rgb},
+    Term,
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    CacheKeyFlags,
-    Attrs, AttrsList, Buffer, BufferLine, Family, Metrics, Shaping, Style, Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
 };
 use std::{
     borrow::Cow,
@@ -153,13 +151,7 @@ impl Terminal {
 
         let pty = tty::new(&options, size.into(), window_id).unwrap();
 
-        let pty_event_loop = EventLoop::new(
-            term.clone(),
-            event_proxy,
-            pty,
-            options.hold,
-            false,
-        );
+        let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 

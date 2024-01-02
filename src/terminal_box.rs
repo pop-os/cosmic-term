@@ -23,6 +23,7 @@ use cosmic::{
         Shell,
     },
 };
+use cosmic_text::LayoutGlyph;
 use std::{
     cell::Cell,
     cmp,
@@ -232,30 +233,73 @@ where
 
         // Render cell backgrounds that do not match default
         terminal.with_buffer(|buffer| {
-            let line_height = buffer.metrics().line_height;
             for run in buffer.layout_runs() {
-                for glyph in run.glyphs.iter() {
-                    if glyph.metadata != terminal.default_attrs().metadata {
-                        let background_color = cosmic_text::Color(glyph.metadata as u32);
+                struct BgRect {
+                    default_metadata: usize,
+                    metadata: usize,
+                    start_x: f32,
+                    end_x: f32,
+                    line_height: f32,
+                    line_top: f32,
+                    view_position: Point,
+                }
+
+                impl BgRect {
+                    fn update<Renderer: renderer::Renderer>(
+                        &mut self,
+                        glyph: &LayoutGlyph,
+                        renderer: &mut Renderer,
+                    ) {
+                        if glyph.metadata == self.metadata {
+                            self.end_x = glyph.x + glyph.w;
+                        } else {
+                            self.fill(renderer);
+                            self.metadata = glyph.metadata;
+                            self.start_x = glyph.x;
+                            self.end_x = glyph.x + glyph.w;
+                        }
+                    }
+
+                    fn fill<Renderer: renderer::Renderer>(&mut self, renderer: &mut Renderer) {
+                        if self.metadata == self.default_metadata {
+                            return;
+                        }
+
+                        let color = cosmic_text::Color(self.metadata as u32);
                         renderer.fill_quad(
                             Quad {
                                 bounds: Rectangle::new(
-                                    view_position + Vector::new(glyph.x, run.line_top),
-                                    Size::new(glyph.w, line_height),
+                                    self.view_position + Vector::new(self.start_x, self.line_top),
+                                    Size::new(self.end_x - self.start_x, self.line_height),
                                 ),
                                 border_radius: 0.0.into(),
                                 border_width: 0.0,
                                 border_color: Color::TRANSPARENT,
                             },
                             Color::new(
-                                background_color.r() as f32 / 255.0,
-                                background_color.g() as f32 / 255.0,
-                                background_color.b() as f32 / 255.0,
-                                background_color.a() as f32 / 255.0,
+                                color.r() as f32 / 255.0,
+                                color.g() as f32 / 255.0,
+                                color.b() as f32 / 255.0,
+                                color.a() as f32 / 255.0,
                             ),
                         );
                     }
                 }
+
+                let default_metadata = terminal.default_attrs().metadata;
+                let mut bg_rect = BgRect {
+                    default_metadata,
+                    metadata: default_metadata,
+                    start_x: 0.0,
+                    end_x: 0.0,
+                    line_height: buffer.metrics().line_height,
+                    line_top: run.line_top,
+                    view_position,
+                };
+                for glyph in run.glyphs.iter() {
+                    bg_rect.update(glyph, renderer);
+                }
+                bg_rect.fill(renderer);
             }
         });
 
@@ -312,8 +356,7 @@ where
         let mut terminal = self.terminal.lock().unwrap();
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
 
-        let is_app_cursor = terminal.term.lock().mode()
-            .contains(TermMode::APP_CURSOR);
+        let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
 
         let mut status = Status::Ignored;
         match event {
@@ -374,61 +417,37 @@ where
                         status = Status::Captured;
                     }
                     KeyCode::Up => {
-                        let code = if is_app_cursor {
-                            b"\x1BOA"
-                        } else {
-                            b"\x1B[A"
-                        };
+                        let code = if is_app_cursor { b"\x1BOA" } else { b"\x1B[A" };
 
                         terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Down => {
-                        let code = if is_app_cursor {
-                            b"\x1BOB"
-                        } else {
-                            b"\x1B[B"
-                        };
+                        let code = if is_app_cursor { b"\x1BOB" } else { b"\x1B[B" };
 
                         terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Right => {
-                        let code = if is_app_cursor {
-                            b"\x1BOC"
-                        } else {
-                            b"\x1B[C"
-                        };
+                        let code = if is_app_cursor { b"\x1BOC" } else { b"\x1B[C" };
 
                         terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Left => {
-                        let code = if is_app_cursor {
-                            b"\x1BOD"
-                        } else {
-                            b"\x1B[D"
-                        };
+                        let code = if is_app_cursor { b"\x1BOD" } else { b"\x1B[D" };
 
                         terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
-                    KeyCode::End=> {
-                        let code = if is_app_cursor {
-                            b"\x1BOF"
-                        } else {
-                            b"\x1B[F"
-                        };
+                    KeyCode::End => {
+                        let code = if is_app_cursor { b"\x1BOF" } else { b"\x1B[F" };
 
                         terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Home => {
-                        let code = if is_app_cursor {
-                            b"\x1BOH"
-                        } else {
-                            b"\x1B[H"
-                        };
+                        let code = if is_app_cursor { b"\x1BOH" } else { b"\x1B[H" };
 
                         terminal.input_scroll(code.as_slice());
                         status = Status::Captured;
