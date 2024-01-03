@@ -75,6 +75,13 @@ impl EventListener for EventProxy {
     }
 }
 
+fn as_bright(mut color: Color) -> Color {
+    if let Color::Named(named) = color {
+        color = Color::Named(named.to_bright());
+    }
+    color
+}
+
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
@@ -466,14 +473,20 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
+                    let cell_fg = if indexed.cell.flags.contains(Flags::BOLD) {
+                        as_bright(indexed.cell.fg)
+                    } else {
+                        indexed.cell.fg
+                    };
+
                     let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
                         (
                             convert_color(&self.colors, indexed.cell.bg),
-                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, cell_fg),
                         )
                     } else {
                         (
-                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, cell_fg),
                             convert_color(&self.colors, indexed.cell.bg),
                         )
                     };
