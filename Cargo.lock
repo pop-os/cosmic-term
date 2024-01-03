@@ -2494,8 +2494,7 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 [[package]]
 name = "libc"
 version = "0.2.151"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
+source = "git+https://gitlab.redox-os.org/redox-os/liblibc.git?branch=redox_0.2.151#a6191c5f6f4e1a737eff83728173e2939211a6d2"
 
 [[package]]
 name = "libcosmic"
