@@ -316,11 +316,11 @@ impl Terminal {
         self.update();
     }
 
-    pub fn set_config(&mut self, config: &crate::Config, themes: &HashMap<String, Colors>) {
+    pub fn set_config(&mut self, config: &crate::Config, themes: &HashMap<String, Colors>, zoom_adj: i8) {
         let mut update_cell_size = false;
         let mut update = false;
 
-        let metrics = config.metrics();
+        let metrics = config.metrics(zoom_adj);
         if metrics != self.buffer.metrics() {
             {
                 let mut font_system = font_system().write().unwrap();

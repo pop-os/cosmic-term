@@ -183,6 +183,7 @@ pub struct App {
     font_names: Vec<String>,
     font_size_names: Vec<String>,
     font_sizes: Vec<u16>,
+    zoom_adj: i8,
     zoom_step_names: Vec<String>,
     zoom_steps: Vec<u16>,
     theme_names: Vec<String>,
@@ -199,7 +200,7 @@ impl App {
         for entity in entities {
             if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
-                terminal.set_config(&self.config, &self.themes);
+                terminal.set_config(&self.config, &self.themes, self.zoom_adj);
             }
         }
 
@@ -403,6 +404,7 @@ impl Application for App {
             font_names,
             font_size_names,
             font_sizes,
+            zoom_adj: 0,
             zoom_step_names,
             zoom_steps,
             theme_names,
@@ -472,21 +474,21 @@ impl Application for App {
                 }
             }
             Message::ZoomIn => {
-                self.config.font_size_zoom_adj = self.config.font_size_zoom_adj.saturating_add(1);
+                self.zoom_adj = self.zoom_adj.saturating_add(1);
                 return self.save_config();
             },
             Message::ZoomOut => {
-                self.config.font_size_zoom_adj = self.config.font_size_zoom_adj.saturating_sub(1);
+                self.zoom_adj = self.zoom_adj.saturating_sub(1);
                 return self.save_config();
             },
             Message::ZoomReset => {
-                self.config.font_size_zoom_adj = 0;
+                self.zoom_adj = 0;
                 return self.save_config();
             },
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
                     self.config.font_size_zoom_step_mul_100 = *zoom_step;
-                    self.config.font_size_zoom_adj = 0; // reset zoom
+                    self.zoom_adj = 0; // reset zoom
                     return self.save_config();
                 }
                 None => {
@@ -496,7 +498,7 @@ impl Application for App {
             Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
                 Some(font_size) => {
                     self.config.font_size = *font_size;
-                    self.config.font_size_zoom_adj = 0; // reset zoom
+                    self.zoom_adj = 0; // reset zoom
                     return self.save_config();
                 }
                 None => {
@@ -609,7 +611,7 @@ impl Application for App {
                             self.term_config.clone(),
                             colors.clone(),
                         );
-                        terminal.set_config(&self.config, &self.themes);
+                        terminal.set_config(&self.config, &self.themes, self.zoom_adj);
                         self.tab_model
                             .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
                     }

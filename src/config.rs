@@ -31,7 +31,6 @@ pub struct Config {
     pub app_theme: AppTheme,
     pub font_name: String,
     pub font_size: u16,
-    pub font_size_zoom_adj: i8,
     pub font_size_zoom_step_mul_100: u16,
     pub show_headerbar: bool,
     pub syntax_theme_dark: String,
@@ -44,7 +43,6 @@ impl Default for Config {
             app_theme: AppTheme::System,
             font_name: "Fira Mono".to_string(),
             font_size: 14,
-            font_size_zoom_adj: 0,
             font_size_zoom_step_mul_100: 100,
             show_headerbar: true,
             syntax_theme_dark: "COSMIC Dark".to_string(),
@@ -54,16 +52,16 @@ impl Default for Config {
 }
 
 impl Config {
-    fn font_size_adjusted(&self) -> f32 {
+    fn font_size_adjusted(&self, zoom_adj: i8) -> f32 {
         let font_size = f32::from(self.font_size).max(1.0);
-        let adj = f32::from(self.font_size_zoom_adj);
+        let adj = f32::from(zoom_adj);
         let adj_step = f32::from(self.font_size_zoom_step_mul_100) / 100.0;
         (font_size + adj*adj_step).max(1.0)
     }
 
     // Calculate metrics from font size
-    pub fn metrics(&self) -> Metrics {
-        let font_size = self.font_size_adjusted();
+    pub fn metrics(&self, zoom_adj: i8) -> Metrics {
+        let font_size = self.font_size_adjusted(zoom_adj);
         let line_height = (font_size * 1.4).ceil();
         Metrics::new(font_size, line_height)
     }
