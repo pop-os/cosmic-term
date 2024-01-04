@@ -35,6 +35,8 @@ pub struct Config {
     pub show_headerbar: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
+    pub default_shell: Option<String>,
+    pub start_command: Vec<String>,
 }
 
 impl Default for Config {
@@ -47,6 +49,8 @@ impl Default for Config {
             show_headerbar: true,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
+            default_shell: None,
+            start_command: Vec::new(),
         }
     }
 }
@@ -56,7 +60,7 @@ impl Config {
         let font_size = f32::from(self.font_size).max(1.0);
         let adj = f32::from(zoom_adj);
         let adj_step = f32::from(self.font_size_zoom_step_mul_100) / 100.0;
-        (font_size + adj*adj_step).max(1.0)
+        (font_size + adj * adj_step).max(1.0)
     }
 
     // Calculate metrics from font size

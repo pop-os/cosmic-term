@@ -476,15 +476,15 @@ impl Application for App {
             Message::ZoomIn => {
                 self.zoom_adj = self.zoom_adj.saturating_add(1);
                 return self.save_config();
-            },
+            }
             Message::ZoomOut => {
                 self.zoom_adj = self.zoom_adj.saturating_sub(1);
                 return self.save_config();
-            },
+            }
             Message::ZoomReset => {
                 self.zoom_adj = 0;
                 return self.save_config();
-            },
+            }
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
                     self.config.font_size_zoom_step_mul_100 = *zoom_step;
@@ -610,6 +610,7 @@ impl Application for App {
                             term_event_tx.clone(),
                             self.term_config.clone(),
                             colors.clone(),
+                            &self.config,
                         );
                         terminal.set_config(&self.config, &self.themes, self.zoom_adj);
                         self.tab_model

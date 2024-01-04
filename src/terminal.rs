@@ -132,6 +132,7 @@ impl Terminal {
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
         config: Config,
         colors: Colors,
+        cosmic_config: &crate::config::Config,
     ) -> Self {
         let metrics = Metrics::new(14.0, 20.0);
         //TODO: set color to default fg
@@ -166,7 +167,12 @@ impl Terminal {
         )));
 
         let window_id = 0;
-        let options = Options::default();
+
+        let mut options = Options::default();
+        if let Some(ref shell) = cosmic_config.default_shell {
+            let shell = tty::Shell::new(shell.clone(), cosmic_config.start_command.clone());
+            options.shell = Some(shell);
+        }
 
         let pty = tty::new(&options, size.into(), window_id).unwrap();
 
@@ -316,7 +322,12 @@ impl Terminal {
         self.update();
     }
 
-    pub fn set_config(&mut self, config: &crate::Config, themes: &HashMap<String, Colors>, zoom_adj: i8) {
+    pub fn set_config(
+        &mut self,
+        config: &crate::Config,
+        themes: &HashMap<String, Colors>,
+        zoom_adj: i8,
+    ) {
         let mut update_cell_size = false;
         let mut update = false;
 
