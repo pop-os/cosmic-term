@@ -491,6 +491,10 @@ impl Terminal {
                         )
                     };
 
+                    if indexed.cell.flags.contains(Flags::HIDDEN) {
+                        fg = bg;
+                    }
+
                     // Change color if cursor
                     if indexed.point == grid.cursor.point {
                         //TODO: better handling of cursor
