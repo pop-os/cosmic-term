@@ -117,12 +117,22 @@ where
         let limits = limits.width(Length::Fill).height(Length::Fill);
 
         let mut terminal = self.terminal.lock().unwrap();
+
         //TODO: set size?
+
+        // Update if needed
+        if terminal.needs_update {
+            terminal.update();
+            terminal.needs_update = false;
+        }
+
+        // Ensure terminal is shaped
         terminal.with_buffer_mut(|buffer| {
             let mut font_system = font_system().write().unwrap();
             buffer.shape_until_scroll(font_system.raw(), true);
         });
 
+        // Calculate layout lines
         terminal.with_buffer(|buffer| {
             let mut layout_lines = 0;
             for line in buffer.lines.iter() {
@@ -182,8 +192,6 @@ where
 
         let state = tree.state.downcast_ref::<State>();
 
-        let mut terminal = self.terminal.lock().unwrap();
-
         //TODO: make this configurable
         let scrollbar_w = 8.0;
 
@@ -200,8 +208,16 @@ where
             return;
         }
 
+        let mut terminal = self.terminal.lock().unwrap();
+
         // Ensure terminal is the right size
         terminal.resize(view_w as u32, view_h as u32);
+
+        // Update if needed
+        if terminal.needs_update {
+            terminal.update();
+            terminal.needs_update = false;
+        }
 
         // Ensure terminal is shaped
         terminal.with_buffer_mut(|buffer| {
@@ -337,7 +353,7 @@ where
         }
 
         let duration = instant.elapsed();
-        log::debug!("redraw {}, {}: {:?}", view_w, view_h, duration);
+        log::trace!("redraw {}, {}: {:?}", view_w, view_h, duration);
     }
 
     fn on_event(

@@ -123,6 +123,7 @@ pub struct Terminal {
     colors: Colors,
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
+    pub needs_update: bool,
 }
 
 impl Terminal {
@@ -182,6 +183,7 @@ impl Terminal {
             term,
             notifier,
             context_menu: None,
+            needs_update: true,
         }
     }
 

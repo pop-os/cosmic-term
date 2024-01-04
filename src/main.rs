@@ -666,7 +666,7 @@ impl Application for App {
                 TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.update();
+                        terminal.needs_update = true;
                     }
                 }
                 _ => {
