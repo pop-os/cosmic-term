@@ -631,7 +631,7 @@ where
                                 let mut term = terminal.term.lock();
                                 term.selection = Some(selection);
                             }
-                            terminal.update();
+                            terminal.needs_update = true;
                             state.click = Some((click_kind, Instant::now()));
                             state.dragging = Some(Dragging::Buffer);
                         } else if scrollbar_rect.contains(Point::new(x, y)) {
@@ -699,7 +699,7 @@ where
                                         selection.update(location, side);
                                     }
                                 }
-                                terminal.update();
+                                terminal.needs_update = true;
                             }
                             Dragging::Scrollbar {
                                 start_y,
