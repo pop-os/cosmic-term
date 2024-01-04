@@ -12,6 +12,9 @@ light = Light
 syntax-dark = Syntax dark
 syntax-light = Syntax light
 default-font = Default font
+default-font-stretch = Default font stretch
+default-font-weight = Default font weight
+default-bold-font-weight = Default bold font weight
 default-font-size = Default font size
 default-zoom-step = Default zoom step
 

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 alacritty_terminal = "0.20"
 env_logger = "0.10"
+paste = "1.0"
 lazy_static = "1"
 log = "0.4"
 serde = { version = "1", features = ["serde_derive"] }
