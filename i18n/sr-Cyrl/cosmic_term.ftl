@@ -18,5 +18,5 @@ default-font-size = Подразумевана величина фонта
 copy = Копирај
 paste = Налепи
 select-all = Изабери све
-new-tab = Нови језичак
+new-tab = Нова картица
 show-headerbar = Прикажи траку заглавља
