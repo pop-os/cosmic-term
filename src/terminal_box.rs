@@ -701,7 +701,7 @@ where
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
                 if let Some(_p) = cursor_position.position_in(layout.bounds()) {
                     match delta {
-                        ScrollDelta::Lines { x, y } => {
+                        ScrollDelta::Lines { x: _, y } => {
                             //TODO: this adjustment is just a guess!
                             state.scroll_pixels = 0.0;
                             let lines = (-y * 6.0) as i32;
@@ -710,7 +710,7 @@ where
                             }
                             status = Status::Captured;
                         }
-                        ScrollDelta::Pixels { x, y } => {
+                        ScrollDelta::Pixels { x: _, y } => {
                             //TODO: this adjustment is just a guess!
                             state.scroll_pixels -= y * 6.0;
                             let mut lines = 0;

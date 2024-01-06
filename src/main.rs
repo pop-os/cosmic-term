@@ -17,9 +17,8 @@ use cosmic::{
         widget::row,
         window, Alignment, Event, Length, Point,
     },
-    iced_widget::shader::wgpu::hal::vulkan::DebugUtilsMessengerUserData,
     style,
-    widget::{self, menu::ItemWidth, segmented_button, Widget},
+    widget::{self, segmented_button},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::Family;
