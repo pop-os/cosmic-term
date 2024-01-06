@@ -15,7 +15,7 @@ use cosmic::{
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
         widget::row,
-        window, Alignment, Event, Length, Point,
+        window, Alignment, Event, Length, Point, Padding,
     },
     style,
     widget::{self, segmented_button},
@@ -161,6 +161,7 @@ pub enum Message {
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
+    ShowAdvancedFontSettings(bool),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -201,6 +202,7 @@ pub struct App {
     context_page: ContextPage,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
     term_config: TermConfig,
+    show_advanced_font_settings: bool,
 }
 
 impl App {
@@ -343,7 +345,40 @@ impl App {
             .zoom_steps
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
-        widget::settings::view_column(vec![widget::settings::view_section(fl!("appearance"))
+
+        let advanced_font_settings = || {
+            let section = widget::settings::view_section("")
+                .add(
+                    widget::settings::item::builder(fl!("default-font-stretch")).control(
+                        widget::dropdown(&self.curr_font_stretch_names, font_stretch_selected, |index| {
+                            Message::DefaultFontStretch(index)
+                        }),
+                    ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("default-font-weight")).control(
+                        widget::dropdown(&self.curr_font_weight_names, font_weight_selected, |index| {
+                            Message::DefaultFontWeight(index)
+                        }),
+                    ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("default-bold-font-weight")).control(
+                        widget::dropdown(&self.curr_font_weight_names, bold_font_weight_selected, |index| {
+                            Message::DefaultBoldFontWeight(index)
+                        }),
+                    ),
+                );
+            let padding = Padding {
+                top: 0.0,
+                bottom: 0.0,
+                left: 12.0,
+                right: 12.0,
+            };
+            widget::container(section).padding(padding)
+        };
+
+        let mut settings_view = widget::settings::view_section(fl!("appearance"))
             .add(
                 widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
                     &self.app_themes,
@@ -379,6 +414,16 @@ impl App {
                 )),
             )
             .add(
+                widget::settings::item::builder(fl!("advanced-font-settings"))
+                    .toggler(self.show_advanced_font_settings, Message::ShowAdvancedFontSettings),
+            );
+
+        if self.show_advanced_font_settings {
+            settings_view = settings_view.add(advanced_font_settings());
+        }
+
+        let settings_view = settings_view
+            .add(
                 widget::settings::item::builder(fl!("default-font-size")).control(
                     widget::dropdown(&self.font_size_names, font_size_selected, |index| {
                         Message::DefaultFontSize(index)
@@ -393,32 +438,11 @@ impl App {
                 ),
             )
             .add(
-                widget::settings::item::builder(fl!("default-font-stretch")).control(
-                    widget::dropdown(&self.curr_font_stretch_names, font_stretch_selected, |index| {
-                        Message::DefaultFontStretch(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font-weight")).control(
-                    widget::dropdown(&self.curr_font_weight_names, font_weight_selected, |index| {
-                        Message::DefaultFontWeight(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-bold-font-weight")).control(
-                    widget::dropdown(&self.curr_font_weight_names, bold_font_weight_selected, |index| {
-                        Message::DefaultBoldFontWeight(index)
-                    }),
-                ),
-            )
-            .add(
                 widget::settings::item::builder(fl!("show-headerbar"))
                     .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .into()])
-        .into()
+            );
+
+        widget::settings::view_column(vec![settings_view.into()]).into()
     }
 }
 
@@ -567,6 +591,7 @@ impl Application for App {
             context_page: ContextPage::Settings,
             term_config: flags.term_config,
             term_event_tx_opt: None,
+            show_advanced_font_settings: false,
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -874,6 +899,9 @@ impl Application for App {
                 }
                 self.set_context_title(context_page.title());
             }
+            Message::ShowAdvancedFontSettings(show) => {
+                self.show_advanced_font_settings = show;
+            },
         }
 
         Command::none()

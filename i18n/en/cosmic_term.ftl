@@ -11,6 +11,7 @@ dark = Dark
 light = Light
 syntax-dark = Syntax dark
 syntax-light = Syntax light
+advanced-font-settings = Advanced Font Settings
 default-font = Default font
 default-font-stretch = Default font stretch
 default-font-weight = Default font weight
