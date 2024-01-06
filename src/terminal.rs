@@ -169,8 +169,11 @@ impl Terminal {
         let window_id = 0;
 
         let mut options = Options::default();
-        if let Some(ref shell) = cosmic_config.default_shell {
-            let shell = tty::Shell::new(shell.clone(), cosmic_config.start_command.clone());
+        if cosmic_config.use_default_shell {
+            let shell = tty::Shell::new(
+                cosmic_config.default_shell.clone(),
+                cosmic_config.start_command.clone(),
+            );
             options.shell = Some(shell);
         }
 

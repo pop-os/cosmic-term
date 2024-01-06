@@ -35,8 +35,9 @@ pub struct Config {
     pub show_headerbar: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
-    pub default_shell: Option<String>,
+    pub default_shell: String,
     pub start_command: Vec<String>,
+    pub use_default_shell: bool,
 }
 
 impl Default for Config {
@@ -49,7 +50,8 @@ impl Default for Config {
             show_headerbar: true,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
-            default_shell: None,
+            default_shell: String::new(),
+            use_default_shell: false,
             start_command: Vec::new(),
         }
     }
