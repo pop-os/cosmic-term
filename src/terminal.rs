@@ -82,6 +82,13 @@ fn as_bright(mut color: Color) -> Color {
     color
 }
 
+fn as_dim(mut color: Color) -> Color {
+    if let Color::Named(named) = color {
+        color = Color::Named(named.to_dim());
+    }
+    color
+}
+
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
@@ -468,7 +475,10 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
-                    let cell_fg = if indexed.cell.flags.contains(Flags::BOLD) {
+                    let cell_fg = if indexed.cell.flags.contains(Flags::DIM) {
+                        as_dim(indexed.cell.fg)
+                    } else if indexed.cell.flags.contains(Flags::BOLD) {
+                        // if BOLD and !DIM, use bright color
                         as_bright(indexed.cell.fg)
                     } else {
                         indexed.cell.fg
