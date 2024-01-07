@@ -158,6 +158,8 @@ pub enum Message {
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
+    DefaultShell(String),
+    UseDefaultShell(bool),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -262,60 +264,75 @@ impl App {
             .zoom_steps
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
-        widget::settings::view_column(vec![widget::settings::view_section(fl!("appearance"))
-            .add(
-                widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
-                    &self.app_themes,
-                    Some(app_theme_selected),
-                    move |index| {
-                        Message::AppTheme(match index {
-                            1 => AppTheme::Dark,
-                            2 => AppTheme::Light,
-                            _ => AppTheme::System,
-                        })
-                    },
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
-                    &self.theme_names,
-                    dark_selected,
-                    move |index| Message::SyntaxTheme(index, true),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
-                    &self.theme_names,
-                    light_selected,
-                    move |index| Message::SyntaxTheme(index, false),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
-                    &self.font_names,
-                    font_selected,
-                    |index| Message::DefaultFont(index),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font-size")).control(
-                    widget::dropdown(&self.font_size_names, font_size_selected, |index| {
-                        Message::DefaultFontSize(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-zoom-step")).control(
-                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
-                        Message::DefaultZoomStep(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("show-headerbar"))
-                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .into()])
+        widget::settings::view_column(vec![
+            widget::settings::view_section(fl!("appearance"))
+                .add(
+                    widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
+                        &self.app_themes,
+                        Some(app_theme_selected),
+                        move |index| {
+                            Message::AppTheme(match index {
+                                1 => AppTheme::Dark,
+                                2 => AppTheme::Light,
+                                _ => AppTheme::System,
+                            })
+                        },
+                    )),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
+                        &self.theme_names,
+                        dark_selected,
+                        move |index| Message::SyntaxTheme(index, true),
+                    )),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
+                        &self.theme_names,
+                        light_selected,
+                        move |index| Message::SyntaxTheme(index, false),
+                    )),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
+                        &self.font_names,
+                        font_selected,
+                        |index| Message::DefaultFont(index),
+                    )),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("default-font-size")).control(
+                        widget::dropdown(&self.font_size_names, font_size_selected, |index| {
+                            Message::DefaultFontSize(index)
+                        }),
+                    ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("default-zoom-step")).control(
+                        widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
+                            Message::DefaultZoomStep(index)
+                        }),
+                    ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("show-headerbar"))
+                        .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+                )
+                .into(),
+            widget::settings::view_section("Command")
+                .add(
+                    widget::settings::item::builder("Startup shell").control(
+                        cosmic::widget::inline_input(&self.config.default_shell)
+                            .on_input(Message::DefaultShell)
+                            .width(Length::Fixed(100.0)),
+                    ),
+                )
+                .add(
+                    widget::settings::item::builder("Use a custom startup shell")
+                        .toggler(self.config.use_default_shell, Message::UseDefaultShell),
+                )
+                .into(),
+        ])
         .into()
     }
 }
@@ -422,6 +439,14 @@ impl Application for App {
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
+            Message::DefaultShell(shell) => {
+                self.config.default_shell = shell;
+                return self.save_config();
+            }
+            Message::UseDefaultShell(use_shell) => {
+                self.config.use_default_shell = use_shell;
+                return self.save_config();
+            }
             Message::AppTheme(app_theme) => {
                 self.config.app_theme = app_theme;
                 return self.save_config();
@@ -476,15 +501,15 @@ impl Application for App {
             Message::ZoomIn => {
                 self.zoom_adj = self.zoom_adj.saturating_add(1);
                 return self.save_config();
-            },
+            }
             Message::ZoomOut => {
                 self.zoom_adj = self.zoom_adj.saturating_sub(1);
                 return self.save_config();
-            },
+            }
             Message::ZoomReset => {
                 self.zoom_adj = 0;
                 return self.save_config();
-            },
+            }
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
                     self.config.font_size_zoom_step_mul_100 = *zoom_step;
@@ -610,6 +635,7 @@ impl Application for App {
                             term_event_tx.clone(),
                             self.term_config.clone(),
                             colors.clone(),
+                            &self.config,
                         );
                         terminal.set_config(&self.config, &self.themes, self.zoom_adj);
                         self.tab_model
