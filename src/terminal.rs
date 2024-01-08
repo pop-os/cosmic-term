@@ -135,6 +135,7 @@ pub struct Terminal {
     size: Size,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
+    dim_font_weight: Weight,
     bold_font_weight: Weight,
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
@@ -149,6 +150,7 @@ impl Terminal {
         config: Config,
         font_stretch: Stretch,
         font_weight: u16,
+        dim_font_weight: u16,
         bold_font_weight: u16,
         colors: Colors,
     ) -> Self {
@@ -197,6 +199,7 @@ impl Terminal {
 
         Self {
             colors,
+            dim_font_weight: Weight(dim_font_weight),
             bold_font_weight: Weight(bold_font_weight),
             default_attrs,
             buffer: Arc::new(buffer),
@@ -353,6 +356,10 @@ impl Terminal {
             update_cell_size = true;
         }
 
+        if self.dim_font_weight.0 != config.font_weight {
+            self.dim_font_weight = Weight(config.dim_font_weight);
+            update_cell_size = true;
+        }
 
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
@@ -527,6 +534,9 @@ impl Terminal {
                     //TODO: more flags
                     if indexed.cell.flags.contains(Flags::BOLD) {
                         attrs = attrs.weight(self.bold_font_weight);
+                    } else if indexed.cell.flags.contains(Flags::DIM) {
+                        // if DIM and !BOLD
+                        attrs = attrs.weight(self.dim_font_weight);
                     }
                     if indexed.cell.flags.contains(Flags::ITALIC) {
                         //TODO: automatically use fake italic
