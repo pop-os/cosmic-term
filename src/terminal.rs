@@ -16,7 +16,7 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Stretch, Wrap,
 };
 use std::{
     borrow::Cow,
@@ -75,6 +75,20 @@ impl EventListener for EventProxy {
     }
 }
 
+fn as_bright(mut color: Color) -> Color {
+    if let Color::Named(named) = color {
+        color = Color::Named(named.to_bright());
+    }
+    color
+}
+
+fn as_dim(mut color: Color) -> Color {
+    if let Color::Named(named) = color {
+        color = Color::Named(named.to_dim());
+    }
+    color
+}
+
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
@@ -121,6 +135,8 @@ pub struct Terminal {
     size: Size,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
+    dim_font_weight: Weight,
+    bold_font_weight: Weight,
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
     pub needs_update: bool,
@@ -132,12 +148,18 @@ impl Terminal {
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
         config: Config,
+        font_stretch: Stretch,
+        font_weight: u16,
+        dim_font_weight: u16,
+        bold_font_weight: u16,
         colors: Colors,
     ) -> Self {
         let metrics = Metrics::new(14.0, 20.0);
         //TODO: set color to default fg
         let default_attrs = Attrs::new()
             .family(Family::Monospace)
+            .weight(Weight(font_weight))
+            .stretch(font_stretch)
             .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
             .metadata(convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize);
         let mut buffer = Buffer::new_empty(metrics);
@@ -177,6 +199,8 @@ impl Terminal {
 
         Self {
             colors,
+            dim_font_weight: Weight(dim_font_weight),
+            bold_font_weight: Weight(bold_font_weight),
             default_attrs,
             buffer: Arc::new(buffer),
             size,
@@ -322,6 +346,26 @@ impl Terminal {
         let mut update_cell_size = false;
         let mut update = false;
 
+        if self.default_attrs.stretch != config.typed_font_stretch() {
+            self.default_attrs =  self.default_attrs.stretch(config.typed_font_stretch());
+            update_cell_size = true;
+        }
+
+        if self.default_attrs.weight.0 != config.font_weight {
+            self.default_attrs =  self.default_attrs.weight(Weight(config.font_weight));
+            update_cell_size = true;
+        }
+
+        if self.dim_font_weight.0 != config.font_weight {
+            self.dim_font_weight = Weight(config.dim_font_weight);
+            update_cell_size = true;
+        }
+
+        if self.bold_font_weight.0 != config.font_weight {
+            self.bold_font_weight = Weight(config.bold_font_weight);
+            update_cell_size = true;
+        }
+
         let metrics = config.metrics(zoom_adj);
         if metrics != self.buffer.metrics() {
             {
@@ -342,6 +386,8 @@ impl Terminal {
             if changed {
                 self.default_attrs = Attrs::new()
                     .family(Family::Monospace)
+                    .weight(Weight(config.font_weight))
+                    .stretch(config.typed_font_stretch())
                     .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
                     .metadata(
                         convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize,
@@ -436,22 +482,39 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
+                    let cell_fg = if indexed.cell.flags.contains(Flags::DIM) {
+                        as_dim(indexed.cell.fg)
+                    } else if indexed.cell.flags.contains(Flags::BOLD) {
+                        // if BOLD and !DIM, use bright color
+                        as_bright(indexed.cell.fg)
+                    } else {
+                        indexed.cell.fg
+                    };
+
                     let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
                         (
                             convert_color(&self.colors, indexed.cell.bg),
-                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, cell_fg),
                         )
                     } else {
                         (
-                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, cell_fg),
                             convert_color(&self.colors, indexed.cell.bg),
                         )
                     };
 
+                    if indexed.cell.flags.contains(Flags::HIDDEN) {
+                        fg = bg;
+                    }
+
                     // Change color if cursor
                     if indexed.point == grid.cursor.point {
                         //TODO: better handling of cursor
-                        mem::swap(&mut fg, &mut bg);
+                        if term.mode().contains(TermMode::SHOW_CURSOR) {
+                            mem::swap(&mut fg, &mut bg);
+                        } else {
+                            fg = bg;
+                        }
                     }
 
                     // Change color if selected
@@ -470,7 +533,10 @@ impl Terminal {
                     attrs = attrs.metadata(bg.0 as usize);
                     //TODO: more flags
                     if indexed.cell.flags.contains(Flags::BOLD) {
-                        attrs = attrs.weight(Weight::BOLD);
+                        attrs = attrs.weight(self.bold_font_weight);
+                    } else if indexed.cell.flags.contains(Flags::DIM) {
+                        // if DIM and !BOLD
+                        attrs = attrs.weight(self.dim_font_weight);
                     }
                     if indexed.cell.flags.contains(Flags::ITALIC) {
                         //TODO: automatically use fake italic
