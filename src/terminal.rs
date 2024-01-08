@@ -498,7 +498,11 @@ impl Terminal {
                     // Change color if cursor
                     if indexed.point == grid.cursor.point {
                         //TODO: better handling of cursor
-                        mem::swap(&mut fg, &mut bg);
+                        if term.mode().contains(TermMode::SHOW_CURSOR) {
+                            mem::swap(&mut fg, &mut bg);
+                        } else {
+                            fg = bg;
+                        }
                     }
 
                     // Change color if selected
