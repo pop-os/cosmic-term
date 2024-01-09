@@ -874,6 +874,7 @@ dependencies = [
  "lazy_static",
  "libcosmic",
  "log",
+ "paste",
  "rust-embed",
  "serde",
  "tokio",

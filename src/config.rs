@@ -4,8 +4,11 @@ use cosmic::{
     cosmic_config::{self, cosmic_config_derive::CosmicConfigEntry, CosmicConfigEntry},
     theme,
 };
-use cosmic_text::Metrics;
+use cosmic_text::{Metrics, Weight, Stretch};
 use serde::{Deserialize, Serialize};
+
+use std::sync::OnceLock;
+use std::collections::BTreeMap;
 
 pub const CONFIG_VERSION: u64 = 1;
 
@@ -31,6 +34,9 @@ pub struct Config {
     pub app_theme: AppTheme,
     pub font_name: String,
     pub font_size: u16,
+    pub font_weight: u16,
+    pub bold_font_weight: u16,
+    pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub show_headerbar: bool,
     pub syntax_theme_dark: String,
@@ -43,6 +49,9 @@ impl Default for Config {
             app_theme: AppTheme::System,
             font_name: "Fira Mono".to_string(),
             font_size: 14,
+            font_weight: Weight::NORMAL.0,
+            bold_font_weight: Weight::BOLD.0,
+            font_stretch: Stretch::Normal.to_number(),
             font_size_zoom_step_mul_100: 100,
             show_headerbar: true,
             syntax_theme_dark: "COSMIC Dark".to_string(),
@@ -74,5 +83,24 @@ impl Config {
         } else {
             &self.syntax_theme_light
         }
+    }
+
+    pub fn typed_font_stretch(&self) -> Stretch {
+        macro_rules! populate_num_typed_map {
+            ($($stretch:ident,)+) => {
+                let mut map = BTreeMap::new();
+                $(map.insert(Stretch::$stretch.to_number(), Stretch::$stretch);)+
+                map
+            };
+        }
+
+        static NUM_TO_TYPED_MAP: OnceLock<BTreeMap<u16, Stretch>> = OnceLock::new();
+
+        NUM_TO_TYPED_MAP.get_or_init(|| {
+            populate_num_typed_map!{
+                UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
+                Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
+            }
+        })[&self.font_stretch]
     }
 }
