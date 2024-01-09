@@ -318,7 +318,12 @@ impl Terminal {
         self.update();
     }
 
-    pub fn set_config(&mut self, config: &crate::Config, themes: &HashMap<String, Colors>, zoom_adj: i8) {
+    pub fn set_config(
+        &mut self,
+        config: &crate::Config,
+        themes: &HashMap<String, Colors>,
+        zoom_adj: i8,
+    ) {
         let mut update_cell_size = false;
         let mut update = false;
 

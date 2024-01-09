@@ -30,12 +30,13 @@ mod config;
 
 mod localize;
 
+use menu::menu_bar;
 mod menu;
 
-use self::terminal::{Terminal, TerminalScroll};
+use terminal::{Terminal, TerminalScroll};
 mod terminal;
 
-use self::terminal_box::terminal_box;
+use terminal_box::terminal_box;
 mod terminal_box;
 
 mod terminal_theme;
@@ -140,24 +141,27 @@ pub enum Message {
     Copy(Option<segmented_button::Entity>),
     DefaultFont(usize),
     DefaultFontSize(usize),
-    ZoomIn,
-    ZoomOut,
-    ZoomReset,
     DefaultZoomStep(usize),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
     ShowHeaderBar(bool),
-    SystemThemeModeChange(cosmic_theme::ThemeMode),
     SyntaxTheme(usize, bool),
+    SystemThemeModeChange(cosmic_theme::ThemeMode),
     TabActivate(segmented_button::Entity),
-    TabClose(segmented_button::Entity),
+    TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(segmented_button::Entity, Option<Point>),
     TabNew,
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
+    Todo(&'static str),
     ToggleContextPage(ContextPage),
+    WindowClose,
+    WindowNew,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -473,17 +477,15 @@ impl Application for App {
                     }
                 }
             }
-            Message::ZoomIn => {
-                self.zoom_adj = self.zoom_adj.saturating_add(1);
-                return self.save_config();
-            },
-            Message::ZoomOut => {
-                self.zoom_adj = self.zoom_adj.saturating_sub(1);
-                return self.save_config();
-            },
-            Message::ZoomReset => {
-                self.zoom_adj = 0;
-                return self.save_config();
+            Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
+                Some(font_size) => {
+                    self.config.font_size = *font_size;
+                    self.zoom_adj = 0; // reset zoom
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find font with index {}", index);
+                }
             },
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
@@ -493,16 +495,6 @@ impl Application for App {
                 }
                 None => {
                     log::warn!("failed to find zoom step with index {}", index);
-                }
-            },
-            Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
-                Some(font_size) => {
-                    self.config.font_size = *font_size;
-                    self.zoom_adj = 0; // reset zoom
-                    return self.save_config();
-                }
-                None => {
-                    log::warn!("failed to find font with index {}", index);
                 }
             },
             Message::Paste(entity_opt) => {
@@ -551,7 +543,9 @@ impl Application for App {
                 self.tab_model.activate(entity);
                 return self.update_title();
             }
-            Message::TabClose(entity) => {
+            Message::TabClose(entity_opt) => {
+                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
+
                 // Activate closest item
                 if let Some(position) = self.tab_model.position(entity) {
                     if position > 0 {
@@ -640,7 +634,7 @@ impl Application for App {
                     }
                 }
                 TermEvent::Exit => {
-                    return self.update(Message::TabClose(entity));
+                    return self.update(Message::TabClose(Some(entity)));
                 }
                 TermEvent::PtyWrite(text) => {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
@@ -676,6 +670,9 @@ impl Application for App {
             Message::TermEventTx(term_event_tx) => {
                 self.term_event_tx_opt = Some(term_event_tx);
             }
+            Message::Todo(todo) => {
+                log::warn!("TODO: {}", todo);
+            }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
@@ -684,6 +681,32 @@ impl Application for App {
                     self.core.window.show_context = true;
                 }
                 self.set_context_title(context_page.title());
+            }
+            Message::WindowClose => {
+                return window::close(window::Id::MAIN);
+            }
+            Message::WindowNew => match env::current_exe() {
+                Ok(exe) => match process::Command::new(&exe).spawn() {
+                    Ok(_child) => {}
+                    Err(err) => {
+                        log::error!("failed to execute {:?}: {}", exe, err);
+                    }
+                },
+                Err(err) => {
+                    log::error!("failed to get current executable path: {}", err);
+                }
+            },
+            Message::ZoomIn => {
+                self.zoom_adj = self.zoom_adj.saturating_add(1);
+                return self.save_config();
+            }
+            Message::ZoomOut => {
+                self.zoom_adj = self.zoom_adj.saturating_sub(1);
+                return self.save_config();
+            }
+            Message::ZoomReset => {
+                self.zoom_adj = 0;
+                return self.save_config();
             }
         }
 
@@ -707,7 +730,8 @@ impl Application for App {
             widget::button(widget::icon::from_name("list-add-symbolic").size(16).icon())
                 .on_press(Message::TabNew)
                 .padding(space_xxs)
-                .style(style::Button::Icon)
+                .style(style::Button::Icon),
+            menu_bar(&self.config)
         ]
         .align_items(Alignment::Center)
         .into()]
@@ -741,7 +765,7 @@ impl Application for App {
                         .button_height(32)
                         .button_spacing(space_xxs)
                         .on_activate(Message::TabActivate)
-                        .on_close(Message::TabClose),
+                        .on_close(|entity| Message::TabClose(Some(entity))),
                 )
                 .style(style::Container::Background)
                 .width(Length::Fill),

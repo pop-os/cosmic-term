@@ -56,7 +56,7 @@ impl Config {
         let font_size = f32::from(self.font_size).max(1.0);
         let adj = f32::from(zoom_adj);
         let adj_step = f32::from(self.font_size_zoom_step_mul_100) / 100.0;
-        (font_size + adj*adj_step).max(1.0)
+        (font_size + adj * adj_step).max(1.0)
     }
 
     // Calculate metrics from font size
