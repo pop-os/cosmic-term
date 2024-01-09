@@ -474,7 +474,7 @@ where
                         status = Status::Captured;
                     }
                     _ => (),
-                }
+                },
                 (_, _, true, _) => {
                     // Ignore alt keys
                     //TODO: alt keys for control characters

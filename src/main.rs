@@ -14,8 +14,7 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
-        widget::row,
-        window, Alignment, Event, Length, Point,
+        window, Event, Length, Point,
     },
     style,
     widget::{self, segmented_button},
@@ -724,32 +723,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-
-        vec![row![
-            widget::button(widget::icon::from_name("list-add-symbolic").size(16).icon())
-                .on_press(Message::TabNew)
-                .padding(space_xxs)
-                .style(style::Button::Icon),
-            menu_bar(&self.config)
-        ]
-        .align_items(Alignment::Center)
-        .into()]
-    }
-
-    fn header_end(&self) -> Vec<Element<Self::Message>> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-
-        vec![row![widget::button(
-            widget::icon::from_name("preferences-system-symbolic")
-                .size(16)
-                .icon()
-        )
-        .on_press(Message::ToggleContextPage(ContextPage::Settings))
-        .padding(space_xxs)
-        .style(style::Button::Icon)]
-        .align_items(Alignment::Center)
-        .into()]
+        vec![menu_bar(&self.config).into()]
     }
 
     /// Creates a view after each update.
