@@ -177,9 +177,10 @@ impl Terminal {
 
         let mut options = Options::default();
         if cosmic_config.use_default_shell {
+            let shell = shlex::split(&cosmic_config.default_shell).unwrap();
             let shell = tty::Shell::new(
-                cosmic_config.default_shell.clone(),
-                cosmic_config.start_command.clone(),
+            shell[0].clone(),
+                shell[1..].into(),
             );
             options.shell = Some(shell);
         }

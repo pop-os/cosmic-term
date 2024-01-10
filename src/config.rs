@@ -42,7 +42,6 @@ pub struct Config {
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
     pub default_shell: String,
-    pub start_command: Vec<String>,
     pub use_default_shell: bool,
 }
 
@@ -61,7 +60,6 @@ impl Default for Config {
             syntax_theme_light: "COSMIC Light".to_string(),
             default_shell: String::new(),
             use_default_shell: false,
-            start_command: Vec::new(),
         }
     }
 }
