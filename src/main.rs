@@ -473,7 +473,8 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        core.window.content_container = false;
+        //TODO: fix window resizing interfering with scrolling when not using content container
+        //core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
         // Update font name from config

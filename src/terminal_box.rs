@@ -341,7 +341,7 @@ where
             renderer.fill_quad(
                 Quad {
                     bounds: scrollbar_rect + Vector::new(view_position.x, view_position.y),
-                    border_radius: 0.0.into(),
+                    border_radius: (scrollbar_w / 2.0).into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
                 },
