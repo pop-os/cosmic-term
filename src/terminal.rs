@@ -177,10 +177,11 @@ impl Terminal {
 
         let mut options = Options::default();
         if cosmic_config.use_default_shell {
-            let shell = shlex::split(&cosmic_config.default_shell).unwrap();
+            let mut shell = shlex::Shlex::new(&cosmic_config.default_shell);
+
             let shell = tty::Shell::new(
-            shell[0].clone(),
-                shell[1..].into(),
+            shell.next().unwrap(),
+                shell.collect(),
             );
             options.shell = Some(shell);
         }
