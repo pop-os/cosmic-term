@@ -878,7 +878,7 @@ impl Application for App {
                     }
                 }
                 _ => {
-                    println!("TODO: {:?}", event);
+                    log::warn!("TODO: {:?}", event);
                 }
             },
             Message::TermEventTx(term_event_tx) => {
