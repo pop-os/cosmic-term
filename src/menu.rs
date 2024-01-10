@@ -3,15 +3,19 @@
 use cosmic::{
     //TODO: export in cosmic::widget
     iced::{
-        widget::{column, horizontal_rule},
+        widget::{column, horizontal_rule, horizontal_space},
         Alignment, Background, Length,
     },
     theme,
-    widget::{self, segmented_button},
+    widget::{
+        self,
+        menu::{ItemHeight, ItemWidth, MenuBar, MenuTree},
+        segmented_button,
+    },
     Element,
 };
 
-use crate::{fl, Action, Config, Message};
+use crate::{fl, Action, Config, ContextPage, Message};
 
 macro_rules! menu_button {
     ($($x:expr),+ $(,)?) => (
@@ -73,5 +77,73 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
         }
     }))
     .width(Length::Fixed(240.0))
+    .into()
+}
+
+pub fn menu_bar<'a>(config: &Config) -> Element<'a, Message> {
+    //TODO: port to libcosmic
+    let menu_root = |label| {
+        widget::button(widget::text(label))
+            .padding([4, 12])
+            .style(theme::Button::MenuRoot)
+    };
+
+    let find_key = |message: &Message| -> String {
+        //TODO: hotkey config
+        String::new()
+    };
+
+    let menu_item = |label, message| {
+        let key = find_key(&message);
+        MenuTree::new(
+            menu_button!(
+                widget::text(label),
+                horizontal_space(Length::Fill),
+                widget::text(key)
+            )
+            .on_press(message),
+        )
+    };
+
+    let menu_key = |label, key, message| {
+        MenuTree::new(
+            menu_button!(widget::text(label), horizontal_space(Length::Fill), key)
+                .on_press(message),
+        )
+    };
+
+    MenuBar::new(vec![
+        MenuTree::with_children(
+            menu_root(fl!("file")),
+            vec![
+                menu_item(fl!("new-tab"), Message::TabNew),
+                menu_item(fl!("new-window"), Message::WindowNew),
+                MenuTree::new(horizontal_rule(1)),
+                menu_item(fl!("close-tab"), Message::TabClose(None)),
+                MenuTree::new(horizontal_rule(1)),
+                menu_item(fl!("quit"), Message::WindowClose),
+            ],
+        ),
+        MenuTree::with_children(
+            menu_root(fl!("edit")),
+            vec![
+                menu_item(fl!("copy"), Message::Copy(None)),
+                menu_item(fl!("paste"), Message::Paste(None)),
+                menu_item(fl!("select-all"), Message::SelectAll(None)),
+                MenuTree::new(horizontal_rule(1)),
+                menu_key(fl!("find"), "Ctrl + F", Message::Todo("find")),
+            ],
+        ),
+        MenuTree::with_children(
+            menu_root(fl!("view")),
+            vec![menu_item(
+                fl!("menu-settings"),
+                Message::ToggleContextPage(ContextPage::Settings),
+            )],
+        ),
+    ])
+    .item_height(ItemHeight::Dynamic(40))
+    .item_width(ItemWidth::Uniform(240))
+    .spacing(4.0)
     .into()
 }

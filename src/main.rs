@@ -14,15 +14,19 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
-        widget::row,
-        window, Alignment, Event, Length, Point,
+        window, Event, Length, Padding, Point,
     },
     style,
     widget::{self, segmented_button},
     Application, ApplicationExt, Element,
 };
-use cosmic_text::Family;
-use std::{any::TypeId, collections::HashMap, env, process, sync::Mutex};
+use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
+use std::{
+    any::TypeId,
+    collections::{BTreeMap, BTreeSet, HashMap},
+    env, process,
+    sync::Mutex,
+};
 use tokio::sync::mpsc;
 
 use config::{AppTheme, Config, CONFIG_VERSION};
@@ -30,12 +34,13 @@ mod config;
 
 mod localize;
 
+use menu::menu_bar;
 mod menu;
 
-use self::terminal::{Terminal, TerminalScroll};
+use terminal::{Terminal, TerminalScroll};
 mod terminal;
 
-use self::terminal_box::terminal_box;
+use terminal_box::terminal_box;
 mod terminal_box;
 
 mod terminal_theme;
@@ -140,26 +145,33 @@ pub enum Message {
     Copy(Option<segmented_button::Entity>),
     DefaultFont(usize),
     DefaultFontSize(usize),
-    ZoomIn,
-    ZoomOut,
-    ZoomReset,
+    DefaultFontStretch(usize),
+    DefaultFontWeight(usize),
+    DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
     ShowHeaderBar(bool),
-    SystemThemeModeChange(cosmic_theme::ThemeMode),
     SyntaxTheme(usize, bool),
+    SystemThemeModeChange(cosmic_theme::ThemeMode),
     TabActivate(segmented_button::Entity),
-    TabClose(segmented_button::Entity),
+    TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(segmented_button::Entity, Option<Point>),
     TabNew,
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
+    Todo(&'static str),
     ToggleContextPage(ContextPage),
     DefaultShell(String),
     UseDefaultShell(bool),
+    ShowAdvancedFontSettings(bool),
+    WindowClose,
+    WindowNew,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -185,6 +197,13 @@ pub struct App {
     font_names: Vec<String>,
     font_size_names: Vec<String>,
     font_sizes: Vec<u16>,
+    font_name_faces_map: BTreeMap<String, Vec<FaceInfo>>,
+    all_font_weights_vals_names_map: BTreeMap<u16, String>,
+    all_font_stretches_vals_names_map: BTreeMap<Stretch, String>,
+    curr_font_weight_names: Vec<String>,
+    curr_font_weights: Vec<u16>,
+    curr_font_stretch_names: Vec<String>,
+    curr_font_stretches: Vec<Stretch>,
     zoom_adj: i8,
     zoom_step_names: Vec<String>,
     zoom_steps: Vec<u16>,
@@ -193,6 +212,7 @@ pub struct App {
     context_page: ContextPage,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
     term_config: TermConfig,
+    show_advanced_font_settings: bool,
 }
 
 impl App {
@@ -235,6 +255,77 @@ impl App {
         self.set_window_title(window_title)
     }
 
+    fn set_curr_font_weights_and_stretches(&mut self) {
+        // check if config font_name is available first, if not, set it to first name in list
+        if !self.font_names.contains(&self.config.font_name) {
+            log::error!("'{}' is not in the font list", self.config.font_name);
+            log::error!("setting font name to '{}'", self.font_names[0]);
+            self.config.font_name = self.font_names[0].clone();
+            let _ = self.save_config();
+        }
+
+        let curr_font_faces = &self.font_name_faces_map[&self.config.font_name];
+
+        self.curr_font_stretches = curr_font_faces
+            .iter()
+            .map(|face| face.stretch)
+            .collect::<BTreeSet<_>>() // remove duplicates and sort
+            .into_iter()
+            .collect();
+
+        self.curr_font_stretch_names = self
+            .curr_font_stretches
+            .iter()
+            .map(|stretch| &self.all_font_stretches_vals_names_map[stretch])
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if !self
+            .curr_font_stretches
+            .contains(&self.config.typed_font_stretch())
+        {
+            self.config.font_stretch = Stretch::Normal.to_number();
+        }
+
+        let curr_weights = |conf_stretch| {
+            curr_font_faces
+                .iter()
+                .filter(|face| face.stretch == conf_stretch)
+                .map(|face| face.weight.0)
+                .collect::<BTreeSet<_>>() // remove duplicates and sort
+                .into_iter()
+                .collect()
+        };
+
+        self.curr_font_weights = curr_weights(self.config.typed_font_stretch());
+
+        if self.curr_font_weights.is_empty() {
+            // stretch fallback
+            self.config.font_stretch = Stretch::Normal.to_number();
+        }
+
+        self.curr_font_weights = curr_weights(self.config.typed_font_stretch());
+        assert!(!self.curr_font_weights.is_empty());
+
+        self.curr_font_weight_names = self
+            .curr_font_weights
+            .iter()
+            .map(|weight| &self.all_font_weights_vals_names_map[weight])
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if !self.curr_font_weights.contains(&self.config.font_weight) {
+            self.config.font_weight = Weight::NORMAL.0;
+        }
+
+        if !self
+            .curr_font_weights
+            .contains(&self.config.bold_font_weight)
+        {
+            self.config.bold_font_weight = Weight::BOLD.0;
+        }
+    }
+
     fn settings(&self) -> Element<Message> {
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
@@ -260,80 +351,143 @@ impl App {
             .font_sizes
             .iter()
             .position(|font_size| font_size == &self.config.font_size);
+        let font_stretch_selected = self
+            .curr_font_stretches
+            .iter()
+            .position(|font_stretch| font_stretch == &self.config.typed_font_stretch());
+        let font_weight_selected = self
+            .curr_font_weights
+            .iter()
+            .position(|font_weight| font_weight == &self.config.font_weight);
+        let bold_font_weight_selected = self
+            .curr_font_weights
+            .iter()
+            .position(|font_weight| font_weight == &self.config.bold_font_weight);
         let zoom_step_selected = self
             .zoom_steps
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
-        widget::settings::view_column(vec![
-            widget::settings::view_section(fl!("appearance"))
+
+        let advanced_font_settings = || {
+            let section = widget::settings::view_section("")
                 .add(
-                    widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
-                        &self.app_themes,
-                        Some(app_theme_selected),
-                        move |index| {
-                            Message::AppTheme(match index {
-                                1 => AppTheme::Dark,
-                                2 => AppTheme::Light,
-                                _ => AppTheme::System,
-                            })
-                        },
-                    )),
-                )
-                .add(
-                    widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
-                        &self.theme_names,
-                        dark_selected,
-                        move |index| Message::SyntaxTheme(index, true),
-                    )),
-                )
-                .add(
-                    widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
-                        &self.theme_names,
-                        light_selected,
-                        move |index| Message::SyntaxTheme(index, false),
-                    )),
-                )
-                .add(
-                    widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
-                        &self.font_names,
-                        font_selected,
-                        |index| Message::DefaultFont(index),
-                    )),
-                )
-                .add(
-                    widget::settings::item::builder(fl!("default-font-size")).control(
-                        widget::dropdown(&self.font_size_names, font_size_selected, |index| {
-                            Message::DefaultFontSize(index)
-                        }),
+                    widget::settings::item::builder(fl!("default-font-stretch")).control(
+                        widget::dropdown(
+                            &self.curr_font_stretch_names,
+                            font_stretch_selected,
+                            |index| Message::DefaultFontStretch(index),
+                        ),
                     ),
                 )
                 .add(
-                    widget::settings::item::builder(fl!("default-zoom-step")).control(
-                        widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
-                            Message::DefaultZoomStep(index)
-                        }),
+                    widget::settings::item::builder(fl!("default-font-weight")).control(
+                        widget::dropdown(
+                            &self.curr_font_weight_names,
+                            font_weight_selected,
+                            |index| Message::DefaultFontWeight(index),
+                        ),
                     ),
                 )
                 .add(
-                    widget::settings::item::builder(fl!("show-headerbar"))
-                        .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-                )
-                .into(),
-            widget::settings::view_section("Command")
-                .add(
-                    widget::settings::item::builder("Startup shell").control(
-                        cosmic::widget::inline_input(&self.config.default_shell)
-                            .on_input(Message::DefaultShell)
-                            .width(Length::Fixed(100.0)),
+                    widget::settings::item::builder(fl!("default-bold-font-weight")).control(
+                        widget::dropdown(
+                            &self.curr_font_weight_names,
+                            bold_font_weight_selected,
+                            |index| Message::DefaultBoldFontWeight(index),
+                        ),
                     ),
-                )
-                .add(
-                    widget::settings::item::builder("Use a custom startup shell")
-                        .toggler(self.config.use_default_shell, Message::UseDefaultShell),
-                )
-                .into(),
-        ])
-        .into()
+                );
+
+            let padding = Padding {
+                top: 0.0,
+                bottom: 0.0,
+                left: 12.0,
+                right: 12.0,
+            };
+
+            widget::container(section).padding(padding)
+        };
+
+        let mut settings_view = widget::settings::view_section(fl!("appearance"))
+            .add(
+                widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
+                    &self.app_themes,
+                    Some(app_theme_selected),
+                    move |index| {
+                        Message::AppTheme(match index {
+                            1 => AppTheme::Dark,
+                            2 => AppTheme::Light,
+                            _ => AppTheme::System,
+                        })
+                    },
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
+                    &self.theme_names,
+                    dark_selected,
+                    move |index| Message::SyntaxTheme(index, true),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
+                    &self.theme_names,
+                    light_selected,
+                    move |index| Message::SyntaxTheme(index, false),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
+                    &self.font_names,
+                    font_selected,
+                    |index| Message::DefaultFont(index),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
+                    self.show_advanced_font_settings,
+                    Message::ShowAdvancedFontSettings,
+                ),
+            );
+
+        if self.show_advanced_font_settings {
+            settings_view = settings_view.add(advanced_font_settings());
+        }
+
+        let settings_view = settings_view
+            .add(
+                widget::settings::item::builder(fl!("default-font-size")).control(
+                    widget::dropdown(&self.font_size_names, font_size_selected, |index| {
+                        Message::DefaultFontSize(index)
+                    }),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-zoom-step")).control(
+                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
+                        Message::DefaultZoomStep(index)
+                    }),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            );
+
+        let command_view = widget::settings::view_section("Command")
+            .add(
+                widget::settings::item::builder("Startup shell").control(
+                    cosmic::widget::inline_input(&self.config.default_shell)
+                        .on_input(Message::DefaultShell)
+                        .width(Length::Fixed(100.0)),
+                ),
+            )
+            .add(
+                widget::settings::item::builder("Use a custom startup shell")
+                    .toggler(self.config.use_default_shell, Message::UseDefaultShell),
+            );
+
+        widget::settings::view_column(vec![settings_view.into(), command_view.into()]).into()
     }
 }
 
@@ -375,24 +529,41 @@ impl Application for App {
 
         let app_themes = vec![fl!("match-desktop"), fl!("dark"), fl!("light")];
 
-        let font_names = {
-            let mut font_names = Vec::new();
+        let font_name_faces_map = {
+            let mut font_name_faces_map = BTreeMap::<_, Vec<_>>::new();
             let mut font_system = font_system().write().unwrap();
             //TODO: do not repeat, used in Tab::new
-            let attrs = cosmic_text::Attrs::new().family(Family::Monospace);
             for face in font_system.raw().db().faces() {
-                if attrs.matches(face) && face.monospaced {
+                // only monospace fonts and weights that match named constants.
+                let weight = face.weight.0;
+                if face.monospaced && { 1..9 }.contains(&{ weight / 100 }) && weight % 100 == 0 {
                     //TODO: get localized name if possible
                     let font_name = face
                         .families
                         .get(0)
                         .map_or_else(|| face.post_script_name.to_string(), |x| x.0.to_string());
-                    font_names.push(font_name);
+                    font_name_faces_map
+                        .entry(font_name)
+                        .or_default()
+                        .push(face.clone());
                 }
             }
-            font_names.sort();
-            font_names
+
+            // only keep fonts that have both NORMAL and BOLD weights with both having
+            // a `Stretch::Normal` face.
+            // This is important for fallbacks.
+            font_name_faces_map.retain(|_, v| {
+                let has_normal = v
+                    .iter()
+                    .any(|face| face.weight == Weight::NORMAL && face.stretch == Stretch::Normal);
+                let has_bold = v
+                    .iter()
+                    .any(|face| face.weight == Weight::BOLD && face.stretch == Stretch::Normal);
+                has_normal && has_bold
+            });
+            font_name_faces_map
         };
+        let font_names = font_name_faces_map.keys().cloned().collect();
 
         let mut font_size_names = Vec::new();
         let mut font_sizes = Vec::new();
@@ -400,6 +571,42 @@ impl Application for App {
             font_size_names.push(format!("{}px", font_size));
             font_sizes.push(font_size);
         }
+
+        let mut all_font_weights_vals_names_map = BTreeMap::new();
+
+        macro_rules! populate_font_weights {
+            ($($weight:ident,)+) => {
+                // all weights
+                paste::paste!{
+                    $(
+                        all_font_weights_vals_names_map
+                            .insert(Weight::$weight.0, stringify!([<$weight:camel>]).into());
+                    )+
+                }
+            };
+        }
+
+        populate_font_weights! {
+            THIN, EXTRA_LIGHT, LIGHT, NORMAL, MEDIUM,
+            SEMIBOLD, BOLD, EXTRA_BOLD, BLACK,
+        };
+
+        let mut all_font_stretches_vals_names_map = BTreeMap::new();
+
+        macro_rules! populate_font_stretches {
+            ($($stretch:ident,)+) => {
+                // all stretches
+                $(
+                    all_font_stretches_vals_names_map
+                        .insert(Stretch::$stretch, stringify!($stretch).into());
+                )+
+            };
+        }
+
+        populate_font_stretches! {
+            UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
+            Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
+        };
 
         let mut zoom_step_names = Vec::new();
         let mut zoom_steps = Vec::new();
@@ -421,6 +628,13 @@ impl Application for App {
             font_names,
             font_size_names,
             font_sizes,
+            font_name_faces_map,
+            all_font_weights_vals_names_map,
+            all_font_stretches_vals_names_map,
+            curr_font_weight_names: Vec::new(),
+            curr_font_weights: Vec::new(),
+            curr_font_stretch_names: Vec::new(),
+            curr_font_stretches: Vec::new(),
             zoom_adj: 0,
             zoom_step_names,
             zoom_steps,
@@ -429,8 +643,10 @@ impl Application for App {
             context_page: ContextPage::Settings,
             term_config: flags.term_config,
             term_event_tx_opt: None,
+            show_advanced_font_settings: false,
         };
 
+        app.set_curr_font_weights_and_stretches();
         let command = app.update_title();
 
         (app, command)
@@ -490,6 +706,8 @@ impl Application for App {
                             }
 
                             self.config.font_name = font_name.to_string();
+                            self.set_curr_font_weights_and_stretches();
+
                             return self.save_config();
                         }
                     }
@@ -498,28 +716,6 @@ impl Application for App {
                     }
                 }
             }
-            Message::ZoomIn => {
-                self.zoom_adj = self.zoom_adj.saturating_add(1);
-                return self.save_config();
-            }
-            Message::ZoomOut => {
-                self.zoom_adj = self.zoom_adj.saturating_sub(1);
-                return self.save_config();
-            }
-            Message::ZoomReset => {
-                self.zoom_adj = 0;
-                return self.save_config();
-            }
-            Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
-                Some(zoom_step) => {
-                    self.config.font_size_zoom_step_mul_100 = *zoom_step;
-                    self.zoom_adj = 0; // reset zoom
-                    return self.save_config();
-                }
-                None => {
-                    log::warn!("failed to find zoom step with index {}", index);
-                }
-            },
             Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
                 Some(font_size) => {
                     self.config.font_size = *font_size;
@@ -528,6 +724,44 @@ impl Application for App {
                 }
                 None => {
                     log::warn!("failed to find font with index {}", index);
+                }
+            },
+            Message::DefaultFontStretch(index) => match self.curr_font_stretches.get(index) {
+                Some(font_stretch) => {
+                    self.config.font_stretch = font_stretch.to_number();
+                    self.set_curr_font_weights_and_stretches();
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find font weight with index {}", index);
+                }
+            },
+            Message::DefaultFontWeight(index) => match self.curr_font_weights.get(index) {
+                Some(font_weight) => {
+                    self.config.font_weight = *font_weight;
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find font weight with index {}", index);
+                }
+            },
+            Message::DefaultBoldFontWeight(index) => match self.curr_font_weights.get(index) {
+                Some(font_weight) => {
+                    self.config.bold_font_weight = *font_weight;
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find bold font weight with index {}", index);
+                }
+            },
+            Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
+                Some(zoom_step) => {
+                    self.config.font_size_zoom_step_mul_100 = *zoom_step;
+                    self.zoom_adj = 0; // reset zoom
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find zoom step with index {}", index);
                 }
             },
             Message::Paste(entity_opt) => {
@@ -576,7 +810,9 @@ impl Application for App {
                 self.tab_model.activate(entity);
                 return self.update_title();
             }
-            Message::TabClose(entity) => {
+            Message::TabClose(entity_opt) => {
+                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
+
                 // Activate closest item
                 if let Some(position) = self.tab_model.position(entity) {
                     if position > 0 {
@@ -634,6 +870,9 @@ impl Application for App {
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
+                            self.config.typed_font_stretch(),
+                            self.config.font_weight,
+                            self.config.bold_font_weight,
                             colors.clone(),
                             &self.config,
                         );
@@ -666,7 +905,7 @@ impl Application for App {
                     }
                 }
                 TermEvent::Exit => {
-                    return self.update(Message::TabClose(entity));
+                    return self.update(Message::TabClose(Some(entity)));
                 }
                 TermEvent::PtyWrite(text) => {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
@@ -692,7 +931,7 @@ impl Application for App {
                 TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
                     if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.update();
+                        terminal.needs_update = true;
                     }
                 }
                 _ => {
@@ -702,6 +941,9 @@ impl Application for App {
             Message::TermEventTx(term_event_tx) => {
                 self.term_event_tx_opt = Some(term_event_tx);
             }
+            Message::Todo(todo) => {
+                log::warn!("TODO: {}", todo);
+            }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
@@ -710,6 +952,35 @@ impl Application for App {
                     self.core.window.show_context = true;
                 }
                 self.set_context_title(context_page.title());
+            }
+            Message::ShowAdvancedFontSettings(show) => {
+                self.show_advanced_font_settings = show;
+            }
+            Message::WindowClose => {
+                return window::close(window::Id::MAIN);
+            }
+            Message::WindowNew => match env::current_exe() {
+                Ok(exe) => match process::Command::new(&exe).spawn() {
+                    Ok(_child) => {}
+                    Err(err) => {
+                        log::error!("failed to execute {:?}: {}", exe, err);
+                    }
+                },
+                Err(err) => {
+                    log::error!("failed to get current executable path: {}", err);
+                }
+            },
+            Message::ZoomIn => {
+                self.zoom_adj = self.zoom_adj.saturating_add(1);
+                return self.save_config();
+            }
+            Message::ZoomOut => {
+                self.zoom_adj = self.zoom_adj.saturating_sub(1);
+                return self.save_config();
+            }
+            Message::ZoomReset => {
+                self.zoom_adj = 0;
+                return self.save_config();
             }
         }
 
@@ -727,31 +998,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-
-        vec![row![
-            widget::button(widget::icon::from_name("list-add-symbolic").size(16).icon())
-                .on_press(Message::TabNew)
-                .padding(space_xxs)
-                .style(style::Button::Icon)
-        ]
-        .align_items(Alignment::Center)
-        .into()]
-    }
-
-    fn header_end(&self) -> Vec<Element<Self::Message>> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-
-        vec![row![widget::button(
-            widget::icon::from_name("preferences-system-symbolic")
-                .size(16)
-                .icon()
-        )
-        .on_press(Message::ToggleContextPage(ContextPage::Settings))
-        .padding(space_xxs)
-        .style(style::Button::Icon)]
-        .align_items(Alignment::Center)
-        .into()]
+        vec![menu_bar(&self.config).into()]
     }
 
     /// Creates a view after each update.
@@ -767,7 +1014,7 @@ impl Application for App {
                         .button_height(32)
                         .button_spacing(space_xxs)
                         .on_activate(Message::TabActivate)
-                        .on_close(Message::TabClose),
+                        .on_close(|entity| Message::TabClose(Some(entity))),
                 )
                 .style(style::Container::Background)
                 .width(Length::Fill),

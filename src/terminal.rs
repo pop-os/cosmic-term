@@ -16,7 +16,7 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Stretch, Wrap,
 };
 use std::{
     borrow::Cow,
@@ -121,8 +121,10 @@ pub struct Terminal {
     size: Size,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
+    bold_font_weight: Weight,
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
+    pub needs_update: bool,
 }
 
 impl Terminal {
@@ -131,6 +133,9 @@ impl Terminal {
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
         config: Config,
+        font_stretch: Stretch,
+        font_weight: u16,
+        bold_font_weight: u16,
         colors: Colors,
         cosmic_config: &crate::config::Config,
     ) -> Self {
@@ -138,6 +143,8 @@ impl Terminal {
         //TODO: set color to default fg
         let default_attrs = Attrs::new()
             .family(Family::Monospace)
+            .weight(Weight(font_weight))
+            .stretch(font_stretch)
             .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
             .metadata(convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize);
         let mut buffer = Buffer::new_empty(metrics);
@@ -185,12 +192,14 @@ impl Terminal {
 
         Self {
             colors,
+            bold_font_weight: Weight(bold_font_weight),
             default_attrs,
             buffer: Arc::new(buffer),
             size,
             term,
             notifier,
             context_menu: None,
+            needs_update: true,
         }
     }
 
@@ -334,6 +343,22 @@ impl Terminal {
         let mut update_cell_size = false;
         let mut update = false;
 
+        if self.default_attrs.stretch != config.typed_font_stretch() {
+            self.default_attrs =  self.default_attrs.stretch(config.typed_font_stretch());
+            update_cell_size = true;
+        }
+
+        if self.default_attrs.weight.0 != config.font_weight {
+            self.default_attrs =  self.default_attrs.weight(Weight(config.font_weight));
+            update_cell_size = true;
+        }
+
+
+        if self.bold_font_weight.0 != config.font_weight {
+            self.bold_font_weight = Weight(config.bold_font_weight);
+            update_cell_size = true;
+        }
+
         let metrics = config.metrics(zoom_adj);
         if metrics != self.buffer.metrics() {
             {
@@ -354,6 +379,8 @@ impl Terminal {
             if changed {
                 self.default_attrs = Attrs::new()
                     .family(Family::Monospace)
+                    .weight(Weight(config.font_weight))
+                    .stretch(config.typed_font_stretch())
                     .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
                     .metadata(
                         convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize,
@@ -482,7 +509,7 @@ impl Terminal {
                     attrs = attrs.metadata(bg.0 as usize);
                     //TODO: more flags
                     if indexed.cell.flags.contains(Flags::BOLD) {
-                        attrs = attrs.weight(Weight::BOLD);
+                        attrs = attrs.weight(self.bold_font_weight);
                     }
                     if indexed.cell.flags.contains(Flags::ITALIC) {
                         //TODO: automatically use fake italic
