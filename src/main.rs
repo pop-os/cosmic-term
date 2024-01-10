@@ -21,7 +21,7 @@ use cosmic::{
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{Family, Weight, Stretch, fontdb::FaceInfo};
-use std::{any::TypeId, collections::{HashMap, BTreeMap, BTreeSet}, env, process, sync::Mutex};
+use std::{any::TypeId, collections::{HashMap, BTreeMap, BTreeSet}, env, process, sync::Mutex, time::Duration};
 use tokio::sync::mpsc;
 
 use config::{AppTheme, Config, CONFIG_VERSION};
@@ -1083,6 +1083,10 @@ impl Application for App {
                 |mut output| async move {
                     let (event_tx, mut event_rx) = mpsc::channel(100);
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
+
+
+                    // Avoid creating two tabs at startup
+                    tokio::time::sleep(Duration::from_millis(50)).await;
 
                     // Create first terminal tab
                     output.send(Message::TabNew).await.unwrap();
