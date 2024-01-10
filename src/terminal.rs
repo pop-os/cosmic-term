@@ -433,6 +433,12 @@ impl Terminal {
     }
 
     pub fn update(&mut self) -> bool {
+        // LEFT‑TO‑RIGHT ISOLATE character.
+        // This will be added to the beginning of lines to force the shaper to treat detected RTL
+        // lines as LTR. RTL text would still be rendered correctly. But this fixes the wrong
+        // behavior of it being aligned to the right.
+        const LRI:char = '\u{2066}';
+
         let instant = Instant::now();
 
         //TODO: is redraw needed after all events?
@@ -442,7 +448,7 @@ impl Terminal {
 
             let mut line_i = 0;
             let mut last_point = None;
-            let mut text = String::new();
+            let mut text = String::from(LRI);
             let mut attrs_list = AttrsList::new(self.default_attrs);
             {
                 let term = self.term.lock();
@@ -464,6 +470,7 @@ impl Terminal {
                         line_i += 1;
 
                         text.clear();
+                        text.push(LRI);
                         attrs_list.clear_spans();
                     }
                     //TODO: use indexed.point.column?
