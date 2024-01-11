@@ -2,7 +2,7 @@ use alacritty_terminal::{
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
-    index::{Column, Direction, Line, Point, Side},
+    index::{Boundary, Column, Direction, Line, Point, Side},
     selection::{Selection, SelectionType},
     sync::FairMutex,
     term::{
@@ -353,20 +353,21 @@ impl Terminal {
             };
 
             // Determine search origin
+            let grid = term.grid();
             let search_origin = match term
                 .selection
                 .as_ref()
                 .and_then(|selection| selection.to_range(&term))
             {
                 Some(range) => {
+                    //TODO: determine correct search_origin, along with side below
                     if forwards {
-                        range.end
+                        range.end.add(grid, Boundary::Grid, 1)
                     } else {
-                        range.start
+                        range.start.sub(grid, Boundary::Grid, 1)
                     }
                 }
                 None => {
-                    let grid = term.grid();
                     if forwards {
                         Point::new(Line(-(grid.history_size() as i32)), Column(0))
                     } else {
@@ -387,6 +388,7 @@ impl Terminal {
                 } else {
                     Direction::Left
                 },
+                //TODO: determine correct side, along with search_origin above
                 if forwards { Side::Left } else { Side::Right },
                 None,
             ) {
