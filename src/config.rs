@@ -4,11 +4,11 @@ use cosmic::{
     cosmic_config::{self, cosmic_config_derive::CosmicConfigEntry, CosmicConfigEntry},
     theme,
 };
-use cosmic_text::{Metrics, Weight, Stretch};
+use cosmic_text::{Metrics, Stretch, Weight};
 use serde::{Deserialize, Serialize};
 
-use std::sync::OnceLock;
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 pub const CONFIG_VERSION: u64 = 1;
 
@@ -99,7 +99,7 @@ impl Config {
         static NUM_TO_TYPED_MAP: OnceLock<BTreeMap<u16, Stretch>> = OnceLock::new();
 
         NUM_TO_TYPED_MAP.get_or_init(|| {
-            populate_num_typed_map!{
+            populate_num_typed_map! {
                 UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
                 Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
             }

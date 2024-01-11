@@ -14,14 +14,20 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
-        window, Event, Length, Point, Padding,
+        window, Event, Length, Padding, Point,
     },
     style,
     widget::{self, segmented_button},
     Application, ApplicationExt, Element,
 };
-use cosmic_text::{Family, Weight, Stretch, fontdb::FaceInfo};
-use std::{any::TypeId, collections::{HashMap, BTreeMap, BTreeSet}, env, process, sync::Mutex, time::Duration};
+use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
+use std::{
+    any::TypeId,
+    collections::{BTreeMap, BTreeSet, HashMap},
+    env, process,
+    sync::Mutex,
+    time::Duration,
+};
 use tokio::sync::mpsc;
 
 use config::{AppTheme, Config, CONFIG_VERSION};
@@ -267,34 +273,43 @@ impl App {
             .into_iter()
             .collect();
 
-        self.curr_font_stretch_names = self.curr_font_stretches.iter()
+        self.curr_font_stretch_names = self
+            .curr_font_stretches
+            .iter()
             .map(|stretch| &self.all_font_stretches_vals_names_map[stretch])
             .cloned()
             .collect::<Vec<_>>();
 
-        if !self.curr_font_stretches.contains(&self.config.typed_font_stretch()) {
+        if !self
+            .curr_font_stretches
+            .contains(&self.config.typed_font_stretch())
+        {
             self.config.font_stretch = Stretch::Normal.to_number();
         }
 
-        let curr_weights = |conf_stretch| curr_font_faces
-            .iter()
-            .filter(|face| face.stretch == conf_stretch)
-            .map(|face| face.weight.0)
-            .collect::<BTreeSet<_>>() // remove duplicates and sort
-            .into_iter()
-            .collect();
+        let curr_weights = |conf_stretch| {
+            curr_font_faces
+                .iter()
+                .filter(|face| face.stretch == conf_stretch)
+                .map(|face| face.weight.0)
+                .collect::<BTreeSet<_>>() // remove duplicates and sort
+                .into_iter()
+                .collect()
+        };
 
         self.curr_font_weights = curr_weights(self.config.typed_font_stretch());
 
         if self.curr_font_weights.is_empty() {
             // stretch fallback
-            self.config.font_stretch =  Stretch::Normal.to_number();
+            self.config.font_stretch = Stretch::Normal.to_number();
         }
 
         self.curr_font_weights = curr_weights(self.config.typed_font_stretch());
         assert!(!self.curr_font_weights.is_empty());
 
-        self.curr_font_weight_names = self.curr_font_weights.iter()
+        self.curr_font_weight_names = self
+            .curr_font_weights
+            .iter()
             .map(|weight| &self.all_font_weights_vals_names_map[weight])
             .cloned()
             .collect::<Vec<_>>();
@@ -303,7 +318,10 @@ impl App {
             self.config.font_weight = Weight::NORMAL.0;
         }
 
-        if !self.curr_font_weights.contains(&self.config.bold_font_weight) {
+        if !self
+            .curr_font_weights
+            .contains(&self.config.bold_font_weight)
+        {
             self.config.bold_font_weight = Weight::BOLD.0;
         }
     }
@@ -354,23 +372,29 @@ impl App {
             let section = widget::settings::view_section("")
                 .add(
                     widget::settings::item::builder(fl!("default-font-stretch")).control(
-                        widget::dropdown(&self.curr_font_stretch_names, font_stretch_selected, |index| {
-                            Message::DefaultFontStretch(index)
-                        }),
+                        widget::dropdown(
+                            &self.curr_font_stretch_names,
+                            font_stretch_selected,
+                            |index| Message::DefaultFontStretch(index),
+                        ),
                     ),
                 )
                 .add(
                     widget::settings::item::builder(fl!("default-font-weight")).control(
-                        widget::dropdown(&self.curr_font_weight_names, font_weight_selected, |index| {
-                            Message::DefaultFontWeight(index)
-                        }),
+                        widget::dropdown(
+                            &self.curr_font_weight_names,
+                            font_weight_selected,
+                            |index| Message::DefaultFontWeight(index),
+                        ),
                     ),
                 )
                 .add(
                     widget::settings::item::builder(fl!("default-bold-font-weight")).control(
-                        widget::dropdown(&self.curr_font_weight_names, bold_font_weight_selected, |index| {
-                            Message::DefaultBoldFontWeight(index)
-                        }),
+                        widget::dropdown(
+                            &self.curr_font_weight_names,
+                            bold_font_weight_selected,
+                            |index| Message::DefaultBoldFontWeight(index),
+                        ),
                     ),
                 );
             let padding = Padding {
@@ -418,8 +442,10 @@ impl App {
                 )),
             )
             .add(
-                widget::settings::item::builder(fl!("advanced-font-settings"))
-                    .toggler(self.show_advanced_font_settings, Message::ShowAdvancedFontSettings),
+                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
+                    self.show_advanced_font_settings,
+                    Message::ShowAdvancedFontSettings,
+                ),
             );
 
         if self.show_advanced_font_settings {
@@ -500,13 +526,16 @@ impl Application for App {
             for face in font_system.raw().db().faces() {
                 // only monospace fonts and weights that match named constants.
                 let weight = face.weight.0;
-                if face.monospaced && {1..9}.contains(&{weight / 100}) && weight % 100 == 0 {
+                if face.monospaced && { 1..9 }.contains(&{ weight / 100 }) && weight % 100 == 0 {
                     //TODO: get localized name if possible
                     let font_name = face
                         .families
                         .get(0)
                         .map_or_else(|| face.post_script_name.to_string(), |x| x.0.to_string());
-                    font_name_faces_map.entry(font_name).or_default().push(face.clone());
+                    font_name_faces_map
+                        .entry(font_name)
+                        .or_default()
+                        .push(face.clone());
                 }
             }
 
@@ -514,8 +543,12 @@ impl Application for App {
             // a `Stretch::Normal` face.
             // This is important for fallbacks.
             font_name_faces_map.retain(|_, v| {
-                let has_normal = v.iter().any(|face| face.weight == Weight::NORMAL && face.stretch == Stretch::Normal);
-                let has_bold = v.iter().any(|face| face.weight == Weight::BOLD && face.stretch == Stretch::Normal);
+                let has_normal = v
+                    .iter()
+                    .any(|face| face.weight == Weight::NORMAL && face.stretch == Stretch::Normal);
+                let has_bold = v
+                    .iter()
+                    .any(|face| face.weight == Weight::BOLD && face.stretch == Stretch::Normal);
                 has_normal && has_bold
             });
             font_name_faces_map
@@ -543,12 +576,12 @@ impl Application for App {
             };
         }
 
-        populate_font_weights!{
+        populate_font_weights! {
             THIN, EXTRA_LIGHT, LIGHT, NORMAL, MEDIUM,
             SEMIBOLD, BOLD, EXTRA_BOLD, BLACK,
         };
 
-        let mut all_font_stretches_vals_names_map= BTreeMap::new();
+        let mut all_font_stretches_vals_names_map = BTreeMap::new();
 
         macro_rules! populate_font_stretches {
             ($($stretch:ident,)+) => {
@@ -560,7 +593,7 @@ impl Application for App {
             };
         }
 
-        populate_font_stretches!{
+        populate_font_stretches! {
             UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
             Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
         };
@@ -907,7 +940,7 @@ impl Application for App {
             }
             Message::ShowAdvancedFontSettings(show) => {
                 self.show_advanced_font_settings = show;
-            },
+            }
             Message::WindowClose => {
                 return window::close(window::Id::MAIN);
             }
@@ -1093,7 +1126,6 @@ impl Application for App {
                 |mut output| async move {
                     let (event_tx, mut event_rx) = mpsc::channel(100);
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
-
 
                     // Avoid creating two tabs at startup
                     tokio::time::sleep(Duration::from_millis(50)).await;

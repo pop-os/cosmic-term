@@ -16,7 +16,7 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Stretch, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
 };
 use std::{
     borrow::Cow,
@@ -349,15 +349,14 @@ impl Terminal {
         let mut update = false;
 
         if self.default_attrs.stretch != config.typed_font_stretch() {
-            self.default_attrs =  self.default_attrs.stretch(config.typed_font_stretch());
+            self.default_attrs = self.default_attrs.stretch(config.typed_font_stretch());
             update_cell_size = true;
         }
 
         if self.default_attrs.weight.0 != config.font_weight {
-            self.default_attrs =  self.default_attrs.weight(Weight(config.font_weight));
+            self.default_attrs = self.default_attrs.weight(Weight(config.font_weight));
             update_cell_size = true;
         }
-
 
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
@@ -437,7 +436,7 @@ impl Terminal {
         // This will be added to the beginning of lines to force the shaper to treat detected RTL
         // lines as LTR. RTL text would still be rendered correctly. But this fixes the wrong
         // behavior of it being aligned to the right.
-        const LRI:char = '\u{2066}';
+        const LRI: char = '\u{2066}';
 
         let instant = Instant::now();
 
@@ -492,11 +491,12 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
-                    let cell_fg = if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
-                        as_bright(indexed.cell.fg)
-                    } else {
-                        indexed.cell.fg
-                    };
+                    let cell_fg =
+                        if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
+                            as_bright(indexed.cell.fg)
+                        } else {
+                            indexed.cell.fg
+                        };
 
                     let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
                         (

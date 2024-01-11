@@ -6,6 +6,7 @@ use alacritty_terminal::{
     term::TermMode,
 };
 use cosmic::{
+    cosmic_theme::palette::{blend::Compose, WithAlpha},
     iced::{
         advanced::graphics::text::{font_system, Raw},
         event::{Event, Status},
@@ -15,13 +16,14 @@ use cosmic::{
     },
     iced_core::{
         clipboard::Clipboard,
-        image,
         layout::{self, Layout},
-        renderer::{self, Quad},
-        text,
+        renderer::{self, Quad, Renderer as _},
+        text::Renderer as _,
         widget::{self, tree, Widget},
         Shell,
     },
+    theme::Theme,
+    Renderer,
 };
 use cosmic_text::LayoutGlyph;
 use std::{
@@ -86,11 +88,9 @@ where
     TerminalBox::new(terminal)
 }
 
-impl<'a, Message, Renderer> Widget<Message, Renderer> for TerminalBox<'a, Message>
+impl<'a, Message> Widget<Message, Renderer> for TerminalBox<'a, Message>
 where
     Message: Clone,
-    Renderer:
-        renderer::Renderer + image::Renderer<Handle = image::Handle> + text::Renderer<Raw = Raw>,
 {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
@@ -182,18 +182,18 @@ where
         &self,
         tree: &widget::Tree,
         renderer: &mut Renderer,
-        _theme: &Renderer::Theme,
+        theme: &Theme,
         _style: &renderer::Style,
         layout: Layout<'_>,
-        _cursor_position: mouse::Cursor,
+        cursor_position: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         let instant = Instant::now();
 
         let state = tree.state.downcast_ref::<State>();
 
-        //TODO: make this configurable
-        let scrollbar_w = 8.0;
+        let cosmic_theme = theme.cosmic();
+        let scrollbar_w = cosmic_theme.spacing.space_xxs as f32;
 
         let view_position =
             layout.position() + [self.padding.left as f32, self.padding.top as f32].into();
@@ -334,19 +334,68 @@ where
                 [view_w as f32, scrollbar_y].into(),
                 Size::new(scrollbar_w, scrollbar_h),
             );
-            let scrollbar_alpha = match &state.dragging {
-                Some(Dragging::Scrollbar { .. }) => 0.5,
-                _ => 0.25,
+
+            let pressed = match &state.dragging {
+                Some(Dragging::Scrollbar { .. }) => true,
+                _ => false,
             };
+
+            let mut hover = false;
+            if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                let x = p.x - self.padding.left;
+                let y = p.y - self.padding.top;
+                if x >= scrollbar_rect.x && x < (scrollbar_rect.x + scrollbar_rect.width) {
+                    hover = true;
+                }
+            }
+
+            let mut scrollbar_draw = scrollbar_rect + Vector::new(view_position.x, view_position.y);
+            if !hover && !pressed {
+                // Decrease draw width and keep centered when not hovered or pressed
+                scrollbar_draw.width /= 2.0;
+                scrollbar_draw.x += scrollbar_draw.width / 2.0;
+            }
+
+            // neutral_6, 0.7
+            let base_color = cosmic_theme
+                .palette
+                .neutral_6
+                .without_alpha()
+                .with_alpha(0.7);
+            let scrollbar_color: Color = if pressed {
+                // pressed_state_color, 0.5
+                cosmic_theme
+                    .background
+                    .component
+                    .pressed
+                    .without_alpha()
+                    .with_alpha(0.5)
+                    .over(base_color)
+                    .into()
+            } else if hover {
+                // hover_state_color, 0.2
+                cosmic_theme
+                    .background
+                    .component
+                    .hover
+                    .without_alpha()
+                    .with_alpha(0.2)
+                    .over(base_color)
+                    .into()
+            } else {
+                base_color.into()
+            };
+
             renderer.fill_quad(
                 Quad {
-                    bounds: scrollbar_rect + Vector::new(view_position.x, view_position.y),
-                    border_radius: (scrollbar_w / 2.0).into(),
+                    bounds: scrollbar_draw,
+                    border_radius: (scrollbar_draw.width / 2.0).into(),
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
                 },
-                Color::new(1.0, 1.0, 1.0, scrollbar_alpha),
+                scrollbar_color,
             );
+
             state.scrollbar_rect.set(scrollbar_rect);
         } else {
             state.scrollbar_rect.set(Rectangle::default())
@@ -728,14 +777,16 @@ where
                         } else if x >= scrollbar_rect.x
                             && x < (scrollbar_rect.x + scrollbar_rect.width)
                         {
-                            if let Some(start_scroll) = terminal.scrollbar() {
+                            if terminal.scrollbar().is_some() {
                                 let scroll_ratio =
                                     terminal.with_buffer(|buffer| y / buffer.size().1);
                                 terminal.scroll_to(scroll_ratio);
-                                state.dragging = Some(Dragging::Scrollbar {
-                                    start_y: y,
-                                    start_scroll,
-                                });
+                                if let Some(start_scroll) = terminal.scrollbar() {
+                                    state.dragging = Some(Dragging::Scrollbar {
+                                        start_y: y,
+                                        start_scroll,
+                                    });
+                                }
                             }
                         }
                     }
@@ -838,11 +889,9 @@ where
     }
 }
 
-impl<'a, Message, Renderer> From<TerminalBox<'a, Message>> for Element<'a, Message, Renderer>
+impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, Renderer>
 where
     Message: Clone + 'a,
-    Renderer:
-        renderer::Renderer + image::Renderer<Handle = image::Handle> + text::Renderer<Raw = Raw>,
 {
     fn from(terminal_box: TerminalBox<'a, Message>) -> Self {
         Self::new(terminal_box)
