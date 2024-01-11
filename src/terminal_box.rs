@@ -19,7 +19,11 @@ use cosmic::{
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
         text::Renderer as _,
-        widget::{self, tree, Widget},
+        widget::{
+            self,
+            operation::{self, Operation, OperationOutputWrapper},
+            tree, Id, Widget,
+        },
         Shell,
     },
     theme::Theme,
@@ -37,6 +41,7 @@ use crate::{Terminal, TerminalScroll};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
+    id: Option<Id>,
     padding: Padding,
     click_timing: Duration,
     context_menu: Option<Point>,
@@ -50,11 +55,17 @@ where
     pub fn new(terminal: &'a Mutex<Terminal>) -> Self {
         Self {
             terminal,
+            id: None,
             padding: Padding::new(0.0),
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
         }
+    }
+
+    pub fn id(mut self, id: Id) -> Self {
+        self.id = Some(id);
+        self
     }
 
     pub fn padding<P: Into<Padding>>(mut self, padding: P) -> Self {
@@ -147,6 +158,18 @@ where
 
             layout::Node::new(limits.resolve(size))
         })
+    }
+
+    fn operate(
+        &self,
+        tree: &mut widget::Tree,
+        _layout: Layout<'_>,
+        _renderer: &Renderer,
+        operation: &mut dyn Operation<OperationOutputWrapper<Message>>,
+    ) {
+        let state = tree.state.downcast_mut::<State>();
+
+        operation.focusable(state, self.id.as_ref());
     }
 
     fn mouse_interaction(
@@ -427,7 +450,7 @@ where
             Event::Keyboard(KeyEvent::KeyPressed {
                 key_code,
                 modifiers,
-            }) => match (
+            }) if state.is_focused => match (
                 modifiers.logo(),
                 modifiers.control(),
                 modifiers.alt(),
@@ -670,7 +693,7 @@ where
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
             }
-            Event::Keyboard(KeyEvent::CharacterReceived(character)) => {
+            Event::Keyboard(KeyEvent::CharacterReceived(character)) if state.is_focused => {
                 match (
                     state.modifiers.logo(),
                     state.modifiers.control(),
@@ -717,6 +740,8 @@ where
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    state.is_focused = true;
+
                     // Handle left click drag
                     if let Button::Left = button {
                         let x = p.x - self.padding.left;
@@ -915,6 +940,7 @@ pub struct State {
     modifiers: Modifiers,
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
+    is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
 }
@@ -926,8 +952,23 @@ impl State {
             modifiers: Modifiers::empty(),
             click: None,
             dragging: None,
+            is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
         }
+    }
+}
+
+impl operation::Focusable for State {
+    fn is_focused(&self) -> bool {
+        self.is_focused
+    }
+
+    fn focus(&mut self) {
+        self.is_focused = true;
+    }
+
+    fn unfocus(&mut self) {
+        self.is_focused = false;
     }
 }

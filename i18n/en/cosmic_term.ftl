@@ -20,6 +20,11 @@ use-bright-bold = Use bright colors with bold text
 default-font-size = Default font size
 default-zoom-step = Default zoom step
 
+# Find
+find-placeholder = Find...
+find-previous = Find previous
+find-next = Find next
+
 # Menu
 
 ## File
