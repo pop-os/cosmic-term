@@ -29,6 +29,8 @@ use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
+use crate::config::Config as AppConfig;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
     pub width: u32,
@@ -129,6 +131,7 @@ pub struct Terminal {
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
     bold_font_weight: Weight,
+    use_bright_bold: bool,
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
     pub needs_update: bool,
@@ -140,11 +143,14 @@ impl Terminal {
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
         config: Config,
-        font_stretch: Stretch,
-        font_weight: u16,
-        bold_font_weight: u16,
+        app_config: &AppConfig,
         colors: Colors,
     ) -> Self {
+        let font_stretch = app_config.typed_font_stretch();
+        let font_weight = app_config.font_weight;
+        let bold_font_weight = app_config.bold_font_weight;
+        let use_bright_bold = app_config.use_bright_bold;
+
         let metrics = Metrics::new(14.0, 20.0);
         //TODO: set color to default fg
         let default_attrs = Attrs::new()
@@ -191,6 +197,7 @@ impl Terminal {
         Self {
             colors,
             bold_font_weight: Weight(bold_font_weight),
+            use_bright_bold,
             default_attrs,
             buffer: Arc::new(buffer),
             size,
@@ -334,7 +341,7 @@ impl Terminal {
 
     pub fn set_config(
         &mut self,
-        config: &crate::Config,
+        config: &AppConfig,
         themes: &HashMap<String, Colors>,
         zoom_adj: i8,
     ) {
@@ -354,6 +361,11 @@ impl Terminal {
 
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
+            update_cell_size = true;
+        }
+
+        if self.use_bright_bold != config.use_bright_bold {
+            self.use_bright_bold = config.use_bright_bold;
             update_cell_size = true;
         }
 
@@ -473,7 +485,7 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
-                    let cell_fg = if indexed.cell.flags.contains(Flags::BOLD) {
+                    let cell_fg = if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
                         as_bright(indexed.cell.fg)
                     } else {
                         indexed.cell.fg

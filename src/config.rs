@@ -39,6 +39,7 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub show_headerbar: bool,
+    pub use_bright_bold: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
 }
@@ -54,6 +55,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_size_zoom_step_mul_100: 100,
             show_headerbar: true,
+            use_bright_bold: false,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
         }
