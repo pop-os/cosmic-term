@@ -138,6 +138,7 @@ pub struct Terminal {
     size: Size,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
+    dim_font_weight: Weight,
     bold_font_weight: Weight,
     use_bright_bold: bool,
     notifier: Notifier,
@@ -158,6 +159,7 @@ impl Terminal {
     ) -> Self {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
+        let dim_font_weight = app_config.dim_font_weight;
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
 
@@ -206,6 +208,7 @@ impl Terminal {
 
         Self {
             colors,
+            dim_font_weight: Weight(dim_font_weight),
             bold_font_weight: Weight(bold_font_weight),
             use_bright_bold,
             default_attrs,
@@ -455,6 +458,11 @@ impl Terminal {
             update_cell_size = true;
         }
 
+        if self.dim_font_weight.0 != config.dim_font_weight {
+            self.dim_font_weight = Weight(config.dim_font_weight);
+            update_cell_size = true;
+        }
+
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
             update_cell_size = true;
@@ -639,6 +647,9 @@ impl Terminal {
                     //TODO: more flags
                     if indexed.cell.flags.contains(Flags::BOLD) {
                         attrs = attrs.weight(self.bold_font_weight);
+                    } else if indexed.cell.flags.contains(Flags::DIM) {
+                        // if DIM and !BOLD
+                        attrs = attrs.weight(self.dim_font_weight);
                     }
                     if indexed.cell.flags.contains(Flags::ITALIC) {
                         //TODO: automatically use fake italic
