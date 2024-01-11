@@ -9,6 +9,7 @@ edition = "2021"
 alacritty_terminal = "0.20"
 env_logger = "0.10"
 lazy_static = "1"
+indexmap = "2"
 log = "0.4"
 serde = { version = "1", features = ["serde_derive"] }
 tokio = { version = "1", features = ["sync"] }
