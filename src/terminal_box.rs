@@ -3,7 +3,7 @@
 use alacritty_terminal::{
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
-    term::TermMode,
+    term::{cell::Flags, TermMode},
 };
 use cosmic::{
     cosmic_theme::palette::{blend::Compose, WithAlpha},
@@ -30,6 +30,7 @@ use cosmic::{
     Renderer,
 };
 use cosmic_text::LayoutGlyph;
+use indexmap::IndexSet;
 use std::{
     cell::Cell,
     cmp,
@@ -37,7 +38,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Terminal, TerminalScroll};
+use crate::{Terminal, TerminalScroll, terminal::Metadata};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -250,7 +251,9 @@ where
 
         // Render default background
         {
-            let background_color = cosmic_text::Color(terminal.default_attrs().metadata as u32);
+            let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
+            let background_color = meta.bg;
+
             renderer.fill_quad(
                 Quad {
                     bounds: Rectangle::new(
@@ -273,17 +276,19 @@ where
         // Render cell backgrounds that do not match default
         terminal.with_buffer(|buffer| {
             for run in buffer.layout_runs() {
-                struct BgRect {
+                struct BgRect<'a> {
                     default_metadata: usize,
                     metadata: usize,
+                    glyph_font_size: f32,
                     start_x: f32,
                     end_x: f32,
                     line_height: f32,
                     line_top: f32,
                     view_position: Point,
+                    metadata_set: &'a IndexSet<Metadata>,
                 }
 
-                impl BgRect {
+                impl<'a> BgRect<'a> {
                     fn update<Renderer: renderer::Renderer>(
                         &mut self,
                         glyph: &LayoutGlyph,
@@ -294,6 +299,7 @@ where
                         } else {
                             self.fill(renderer);
                             self.metadata = glyph.metadata;
+                            self.glyph_font_size = glyph.font_size;
                             self.start_x = glyph.x;
                             self.end_x = glyph.x + glyph.w;
                         }
@@ -304,36 +310,159 @@ where
                             return;
                         }
 
-                        let color = cosmic_text::Color(self.metadata as u32);
-                        renderer.fill_quad(
-                            Quad {
-                                bounds: Rectangle::new(
-                                    self.view_position + Vector::new(self.start_x, self.line_top),
-                                    Size::new(self.end_x - self.start_x, self.line_height),
-                                ),
-                                border_radius: 0.0.into(),
-                                border_width: 0.0,
-                                border_color: Color::TRANSPARENT,
-                            },
+                        let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::new(
                                 color.r() as f32 / 255.0,
                                 color.g() as f32 / 255.0,
                                 color.b() as f32 / 255.0,
                                 color.a() as f32 / 255.0,
-                            ),
+                            )
+                        };
+
+                        macro_rules! mk_pos_offset {
+                            ($x_offset:expr, $bottom_offset:expr) => {
+                                Vector::new(self.start_x + $x_offset, self.line_top + self.line_height - $bottom_offset)
+                            };
+                        }
+
+                        macro_rules! mk_quad {
+                            ($pos_offset:expr, $style_line_height:expr, $width:expr) => {
+                                Quad {
+                                    bounds: Rectangle::new(
+                                                self.view_position + $pos_offset,
+                                                Size::new($width, $style_line_height),
+                                            ),
+                                            border_radius: 0.0.into(),
+                                            border_width: 0.0,
+                                            border_color: Color::TRANSPARENT,
+                                }
+
+                            };
+                            ($pos_offset:expr, $style_line_height:expr) => {
+                                mk_quad!($pos_offset, $style_line_height, self.end_x - self.start_x)
+                            };
+                        }
+
+                        let metadata = &self.metadata_set[self.metadata];
+                        let color = metadata.bg;
+                        renderer.fill_quad(
+                            mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
+                            cosmic_text_to_iced_color(color),
                         );
+
+                        if !metadata.flags.is_empty() {
+                            let style_line_height = (self.glyph_font_size / 10.0).max(2.0).min(16.0);
+
+                            let line_color = cosmic_text_to_iced_color(metadata.underline_color);
+
+                            if metadata.flags.contains(Flags::STRIKEOUT) {
+                                let bottom_offset = (self.line_height - style_line_height) / 2.0;
+                                let pos_offset = mk_pos_offset!(0.0, bottom_offset);
+                                let underline_quad = mk_quad!(pos_offset, style_line_height);
+                                renderer.fill_quad(underline_quad, line_color);
+                            }
+
+                            if metadata.flags.contains(Flags::UNDERLINE) {
+                                let bottom_offset = style_line_height * 2.0;
+                                let pos_offset = mk_pos_offset!(0.0, bottom_offset);
+                                let underline_quad = mk_quad!(pos_offset, style_line_height);
+                                renderer.fill_quad(underline_quad, line_color);
+                            }
+
+                            if metadata.flags.contains(Flags::DOUBLE_UNDERLINE) {
+                                let style_line_height = style_line_height / 2.0;
+                                let gap = style_line_height.max(1.5);
+                                let bottom_offset = (style_line_height + gap) * 2.0;
+
+                                let pos_offset1 = mk_pos_offset!(0.0, bottom_offset);
+                                let underline1_quad = mk_quad!(pos_offset1, style_line_height);
+
+                                let pos_offset2 = mk_pos_offset!(0.0, bottom_offset/2.0);
+                                let underline2_quad = mk_quad!(pos_offset2, style_line_height);
+
+                                renderer.fill_quad(underline1_quad, line_color);
+                                renderer.fill_quad(underline2_quad, line_color);
+                            }
+
+                            if metadata.flags.contains(Flags::DOTTED_UNDERLINE) {
+                                let bottom_offset = style_line_height * 2.0;
+
+                                let full_width = self.end_x - self.start_x;
+                                let mut accu_width = 0.0;
+                                let mut dot_width = 2.0f32.min(full_width - accu_width);
+
+                                while accu_width < full_width {
+                                    dot_width = dot_width.min(full_width - accu_width);
+                                    let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
+                                    let underline_quad = mk_quad!(pos_offset, style_line_height, dot_width);
+                                    renderer.fill_quad(underline_quad, line_color);
+                                    accu_width  += 2.0 * dot_width;
+                                }
+                            }
+
+                            if metadata.flags.contains(Flags::DASHED_UNDERLINE) {
+                                let bottom_offset = style_line_height * 2.0;
+
+                                let full_width = self.end_x - self.start_x;
+                                let mut accu_width = 0.0;
+                                let mut dash_width = 6.0f32.min(full_width - accu_width);
+                                let gap_width = dash_width / 2.0;
+
+                                // gap-width dash first
+                                let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
+                                let underline_quad = mk_quad!(pos_offset, style_line_height, gap_width);
+                                renderer.fill_quad(underline_quad, line_color);
+                                accu_width += gap_width * 2.0;
+
+                                while accu_width < full_width {
+                                    dash_width = dash_width.min(full_width - accu_width);
+                                    let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
+                                    let underline_quad = mk_quad!(pos_offset, style_line_height, dash_width);
+                                    renderer.fill_quad(underline_quad, line_color);
+                                    accu_width  += dash_width + gap_width;
+                                }
+                            }
+
+                            if metadata.flags.contains(Flags::UNDERCURL) {
+                                let style_line_height = style_line_height.floor();
+                                let bottom_offset = style_line_height * 1.5;
+
+                                let full_width = self.end_x - self.start_x;
+                                let mut accu_width = 0.0;
+                                let mut dot_width = 1.0f32.min(full_width - accu_width);
+
+                                while accu_width < full_width {
+                                    dot_width = dot_width.min(full_width - accu_width);
+
+                                    let dot_bottom_offset = match accu_width as u32 % 8 {
+                                        3 | 4 | 5 => bottom_offset + style_line_height,
+                                        2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
+                                        1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
+                                        _ => bottom_offset,
+                                    };
+
+                                    let pos_offset = mk_pos_offset!(accu_width, dot_bottom_offset);
+                                    let underline_quad = mk_quad!(pos_offset, style_line_height, dot_width);
+                                    renderer.fill_quad(underline_quad, line_color);
+                                    accu_width += dot_width;
+                                }
+                            }
+                        }
                     }
                 }
 
                 let default_metadata = terminal.default_attrs().metadata;
+                let metadata_set = &terminal.metadata_set;
                 let mut bg_rect = BgRect {
                     default_metadata,
                     metadata: default_metadata,
+                    glyph_font_size: 0.0,
                     start_x: 0.0,
                     end_x: 0.0,
                     line_height: buffer.metrics().line_height,
                     line_top: run.line_top,
                     view_position,
+                    metadata_set,
                 };
                 for glyph in run.glyphs.iter() {
                     bg_rect.update(glyph, renderer);

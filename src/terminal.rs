@@ -19,6 +19,7 @@ use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_butt
 use cosmic_text::{
     Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
 };
+use indexmap::IndexSet;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -132,6 +133,28 @@ fn linear_color(color: cosmic_text::Color) -> cosmic_text::Color {
     )
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Metadata {
+    pub bg: cosmic_text::Color,
+    pub underline_color: cosmic_text::Color,
+    pub flags: Flags,
+}
+
+impl Metadata {
+    fn new(bg: cosmic_text::Color, underline_color: cosmic_text::Color) -> Self {
+        let flags = Flags::empty();
+        Self { bg, underline_color, flags }
+    }
+
+    fn with_underline_color(self, underline_color: cosmic_text::Color) -> Self {
+        Self { underline_color, ..self }
+    }
+
+    fn with_flags(self, flags: Flags) -> Self {
+        Self { flags, ..self }
+    }
+}
+
 pub struct Terminal {
     default_attrs: Attrs<'static>,
     buffer: Arc<Buffer>,
@@ -146,6 +169,7 @@ pub struct Terminal {
     pub needs_update: bool,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
+    pub metadata_set: IndexSet<Metadata>,
 }
 
 impl Terminal {
@@ -165,13 +189,22 @@ impl Terminal {
         let use_bright_bold = app_config.use_bright_bold;
 
         let metrics = Metrics::new(14.0, 20.0);
+
+        let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
+        let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
+
+        let mut metadata_set = IndexSet::new();
+        let default_metada = Metadata::new(default_bg, default_fg);
+        let (default_metada_idx, _) = metadata_set.insert_full(default_metada);
+
         //TODO: set color to default fg
         let default_attrs = Attrs::new()
             .family(Family::Monospace)
             .weight(Weight(font_weight))
             .stretch(font_stretch)
-            .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
-            .metadata(convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize);
+            .color(default_fg)
+            .metadata(default_metada_idx);
+
         let mut buffer = Buffer::new_empty(metrics);
 
         let (cell_width, cell_height) = {
@@ -219,6 +252,7 @@ impl Terminal {
             needs_update: true,
             search_regex_opt: None,
             search_value: String::new(),
+            metadata_set,
         }
     }
 
@@ -490,14 +524,19 @@ impl Terminal {
                 }
             }
             if changed {
+                self.metadata_set.clear();
+                let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
+                let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
+
+                let default_metadata = Metadata::new(default_bg, default_fg);
+                let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
+
                 self.default_attrs = Attrs::new()
                     .family(Family::Monospace)
                     .weight(Weight(config.font_weight))
                     .stretch(config.typed_font_stretch())
-                    .color(convert_color(&colors, Color::Named(NamedColor::Foreground)))
-                    .metadata(
-                        convert_color(&colors, Color::Named(NamedColor::Background)).0 as usize,
-                    );
+                    .color(default_fg)
+                    .metadata(default_metadata_idx);
                 update = true;
             }
         }
@@ -543,6 +582,9 @@ impl Terminal {
         const LRI: char = '\u{2066}';
 
         let instant = Instant::now();
+
+        // Only keep default
+        self.metadata_set.truncate(1);
 
         //TODO: is redraw needed after all events?
         //TODO: use LineDamageBounds
@@ -641,8 +683,16 @@ impl Terminal {
 
                     // Convert foreground to linear
                     attrs = attrs.color(linear_color(fg));
-                    // Use metadata as background color
-                    attrs = attrs.metadata(bg.0 as usize);
+
+                    let underline_color = indexed.cell.underline_color()
+                        .map(|c| convert_color(&self.colors, c))
+                        .unwrap_or(fg);
+                    let metadata = Metadata::new(bg, fg)
+                        .with_flags(indexed.cell.flags)
+                        .with_underline_color(underline_color);
+                    let (meta_idx, _) = self.metadata_set.insert_full(metadata);
+                    attrs = attrs.metadata(meta_idx);
+
                     //TODO: more flags
                     if indexed.cell.flags.contains(Flags::BOLD) {
                         attrs = attrs.weight(self.bold_font_weight);
