@@ -16,8 +16,8 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Stretch, Weight,
-    Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
+
 };
 use std::{
     borrow::Cow,
@@ -29,6 +29,8 @@ use std::{
 use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
+
+use crate::config::Config as AppConfig;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -74,6 +76,13 @@ impl EventListener for EventProxy {
         //TODO: handle error
         let _ = self.1.blocking_send((self.0, event));
     }
+}
+
+fn as_bright(mut color: Color) -> Color {
+    if let Color::Named(named) = color {
+        color = Color::Named(named.to_bright());
+    }
+    color
 }
 
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
@@ -123,6 +132,7 @@ pub struct Terminal {
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
     bold_font_weight: Weight,
+    use_bright_bold: bool,
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
     pub needs_update: bool,
@@ -134,12 +144,15 @@ impl Terminal {
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
         config: Config,
-        font_stretch: Stretch,
-        font_weight: u16,
-        bold_font_weight: u16,
+        app_config: &AppConfig,
         colors: Colors,
         cosmic_config: &crate::config::Config,
     ) -> Self {
+        let font_stretch = app_config.typed_font_stretch();
+        let font_weight = app_config.font_weight;
+        let bold_font_weight = app_config.bold_font_weight;
+        let use_bright_bold = app_config.use_bright_bold;
+
         let metrics = Metrics::new(14.0, 20.0);
         //TODO: set color to default fg
         let default_attrs = Attrs::new()
@@ -193,6 +206,7 @@ impl Terminal {
         Self {
             colors,
             bold_font_weight: Weight(bold_font_weight),
+            use_bright_bold,
             default_attrs,
             buffer: Arc::new(buffer),
             size,
@@ -336,7 +350,7 @@ impl Terminal {
 
     pub fn set_config(
         &mut self,
-        config: &crate::Config,
+        config: &AppConfig,
         themes: &HashMap<String, Colors>,
         zoom_adj: i8,
     ) {
@@ -355,6 +369,11 @@ impl Terminal {
 
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
+            update_cell_size = true;
+        }
+
+        if self.use_bright_bold != config.use_bright_bold {
+            self.use_bright_bold = config.use_bright_bold;
             update_cell_size = true;
         }
 
@@ -422,6 +441,12 @@ impl Terminal {
     }
 
     pub fn update(&mut self) -> bool {
+        // LEFT‑TO‑RIGHT ISOLATE character.
+        // This will be added to the beginning of lines to force the shaper to treat detected RTL
+        // lines as LTR. RTL text would still be rendered correctly. But this fixes the wrong
+        // behavior of it being aligned to the right.
+        const LRI: char = '\u{2066}';
+
         let instant = Instant::now();
 
         //TODO: is redraw needed after all events?
@@ -431,7 +456,7 @@ impl Terminal {
 
             let mut line_i = 0;
             let mut last_point = None;
-            let mut text = String::new();
+            let mut text = String::from(LRI);
             let mut attrs_list = AttrsList::new(self.default_attrs);
             {
                 let term = self.term.lock();
@@ -453,6 +478,7 @@ impl Terminal {
                         line_i += 1;
 
                         text.clear();
+                        text.push(LRI);
                         attrs_list.clear_spans();
                     }
                     //TODO: use indexed.point.column?
@@ -474,22 +500,37 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
+                    let cell_fg =
+                        if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
+                            as_bright(indexed.cell.fg)
+                        } else {
+                            indexed.cell.fg
+                        };
+
                     let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
                         (
                             convert_color(&self.colors, indexed.cell.bg),
-                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, cell_fg),
                         )
                     } else {
                         (
-                            convert_color(&self.colors, indexed.cell.fg),
+                            convert_color(&self.colors, cell_fg),
                             convert_color(&self.colors, indexed.cell.bg),
                         )
                     };
 
+                    if indexed.cell.flags.contains(Flags::HIDDEN) {
+                        fg = bg;
+                    }
+
                     // Change color if cursor
                     if indexed.point == grid.cursor.point {
                         //TODO: better handling of cursor
-                        mem::swap(&mut fg, &mut bg);
+                        if term.mode().contains(TermMode::SHOW_CURSOR) {
+                            mem::swap(&mut fg, &mut bg);
+                        } else {
+                            fg = bg;
+                        }
                     }
 
                     // Change color if selected

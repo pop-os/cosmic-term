@@ -4,11 +4,11 @@ use cosmic::{
     cosmic_config::{self, cosmic_config_derive::CosmicConfigEntry, CosmicConfigEntry},
     theme,
 };
-use cosmic_text::{Metrics, Weight, Stretch};
+use cosmic_text::{Metrics, Stretch, Weight};
 use serde::{Deserialize, Serialize};
 
-use std::sync::OnceLock;
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 pub const CONFIG_VERSION: u64 = 1;
 
@@ -39,6 +39,7 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub show_headerbar: bool,
+    pub use_bright_bold: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
     pub default_shell: String,
@@ -56,6 +57,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_size_zoom_step_mul_100: 100,
             show_headerbar: true,
+            use_bright_bold: false,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
             default_shell: String::new(),
@@ -101,7 +103,7 @@ impl Config {
         static NUM_TO_TYPED_MAP: OnceLock<BTreeMap<u16, Stretch>> = OnceLock::new();
 
         NUM_TO_TYPED_MAP.get_or_init(|| {
-            populate_num_typed_map!{
+            populate_num_typed_map! {
                 UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
                 Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
             }

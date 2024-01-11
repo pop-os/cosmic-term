@@ -26,6 +26,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
     sync::Mutex,
+    time::Duration,
 };
 use tokio::sync::mpsc;
 
@@ -152,6 +153,7 @@ pub enum Message {
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
+    UseBrightBold(bool),
     ShowHeaderBar(bool),
     SyntaxTheme(usize, bool),
     SystemThemeModeChange(cosmic_theme::ThemeMode),
@@ -456,6 +458,10 @@ impl App {
 
         let settings_view = settings_view
             .add(
+                widget::settings::item::builder(fl!("use-bright-bold"))
+                    .toggler(self.config.use_bright_bold, Message::UseBrightBold),
+            )
+            .add(
                 widget::settings::item::builder(fl!("default-font-size")).control(
                     widget::dropdown(&self.font_size_names, font_size_selected, |index| {
                         Message::DefaultFontSize(index)
@@ -515,7 +521,8 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        core.window.content_container = false;
+        //TODO: fix window resizing interfering with scrolling when not using content container
+        //core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
         // Update font name from config
@@ -790,6 +797,12 @@ impl Application for App {
                     return self.save_config();
                 }
             }
+            Message::UseBrightBold(use_bright_bold) => {
+                if use_bright_bold != self.config.use_bright_bold {
+                    self.config.use_bright_bold = use_bright_bold;
+                    return self.save_config();
+                }
+            }
             Message::SystemThemeModeChange(_theme_mode) => {
                 return self.update_config();
             }
@@ -870,9 +883,7 @@ impl Application for App {
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
-                            self.config.typed_font_stretch(),
-                            self.config.font_weight,
-                            self.config.bold_font_weight,
+                            &self.config,
                             colors.clone(),
                             &self.config,
                         );
@@ -935,7 +946,7 @@ impl Application for App {
                     }
                 }
                 _ => {
-                    println!("TODO: {:?}", event);
+                    log::warn!("TODO: {:?}", event);
                 }
             },
             Message::TermEventTx(term_event_tx) => {
@@ -998,7 +1009,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.config).into()]
+        vec![menu_bar().into()]
     }
 
     /// Creates a view after each update.
@@ -1141,6 +1152,9 @@ impl Application for App {
                 |mut output| async move {
                     let (event_tx, mut event_rx) = mpsc::channel(100);
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
+
+                    // Avoid creating two tabs at startup
+                    tokio::time::sleep(Duration::from_millis(50)).await;
 
                     // Create first terminal tab
                     output.send(Message::TabNew).await.unwrap();
