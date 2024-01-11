@@ -8,7 +8,7 @@ use alacritty_terminal::{
     term::{
         cell::Flags,
         color::{self, Colors},
-        search::{Match, RegexSearch},
+        search::RegexSearch,
         viewport_to_point, Config, TermMode,
     },
     tty::{self, Options},
