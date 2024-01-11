@@ -584,7 +584,15 @@ where
                         status = Status::Captured;
                     }
                     KeyCode::Escape => {
-                        terminal.input_scroll(b"\x1B".as_slice());
+                        let had_selection = {
+                            let mut term = terminal.term.lock();
+                            term.selection.take().is_some()
+                        };
+                        if had_selection {
+                            terminal.update();
+                        } else {
+                            terminal.input_scroll(b"\x1B".as_slice());
+                        }
                         status = Status::Captured;
                     }
                     KeyCode::Up => {
