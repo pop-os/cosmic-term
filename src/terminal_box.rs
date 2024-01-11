@@ -343,7 +343,6 @@ where
             let mut hover = false;
             if let Some(p) = cursor_position.position_in(layout.bounds()) {
                 let x = p.x - self.padding.left;
-                let y = p.y - self.padding.top;
                 if x >= scrollbar_rect.x && x < (scrollbar_rect.x + scrollbar_rect.width) {
                     hover = true;
                 }

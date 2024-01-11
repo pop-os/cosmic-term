@@ -983,7 +983,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.config).into()]
+        vec![menu_bar().into()]
     }
 
     /// Creates a view after each update.

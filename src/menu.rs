@@ -80,7 +80,7 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
     .into()
 }
 
-pub fn menu_bar<'a>(config: &Config) -> Element<'a, Message> {
+pub fn menu_bar<'a>() -> Element<'a, Message> {
     //TODO: port to libcosmic
     let menu_root = |label| {
         widget::button(widget::text(label))
