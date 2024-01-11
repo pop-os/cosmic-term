@@ -181,7 +181,6 @@ pub enum Message {
     TabNew,
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
-    Todo(&'static str),
     ToggleContextPage(ContextPage),
     ShowAdvancedFontSettings(bool),
     WindowClose,
@@ -806,7 +805,11 @@ impl Application for App {
             }
             Message::FindNext => {
                 if !self.find_search_value.is_empty() {
-                    //TODO
+                    let entity = self.tab_model.active();
+                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, true);
+                    }
                 }
 
                 // Focus correct input
@@ -814,7 +817,11 @@ impl Application for App {
             }
             Message::FindPrevious => {
                 if !self.find_search_value.is_empty() {
-                    //TODO
+                    let entity = self.tab_model.active();
+                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, false);
+                    }
                 }
 
                 // Focus correct input
@@ -1006,9 +1013,6 @@ impl Application for App {
             Message::TermEventTx(term_event_tx) => {
                 self.term_event_tx_opt = Some(term_event_tx);
             }
-            Message::Todo(todo) => {
-                log::warn!("TODO: {}", todo);
-            }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
@@ -1121,10 +1125,12 @@ impl Application for App {
                 widget::text_input::text_input(fl!("find-placeholder"), &self.find_search_value)
                     .id(self.find_search_id.clone())
                     .on_input(Message::FindSearchValueChanged)
+                    // This is inverted for ease of use, usually in terminals you want to search
+                    // upwards, which is FindPrevious
                     .on_submit(if self.modifiers.contains(Modifiers::SHIFT) {
-                        Message::FindPrevious
-                    } else {
                         Message::FindNext
+                    } else {
+                        Message::FindPrevious
                     })
                     .width(Length::Fixed(320.0))
                     .trailing_icon(

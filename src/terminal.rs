@@ -2,12 +2,13 @@ use alacritty_terminal::{
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
-    index::{Column, Line, Point, Side},
+    index::{Column, Direction, Line, Point, Side},
     selection::{Selection, SelectionType},
     sync::FairMutex,
     term::{
         cell::Flags,
         color::{self, Colors},
+        search::{Match, RegexSearch},
         viewport_to_point, Config, TermMode,
     },
     tty::{self, Options},
@@ -135,6 +136,8 @@ pub struct Terminal {
     notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
     pub needs_update: bool,
+    search_regex_opt: Option<RegexSearch>,
+    search_value: String,
 }
 
 impl Terminal {
@@ -205,6 +208,8 @@ impl Terminal {
             notifier,
             context_menu: None,
             needs_update: true,
+            search_regex_opt: None,
+            search_value: String::new(),
         }
     }
 
@@ -321,6 +326,89 @@ impl Terminal {
         } else {
             None
         }
+    }
+
+    pub fn search(&mut self, value: &str, forwards: bool) {
+        //TODO: set max lines, run in thread?
+        {
+            let mut term = self.term.lock();
+
+            if self.search_value != value {
+                match RegexSearch::new(value) {
+                    Ok(search_regex) => {
+                        self.search_regex_opt = Some(search_regex);
+                        self.search_value = value.to_string();
+                        term.selection = None;
+                    }
+                    Err(err) => {
+                        log::warn!("failed to parse regex {:?}: {}", value, err);
+                        return;
+                    }
+                }
+            }
+
+            let search_regex = match &mut self.search_regex_opt {
+                Some(some) => some,
+                None => return,
+            };
+
+            // Determine search origin
+            let search_origin = match term
+                .selection
+                .as_ref()
+                .and_then(|selection| selection.to_range(&term))
+            {
+                Some(range) => {
+                    if forwards {
+                        range.end
+                    } else {
+                        range.start
+                    }
+                }
+                None => {
+                    let grid = term.grid();
+                    if forwards {
+                        Point::new(Line(-(grid.history_size() as i32)), Column(0))
+                    } else {
+                        Point::new(
+                            Line(grid.screen_lines() as i32 - 1),
+                            Column(grid.columns() - 1),
+                        )
+                    }
+                }
+            };
+
+            // Find next search match
+            match term.search_next(
+                search_regex,
+                search_origin,
+                if forwards {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                },
+                if forwards { Side::Left } else { Side::Right },
+                None,
+            ) {
+                Some(search_match) => {
+                    // Scroll to match
+                    if forwards {
+                        term.scroll_to_point(*search_match.end());
+                    } else {
+                        term.scroll_to_point(*search_match.start());
+                    }
+
+                    // Set selection to match
+                    let mut selection =
+                        Selection::new(SelectionType::Simple, *search_match.start(), Side::Left);
+                    selection.update(*search_match.end(), Side::Right);
+                    term.selection = Some(selection);
+                }
+                None => {}
+            }
+        }
+
+        self.update();
     }
 
     pub fn select_all(&mut self) {
