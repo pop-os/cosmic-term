@@ -476,16 +476,16 @@ impl App {
 
         let command_view = widget::settings::view_section("Command")
             .add(
-                widget::settings::item::builder("Startup shell").control(
-                    cosmic::widget::inline_input(&self.config.default_shell)
-                        .on_input(Message::DefaultShell)
-                        .width(Length::Fixed(100.0)),
-                ),
-            )
-            .add(
                 widget::settings::item::builder("Use a custom startup shell")
                     .toggler(self.config.use_default_shell, Message::UseDefaultShell),
-            );
+            )
+            .add(widget::settings::item::builder("Startup shell").control({
+                let mut command_input = cosmic::widget::inline_input(&self.config.default_shell);
+                if self.config.use_default_shell {
+                    command_input = command_input.on_input(Message::DefaultShell)
+                }
+                command_input
+            }));
 
         widget::settings::view_column(vec![settings_view.into(), command_view.into()]).into()
     }

@@ -16,7 +16,8 @@ use alacritty_terminal::{
 };
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Stretch, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Stretch, Weight,
+    Wrap,
 };
 use std::{
     borrow::Cow,
@@ -178,11 +179,8 @@ impl Terminal {
         let mut options = Options::default();
         if cosmic_config.use_default_shell {
             let mut shell = shlex::Shlex::new(&cosmic_config.default_shell);
+            let shell = tty::Shell::new(shell.next().unwrap(), shell.collect());
 
-            let shell = tty::Shell::new(
-            shell.next().unwrap(),
-                shell.collect(),
-            );
             options.shell = Some(shell);
         }
 
@@ -346,15 +344,14 @@ impl Terminal {
         let mut update = false;
 
         if self.default_attrs.stretch != config.typed_font_stretch() {
-            self.default_attrs =  self.default_attrs.stretch(config.typed_font_stretch());
+            self.default_attrs = self.default_attrs.stretch(config.typed_font_stretch());
             update_cell_size = true;
         }
 
         if self.default_attrs.weight.0 != config.font_weight {
-            self.default_attrs =  self.default_attrs.weight(Weight(config.font_weight));
+            self.default_attrs = self.default_attrs.weight(Weight(config.font_weight));
             update_cell_size = true;
         }
-
 
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
