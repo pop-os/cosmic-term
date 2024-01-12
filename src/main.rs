@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
-    event::Event as TermEvent, term::color::Colors as TermColors, term::Config as TermConfig, tty,
+    event::Event as TermEvent,
+    term::Config as TermConfig,
+    term::{self, color::Colors as TermColors},
+    tty,
 };
 use cosmic::{
     app::{message, Command, Core, Settings},
@@ -21,6 +24,7 @@ use cosmic::{
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
+use serde::de::IntoDeserializer;
 use std::{
     any::TypeId,
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -215,6 +219,7 @@ pub struct App {
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
     term_config: TermConfig,
     show_advanced_font_settings: bool,
+    terminal_launch_error: Option<String>,
 }
 
 impl App {
@@ -651,6 +656,7 @@ impl Application for App {
             term_config: flags.term_config,
             term_event_tx_opt: None,
             show_advanced_font_settings: false,
+            terminal_launch_error: None,
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -879,17 +885,25 @@ impl Application for App {
                             .closable()
                             .activate()
                             .id();
-                        let mut terminal = Terminal::new(
+                        let terminal = Terminal::new(
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
                             &self.config,
                             colors.clone(),
-                            &self.config,
                         );
-                        terminal.set_config(&self.config, &self.themes, self.zoom_adj);
-                        self.tab_model
-                            .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                        match terminal {
+                            Some(terminal) => {
+                                let mut terminal = terminal.unwrap_or_else(|term| {
+                                    self.terminal_launch_error = Some("failed to launch custom command; reverting to default command".into());
+                                    term
+                                });
+                                terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                                self.tab_model
+                                    .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                            }
+                            None => log::error!("failed to start terminal"),
+                        }
                     }
                     None => {
                         log::error!(
@@ -1030,6 +1044,10 @@ impl Application for App {
                 .style(style::Container::Background)
                 .width(Length::Fill),
             );
+        }
+        if let Some(err) = &self.terminal_launch_error {
+            let msg: Element<'_, Message> = cosmic::iced::widget::text(err.clone()).into();
+            tab_column = tab_column.push(msg);
         }
 
         let entity = self.tab_model.active();

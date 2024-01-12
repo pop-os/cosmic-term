@@ -17,12 +17,12 @@ use alacritty_terminal::{
 use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
 use cosmic_text::{
     Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
-
 };
 use std::{
     borrow::Cow,
     collections::HashMap,
     mem,
+    os::unix::process,
     sync::{Arc, Weak},
     time::Instant,
 };
@@ -146,8 +146,7 @@ impl Terminal {
         config: Config,
         app_config: &AppConfig,
         colors: Colors,
-        cosmic_config: &crate::config::Config,
-    ) -> Self {
+    ) -> Option<Result<Self, Self>> {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
         let bold_font_weight = app_config.bold_font_weight;
@@ -190,20 +189,39 @@ impl Terminal {
         let window_id = 0;
 
         let mut options = Options::default();
-        if cosmic_config.use_default_shell {
-            let mut shell = shlex::Shlex::new(&cosmic_config.default_shell);
-            let shell = tty::Shell::new(shell.next().unwrap(), shell.collect());
+        let mut launch_err = false;
+        let use_default_shell = app_config.use_default_shell;
+        if use_default_shell {
+            let mut shell = shlex::Shlex::new(&app_config.default_shell);
+            let shell = tty::Shell::new(shell.next().unwrap_or_default(), shell.collect());
 
             options.shell = Some(shell);
         }
 
-        let pty = tty::new(&options, size.into(), window_id).unwrap();
+        let pty = match tty::new(&options, size.into(), window_id) {
+            Ok(pty) => pty,
+            Err(err) => {
+                log::error!("failed to start pty {}", err);
+                if !use_default_shell {
+                    return None;
+                }
+                launch_err = true;
+                options.shell = None;
+                match tty::new(&options, size.into(), window_id) {
+                    Ok(pty) => pty,
+                    Err(err) => {
+                        log::error!("could not start pty with default options, {}", err);
+                        return None;
+                    }
+                }
+            }
+        };
 
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 
-        Self {
+        let terminal = Self {
             colors,
             bold_font_weight: Weight(bold_font_weight),
             use_bright_bold,
@@ -214,7 +232,13 @@ impl Terminal {
             notifier,
             context_menu: None,
             needs_update: true,
-        }
+        };
+        let terminal = if launch_err {
+            Err(terminal)
+        } else {
+            Ok(terminal)
+        };
+        Some(terminal)
     }
 
     pub fn buffer_weak(&self) -> Weak<Buffer> {
