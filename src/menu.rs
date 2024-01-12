@@ -105,13 +105,6 @@ pub fn menu_bar<'a>() -> Element<'a, Message> {
         )
     };
 
-    let menu_key = |label, key, message| {
-        MenuTree::new(
-            menu_button!(widget::text(label), horizontal_space(Length::Fill), key)
-                .on_press(message),
-        )
-    };
-
     MenuBar::new(vec![
         MenuTree::with_children(
             menu_root(fl!("file")),
@@ -131,7 +124,7 @@ pub fn menu_bar<'a>() -> Element<'a, Message> {
                 menu_item(fl!("paste"), Message::Paste(None)),
                 menu_item(fl!("select-all"), Message::SelectAll(None)),
                 MenuTree::new(horizontal_rule(1)),
-                menu_key(fl!("find"), "Ctrl + F", Message::Todo("find")),
+                menu_item(fl!("find"), Message::Find(true)),
             ],
         ),
         MenuTree::with_children(

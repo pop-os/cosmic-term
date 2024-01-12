@@ -17,10 +17,10 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
-        window, Event, Length, Padding, Point,
+        window, Alignment, Event, Length, Padding, Point,
     },
     style,
-    widget::{self, segmented_button},
+    widget::{self, button, segmented_button},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
@@ -37,6 +37,9 @@ use tokio::sync::mpsc;
 use config::{AppTheme, Config, CONFIG_VERSION};
 mod config;
 
+use icon_cache::IconCache;
+mod icon_cache;
+
 mod localize;
 
 use menu::menu_bar;
@@ -49,6 +52,15 @@ use terminal_box::terminal_box;
 mod terminal_box;
 
 mod terminal_theme;
+
+lazy_static::lazy_static! {
+    static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
+}
+
+pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
+    let mut icon_cache = ICON_CACHE.lock().unwrap();
+    icon_cache.get(name, size)
+}
 
 /// Runs application with these settings
 #[rustfmt::skip]
@@ -154,6 +166,11 @@ pub enum Message {
     DefaultFontWeight(usize),
     DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
+    Find(bool),
+    FindNext,
+    FindPrevious,
+    FindSearchValueChanged(String),
+    Modifiers(Modifiers),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
@@ -168,7 +185,6 @@ pub enum Message {
     TabNew,
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
-    Todo(&'static str),
     ToggleContextPage(ContextPage),
     DefaultShell(String),
     UseDefaultShell(bool),
@@ -216,10 +232,15 @@ pub struct App {
     theme_names: Vec<String>,
     themes: HashMap<String, TermColors>,
     context_page: ContextPage,
+    terminal_id: widget::Id,
+    find: bool,
+    find_search_id: widget::Id,
+    find_search_value: String,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
     term_config: TermConfig,
     show_advanced_font_settings: bool,
     terminal_launch_error: Option<String>,
+    modifiers: Modifiers,
 }
 
 impl App {
@@ -250,6 +271,17 @@ impl App {
         self.update_config()
     }
 
+    fn update_focus(&self) -> Command<Message> {
+        if self.core.window.show_context {
+            Command::none()
+        } else if self.find {
+            widget::text_input::focus(self.find_search_id.clone())
+        } else {
+            widget::text_input::focus(self.terminal_id.clone())
+        }
+    }
+
+    // Call this any time the tab changes
     fn update_title(&mut self) -> Command<Message> {
         let (header_title, window_title) = match self.tab_model.text(self.tab_model.active()) {
             Some(tab_title) => (
@@ -259,7 +291,7 @@ impl App {
             None => (String::new(), "COSMIC Terminal".to_string()),
         };
         self.set_header_title(header_title);
-        self.set_window_title(window_title)
+        Command::batch([self.set_window_title(window_title), self.update_focus()])
     }
 
     fn set_curr_font_weights_and_stretches(&mut self) {
@@ -653,16 +685,37 @@ impl Application for App {
             theme_names,
             themes,
             context_page: ContextPage::Settings,
+            terminal_id: widget::Id::unique(),
+            find: false,
+            find_search_id: widget::Id::unique(),
+            find_search_value: String::new(),
             term_config: flags.term_config,
             term_event_tx_opt: None,
             show_advanced_font_settings: false,
+
             terminal_launch_error: None,
+
+            modifiers: Modifiers::empty(),
         };
 
         app.set_curr_font_weights_and_stretches();
         let command = app.update_title();
 
         (app, command)
+    }
+
+    //TODO: currently the first escape unfocuses, and the second calls this function
+    fn on_escape(&mut self) -> Command<Message> {
+        if self.core.window.show_context {
+            // Close context drawer if open
+            self.core.window.show_context = false;
+        } else if self.find {
+            // Close find if open
+            self.find = false;
+        }
+
+        // Focus correct widget
+        self.update_focus()
     }
 
     /// Handle application events here.
@@ -777,6 +830,42 @@ impl Application for App {
                     log::warn!("failed to find zoom step with index {}", index);
                 }
             },
+            Message::Find(find) => {
+                self.find = find;
+
+                // Focus correct input
+                return self.update_focus();
+            }
+            Message::FindNext => {
+                if !self.find_search_value.is_empty() {
+                    let entity = self.tab_model.active();
+                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, true);
+                    }
+                }
+
+                // Focus correct input
+                return self.update_focus();
+            }
+            Message::FindPrevious => {
+                if !self.find_search_value.is_empty() {
+                    let entity = self.tab_model.active();
+                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, false);
+                    }
+                }
+
+                // Focus correct input
+                return self.update_focus();
+            }
+            Message::FindSearchValueChanged(value) => {
+                self.find_search_value = value;
+            }
+            Message::Modifiers(modifiers) => {
+                self.modifiers = modifiers;
+            }
             Message::Paste(entity_opt) => {
                 return clipboard::read(move |value_opt| match value_opt {
                     Some(value) => message::app(Message::PasteValue(entity_opt, value)),
@@ -966,9 +1055,6 @@ impl Application for App {
             Message::TermEventTx(term_event_tx) => {
                 self.term_event_tx_opt = Some(term_event_tx);
             }
-            Message::Todo(todo) => {
-                log::warn!("TODO: {}", todo);
-            }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
@@ -1053,9 +1139,11 @@ impl Application for App {
         let entity = self.tab_model.active();
         match self.tab_model.data::<Mutex<Terminal>>(entity) {
             Some(terminal) => {
-                let terminal_box = terminal_box(terminal).on_context_menu(move |position_opt| {
-                    Message::TabContextMenu(entity, position_opt)
-                });
+                let terminal_box = terminal_box(terminal)
+                    .id(self.terminal_id.clone())
+                    .on_context_menu(move |position_opt| {
+                        Message::TabContextMenu(entity, position_opt)
+                    });
 
                 let context_menu = {
                     let terminal = terminal.lock().unwrap();
@@ -1076,6 +1164,62 @@ impl Application for App {
             None => {
                 //TODO
             }
+        }
+
+        if self.find {
+            let find_input =
+                widget::text_input::text_input(fl!("find-placeholder"), &self.find_search_value)
+                    .id(self.find_search_id.clone())
+                    .on_input(Message::FindSearchValueChanged)
+                    // This is inverted for ease of use, usually in terminals you want to search
+                    // upwards, which is FindPrevious
+                    .on_submit(if self.modifiers.contains(Modifiers::SHIFT) {
+                        Message::FindNext
+                    } else {
+                        Message::FindPrevious
+                    })
+                    .width(Length::Fixed(320.0))
+                    .trailing_icon(
+                        button(icon_cache_get("edit-clear-symbolic", 16))
+                            .on_press(Message::FindSearchValueChanged(String::new()))
+                            .style(style::Button::Icon)
+                            .into(),
+                    );
+            let find_widget = widget::row::with_children(vec![
+                find_input.into(),
+                widget::tooltip(
+                    button(icon_cache_get("go-up-symbolic", 16))
+                        .on_press(Message::FindPrevious)
+                        .padding(space_xxs)
+                        .style(style::Button::Icon),
+                    fl!("find-previous"),
+                    widget::tooltip::Position::Top,
+                )
+                .into(),
+                widget::tooltip(
+                    button(icon_cache_get("go-down-symbolic", 16))
+                        .on_press(Message::FindNext)
+                        .padding(space_xxs)
+                        .style(style::Button::Icon),
+                    fl!("find-next"),
+                    widget::tooltip::Position::Top,
+                )
+                .into(),
+                widget::horizontal_space(Length::Fill).into(),
+                button(icon_cache_get("window-close-symbolic", 16))
+                    .on_press(Message::Find(false))
+                    .padding(space_xxs)
+                    .style(style::Button::Icon)
+                    .into(),
+            ])
+            .align_items(Alignment::Center)
+            .padding(space_xxs)
+            .spacing(space_xxs);
+
+            tab_column = tab_column.push(
+                widget::cosmic_container::container(find_widget)
+                    .layer(cosmic_theme::Layer::Primary),
+            );
         }
 
         let content: Element<_> = tab_column.into();
@@ -1108,6 +1252,16 @@ impl Application for App {
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                         Some(Message::Copy(None))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::F,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::Find(true))
                     } else {
                         None
                     }
@@ -1161,6 +1315,9 @@ impl Application for App {
                     } else {
                         None
                     }
+                }
+                Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
+                    Some(Message::Modifiers(modifiers))
                 }
                 _ => None,
             }),
