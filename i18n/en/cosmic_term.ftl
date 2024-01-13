@@ -15,6 +15,7 @@ advanced-font-settings = Advanced Font Settings
 default-font = Default font
 default-font-stretch = Default font stretch
 default-font-weight = Default font weight
+default-dim-font-weight = Default dim font weight
 default-bold-font-weight = Default bold font weight
 use-bright-bold = Use bright colors with bold text
 default-font-size = Default font size
