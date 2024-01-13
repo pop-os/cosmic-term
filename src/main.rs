@@ -165,6 +165,7 @@ pub enum Message {
     DefaultFontSize(usize),
     DefaultFontStretch(usize),
     DefaultFontWeight(usize),
+    DefaultDimFontWeight(usize),
     DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
     Find(bool),
@@ -301,8 +302,7 @@ impl App {
         if !self.font_names.contains(&self.config.font_name) {
             log::error!("'{}' is not in the font list", self.config.font_name);
             log::error!("setting font name to '{}'", self.font_names[0]);
-            self.config.font_name = self.font_names[0].clone();
-            let _ = self.save_config();
+            let _ = self.update(Message::DefaultFont(0));
         }
 
         let curr_font_faces = &self.font_name_faces_map[&self.config.font_name];
@@ -361,6 +361,14 @@ impl App {
 
         if !self
             .curr_font_weights
+            .contains(&self.config.dim_font_weight)
+        {
+            self.config.dim_font_weight = Weight::NORMAL.0;
+        }
+
+
+        if !self
+            .curr_font_weights
             .contains(&self.config.bold_font_weight)
         {
             self.config.bold_font_weight = Weight::BOLD.0;
@@ -400,6 +408,10 @@ impl App {
             .curr_font_weights
             .iter()
             .position(|font_weight| font_weight == &self.config.font_weight);
+        let dim_font_weight_selected = self
+            .curr_font_weights
+            .iter()
+            .position(|font_weight| font_weight == &self.config.dim_font_weight);
         let bold_font_weight_selected = self
             .curr_font_weights
             .iter()
@@ -426,6 +438,15 @@ impl App {
                             &self.curr_font_weight_names,
                             font_weight_selected,
                             |index| Message::DefaultFontWeight(index),
+                        ),
+                    ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("default-dim-font-weight")).control(
+                        widget::dropdown(
+                            &self.curr_font_weight_names,
+                            dim_font_weight_selected,
+                            |index| Message::DefaultDimFontWeight(index),
                         ),
                     ),
                 )
@@ -815,6 +836,15 @@ impl Application for App {
                 }
                 None => {
                     log::warn!("failed to find font weight with index {}", index);
+                }
+            },
+            Message::DefaultDimFontWeight(index) => match self.curr_font_weights.get(index) {
+                Some(font_weight) => {
+                    self.config.dim_font_weight = *font_weight;
+                    return self.save_config();
+                }
+                None => {
+                    log::warn!("failed to find dim font weight with index {}", index);
                 }
             },
             Message::DefaultBoldFontWeight(index) => match self.curr_font_weights.get(index) {

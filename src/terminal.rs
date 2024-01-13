@@ -87,6 +87,13 @@ fn as_bright(mut color: Color) -> Color {
     color
 }
 
+fn as_dim(mut color: Color) -> Color {
+    if let Color::Named(named) = color {
+        color = Color::Named(named.to_dim());
+    }
+    color
+}
+
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
@@ -133,6 +140,7 @@ pub struct Terminal {
     size: Size,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     colors: Colors,
+    dim_font_weight: Weight,
     bold_font_weight: Weight,
     use_bright_bold: bool,
     notifier: Notifier,
@@ -156,6 +164,7 @@ impl Terminal {
     ) {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
+        let dim_font_weight = app_config.dim_font_weight;
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
 
@@ -234,6 +243,7 @@ impl Terminal {
 
         let terminal = Self {
             colors,
+            dim_font_weight: Weight(dim_font_weight),
             bold_font_weight: Weight(bold_font_weight),
             use_bright_bold,
             default_attrs,
@@ -490,6 +500,11 @@ impl Terminal {
             update_cell_size = true;
         }
 
+        if self.dim_font_weight.0 != config.dim_font_weight {
+            self.dim_font_weight = Weight(config.dim_font_weight);
+            update_cell_size = true;
+        }
+
         if self.bold_font_weight.0 != config.font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
             update_cell_size = true;
@@ -623,12 +638,13 @@ impl Terminal {
 
                     let mut attrs = self.default_attrs;
 
-                    let cell_fg =
-                        if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
-                            as_bright(indexed.cell.fg)
-                        } else {
-                            indexed.cell.fg
-                        };
+                    let cell_fg = if indexed.cell.flags.contains(Flags::DIM) {
+                        as_dim(indexed.cell.fg)
+                    } else if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
+                        as_bright(indexed.cell.fg)
+                    } else {
+                        indexed.cell.fg
+                    };
 
                     let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
                         (
@@ -673,6 +689,9 @@ impl Terminal {
                     //TODO: more flags
                     if indexed.cell.flags.contains(Flags::BOLD) {
                         attrs = attrs.weight(self.bold_font_weight);
+                    } else if indexed.cell.flags.contains(Flags::DIM) {
+                        // if DIM and !BOLD
+                        attrs = attrs.weight(self.dim_font_weight);
                     }
                     if indexed.cell.flags.contains(Flags::ITALIC) {
                         //TODO: automatically use fake italic
