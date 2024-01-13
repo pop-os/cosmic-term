@@ -47,3 +47,9 @@ menu-settings = Settings...
 
 # Context menu
 show-headerbar = Show header bar
+
+
+# Command
+command = Command
+custom-command = Custom command
+use-custom-command = Use a custom command

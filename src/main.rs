@@ -519,18 +519,27 @@ impl App {
                     .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
             );
 
-        let command_view = widget::settings::view_section("Command")
+        let command_view = widget::settings::view_section(fl!("command"))
             .add(
-                widget::settings::item::builder("Use a custom startup shell")
+                widget::settings::item::builder(fl!("use-custom-command"))
                     .toggler(self.config.use_default_shell, Message::UseDefaultShell),
             )
-            .add(widget::settings::item::builder("Startup shell").control({
-                let mut command_input = cosmic::widget::inline_input(&self.config.default_shell);
-                if self.config.use_default_shell {
-                    command_input = command_input.on_input(Message::DefaultShell)
-                }
-                command_input
-            }));
+            .add(
+                widget::settings::item::builder(fl!("custom-command")).control({
+                    let mut command_input =
+                        cosmic::widget::text_input(fl!("command"), &self.config.default_shell)
+                            .trailing_icon(
+                                button(icon_cache_get("edit-clear-symbolic", 16))
+                                    .on_press(Message::DefaultShell(String::new()))
+                                    .style(style::Button::Icon)
+                                    .into(),
+                            );
+                    if self.config.use_default_shell {
+                        command_input = command_input.on_input(Message::DefaultShell)
+                    }
+                    command_input
+                }),
+            );
 
         widget::settings::view_column(vec![settings_view.into(), command_view.into()]).into()
     }
