@@ -19,18 +19,19 @@ use cosmic::{
         subscription::{self, Subscription},
         window, Alignment, Event, Length, Padding, Point,
     },
+    iced_widget::Row,
     style,
-    widget::{self, button, segmented_button},
+    widget::{self, button, segmented_button, Column},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
-use serde::de::IntoDeserializer;
 use std::{
     any::TypeId,
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
     sync::Mutex,
     time::Duration,
+    vec,
 };
 use tokio::sync::mpsc;
 
@@ -194,6 +195,7 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    CloseErr(usize),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -239,8 +241,8 @@ pub struct App {
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
     term_config: TermConfig,
     show_advanced_font_settings: bool,
-    terminal_launch_error: Option<String>,
     modifiers: Modifiers,
+    errors: Vec<Box<dyn std::error::Error>>,
 }
 
 impl App {
@@ -532,6 +534,11 @@ impl App {
 
         widget::settings::view_column(vec![settings_view.into(), command_view.into()]).into()
     }
+    fn add_err<T>(&mut self, result: Result<T, Box<dyn std::error::Error>>) {
+        if let Err(err) = result {
+            self.errors.push(err)
+        }
+    }
 }
 
 /// Implement [`Application`] to integrate with COSMIC.
@@ -693,9 +700,8 @@ impl Application for App {
             term_event_tx_opt: None,
             show_advanced_font_settings: false,
 
-            terminal_launch_error: None,
-
             modifiers: Modifiers::empty(),
+            errors: Vec::new(),
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -974,19 +980,17 @@ impl Application for App {
                             .closable()
                             .activate()
                             .id();
-                        let terminal = Terminal::new(
+                        let (terminal, launch_err) = Terminal::new(
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
                             &self.config,
                             colors.clone(),
                         );
+                        self.add_err(launch_err);
                         match terminal {
                             Some(terminal) => {
-                                let mut terminal = terminal.unwrap_or_else(|term| {
-                                    self.terminal_launch_error = Some("failed to launch custom command; reverting to default command".into());
-                                    term
-                                });
+                                let mut terminal = terminal.unwrap_or_else(|term| term);
                                 terminal.set_config(&self.config, &self.themes, self.zoom_adj);
                                 self.tab_model
                                     .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
@@ -1093,6 +1097,7 @@ impl Application for App {
                 self.zoom_adj = 0;
                 return self.save_config();
             }
+            Message::CloseErr(i) => _ = self.errors.remove(i),
         }
 
         Command::none()
@@ -1131,9 +1136,27 @@ impl Application for App {
                 .width(Length::Fill),
             );
         }
-        if let Some(err) = &self.terminal_launch_error {
-            let msg: Element<'_, Message> = cosmic::iced::widget::text(err.clone()).into();
-            tab_column = tab_column.push(msg);
+        if !self.errors.is_empty() {
+            let errors = self.errors.iter().enumerate().fold(
+                widget::column::with_capacity(self.errors.len()),
+                |acc, (i, x)| {
+                    let line = Row::with_children(vec![
+                        widget::text(x.to_string()).into(),
+                        button(icon_cache_get("window-close-symbolic", 16))
+                            .on_press(Message::CloseErr(i))
+                            .padding(space_xxs)
+                            .style(style::Button::Icon)
+                            .into(),
+                    ]);
+                    acc.push(line)
+                },
+            );
+            let errors = errors
+                .spacing(space_xxs)
+                .padding(space_xxs)
+                .align_items(Alignment::Center);
+            let errors = widget::container(errors).style(style::Container::Card);
+            tab_column = tab_column.push(errors);
         }
 
         let entity = self.tab_model.active();

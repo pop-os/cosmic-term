@@ -22,6 +22,7 @@ use cosmic_text::{
 use std::{
     borrow::Cow,
     collections::HashMap,
+    fmt::format,
     mem,
     os::unix::process,
     sync::{Arc, Weak},
@@ -149,7 +150,10 @@ impl Terminal {
         config: Config,
         app_config: &AppConfig,
         colors: Colors,
-    ) -> Option<Result<Self, Self>> {
+    ) -> (
+        Option<Result<Self, Self>>,
+        Result<(), Box<dyn std::error::Error>>,
+    ) {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
         let bold_font_weight = app_config.bold_font_weight;
@@ -192,13 +196,16 @@ impl Terminal {
         let window_id = 0;
 
         let mut options = Options::default();
-        let mut launch_err = false;
+        let mut launch_err = Ok(());
         let use_default_shell = app_config.use_default_shell;
         if use_default_shell {
             let mut shell = shlex::Shlex::new(&app_config.default_shell);
-            let shell = tty::Shell::new(shell.next().unwrap_or_default(), shell.collect());
-
-            options.shell = Some(shell);
+            let shell_tty =
+                tty::Shell::new(shell.next().unwrap_or_default(), shell.by_ref().collect());
+            if shell.had_error {
+                log::error!("error while parsing shell commands");
+            }
+            options.shell = Some(shell_tty);
         }
 
         let pty = match tty::new(&options, size.into(), window_id) {
@@ -206,20 +213,21 @@ impl Terminal {
             Err(err) => {
                 log::error!("failed to start pty {}", err);
                 if !use_default_shell {
-                    return None;
+                    return (None, Err(err.into()));
                 }
-                launch_err = true;
                 options.shell = None;
                 match tty::new(&options, size.into(), window_id) {
-                    Ok(pty) => pty,
+                    Ok(pty) => {
+                        launch_err = Err(format!("Reverting to default options: {err}"));
+                        pty
+                    }
                     Err(err) => {
                         log::error!("could not start pty with default options, {}", err);
-                        return None;
+                        return (None, Err(err.into()));
                     }
                 }
             }
         };
-
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
@@ -238,14 +246,13 @@ impl Terminal {
             search_regex_opt: None,
             search_value: String::new(),
         };
-        let terminal = if launch_err {
+        let terminal = if launch_err.is_err() {
             Err(terminal)
         } else {
             Ok(terminal)
         };
-        Some(terminal)
 
-  
+        (Some(terminal), launch_err.map_err(Into::into))
     }
 
     pub fn buffer_weak(&self) -> Weak<Buffer> {
