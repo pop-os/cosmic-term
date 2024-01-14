@@ -3,7 +3,7 @@ use alacritty_terminal::{
     vte::ansi::{NamedColor, Rgb},
 };
 
-use palette::{encoding::Srgb, rgb::Rgb as PRgb, Okhsl, FromColor, num::Abs};
+use palette::{encoding::Srgb, rgb::Rgb as PRgb, FromColor, Okhsl};
 use std::collections::HashMap;
 
 // Fill missing dim/bright colors with derived values from normal ones.
@@ -29,31 +29,28 @@ impl ColorDerive {
     }
 
     fn with_dim_lightness_adjustment(self, dim_lightness_adjustment: f32) -> Self {
-        Self { dim_lightness_adjustment, ..self }
+        Self {
+            dim_lightness_adjustment,
+            ..self
+        }
     }
 
     fn rgb_to_okhsl(c: Rgb) -> Okhsl {
-        let p_rgb = PRgb::<Srgb, u8>::new(c.r, c.g, c.b)
-            .into_format::<f32>();
+        let p_rgb = PRgb::<Srgb, u8>::new(c.r, c.g, c.b).into_format::<f32>();
         Okhsl::from_color(p_rgb)
     }
 
     fn okhsl_to_rgb(c: Okhsl) -> Rgb {
-        let p_rgb = PRgb::<Srgb, _>::from_color(c)
-            .into_format::<u8>();
+        let p_rgb = PRgb::<Srgb, _>::from_color(c).into_format::<u8>();
         let (r, g, b) = p_rgb.into_components();
-        Rgb{r, g, b}
+        Rgb { r, g, b }
     }
 
     fn color_adj(rgb: Rgb, saturation_adj: f32, lightness_adj: f32) -> Rgb {
         let mut okhsl = Self::rgb_to_okhsl(rgb);
 
-        okhsl.saturation = (okhsl.saturation + saturation_adj)
-            .max(0.0)
-            .min(1.0);
-        okhsl.lightness = (okhsl.lightness + lightness_adj)
-            .max(0.0)
-            .min(1.0);
+        okhsl.saturation = (okhsl.saturation + saturation_adj).max(0.0).min(1.0);
+        okhsl.lightness = (okhsl.lightness + lightness_adj).max(0.0).min(1.0);
 
         Self::okhsl_to_rgb(okhsl)
     }
@@ -86,7 +83,7 @@ impl ColorDerive {
             };
         }
 
-        populate!{ Foreground, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White };
+        populate! { Foreground, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White };
     }
 
     fn fill_missing_dims(&self, colors: &mut Colors) {
@@ -105,7 +102,7 @@ impl ColorDerive {
             };
         }
 
-        populate!{ Foreground, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White };
+        populate! { Foreground, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White };
     }
 }
 

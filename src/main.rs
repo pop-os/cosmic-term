@@ -92,6 +92,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let mut shell_program_opt = None;
+    let mut shell_args = Vec::new();
+    let mut parse_flags = true;
+    for arg in env::args().skip(1) {
+        if parse_flags {
+            match arg.as_str() {
+                // These flags indicate the end of parsing flags
+                "-e" | "--command" | "--" => {
+                    parse_flags = false;
+                }
+                _ => {
+                    //TODO: should this throw an error?
+                    log::warn!("ignored argument {:?}", arg);
+                }
+            }
+        } else if shell_program_opt.is_none() {
+            shell_program_opt = Some(arg);
+        } else {
+            shell_args.push(arg);
+        }
+    }
+
+    let startup_options = if let Some(shell_program) = shell_program_opt {
+        let mut options = tty::Options::default();
+        options.shell = Some(tty::Shell::new(shell_program, shell_args));
+        Some(options)
+    } else {
+        None
+    };
+
     let term_config = TermConfig::default();
     // Set up environmental variables for terminal
     tty::setup_env();
@@ -113,6 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let flags = Flags {
         config_handler,
         config,
+        startup_options,
         term_config,
     };
     cosmic::app::run::<App>(settings, flags)?;
@@ -124,6 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    startup_options: Option<tty::Options>,
     term_config: TermConfig,
 }
 
@@ -232,6 +264,7 @@ pub struct App {
     find_search_id: widget::Id,
     find_search_value: String,
     term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
+    startup_options: Option<tty::Options>,
     term_config: TermConfig,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
@@ -356,7 +389,6 @@ impl App {
         {
             self.config.dim_font_weight = Weight::NORMAL.0;
         }
-
 
         if !self
             .curr_font_weights
@@ -688,6 +720,7 @@ impl Application for App {
             find: false,
             find_search_id: widget::Id::unique(),
             find_search_value: String::new(),
+            startup_options: flags.startup_options,
             term_config: flags.term_config,
             term_event_tx_opt: None,
             show_advanced_font_settings: false,
@@ -971,10 +1004,13 @@ impl Application for App {
                             .closable()
                             .activate()
                             .id();
+                        // Use the startup options, or defaults
+                        let options = self.startup_options.take().unwrap_or_default();
                         let mut terminal = Terminal::new(
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
+                            options,
                             &self.config,
                             colors.clone(),
                         );

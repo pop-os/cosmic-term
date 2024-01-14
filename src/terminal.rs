@@ -154,6 +154,7 @@ impl Terminal {
         entity: segmented_button::Entity,
         event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
         config: Config,
+        options: Options,
         app_config: &AppConfig,
         colors: Colors,
     ) -> Self {
@@ -198,8 +199,6 @@ impl Terminal {
         )));
 
         let window_id = 0;
-        let options = Options::default();
-
         let pty = tty::new(&options, size.into(), window_id).unwrap();
 
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
