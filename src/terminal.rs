@@ -203,7 +203,9 @@ impl Terminal {
             // Use size of space to determine cell size
             buffer.set_text(&mut font_system, " ", default_attrs, Shaping::Advanced);
             let layout = buffer.line_layout(&mut font_system, 0).unwrap();
-            (layout[0].w, metrics.line_height)
+            let w = layout[0].w;
+            buffer.set_monospace_width(font_system, Some(w));
+            (w, metrics.line_height)
         };
 
         let size = Size {
@@ -546,7 +548,9 @@ impl Terminal {
                 // Use size of space to determine cell size
                 buffer.set_text(font_system.raw(), " ", default_attrs, Shaping::Advanced);
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
-                (layout[0].w, buffer.metrics().line_height)
+                let w = layout[0].w;
+                buffer.set_monospace_width(font_system.raw(), Some(w));
+                (w, buffer.metrics().line_height)
             })
         };
 
