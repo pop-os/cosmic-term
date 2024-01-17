@@ -1297,6 +1297,16 @@ impl Application for App {
                     }
                 }
                 Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::W,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::TabClose(None))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
                     key_code: KeyCode::V,
                     modifiers,
                 }) => {
