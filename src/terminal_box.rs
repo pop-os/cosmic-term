@@ -252,27 +252,8 @@ where
         // Render default background
         {
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
-            let background_color = meta.bg;
+            let background_color = shade(meta.bg, state.is_focused);
 
-            //TODO: get shaded background color from theme
-            /*
-            let mut shade: f32 = 1.0;
-            if !state.is_focused {
-                shade = 0.90;
-            }
-            let background = Color::new(
-                background_color.r() as f32 * shade / 255.0,
-                background_color.g() as f32 * shade / 255.0,
-                background_color.b() as f32 * shade / 255.0,
-                background_color.a() as f32 * shade / 255.0,
-            );
-            */
-            let background = Color::new(
-                background_color.r() as f32 / 255.0,
-                background_color.g() as f32 / 255.0,
-                background_color.b() as f32 / 255.0,
-                background_color.a() as f32 / 255.0,
-            );
 
             renderer.fill_quad(
                 Quad {
@@ -284,7 +265,12 @@ where
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
                 },
-                background,
+                Color::new(
+                    background_color.r() as f32 / 255.0,
+                    background_color.g() as f32 / 255.0,
+                    background_color.b() as f32 / 255.0,
+                    background_color.a() as f32 / 255.0,
+                ),
             );
         }
 
@@ -308,11 +294,12 @@ where
                         &mut self,
                         glyph: &LayoutGlyph,
                         renderer: &mut Renderer,
+                        is_focused: bool,
                     ) {
                         if glyph.metadata == self.metadata {
                             self.end_x = glyph.x + glyph.w;
                         } else {
-                            self.fill(renderer);
+                            self.fill(renderer, is_focused);
                             self.metadata = glyph.metadata;
                             self.glyph_font_size = glyph.font_size;
                             self.start_x = glyph.x;
@@ -320,13 +307,13 @@ where
                         }
                     }
 
-                    fn fill<Renderer: renderer::Renderer>(&mut self, renderer: &mut Renderer) {
+                    fn fill<Renderer: renderer::Renderer>(&mut self, renderer: &mut Renderer, is_focused: bool) {
                         if self.metadata == self.default_metadata {
                             return;
                         }
 
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
-                            Color::new(
+                            Color::new( 
                                 color.r() as f32 / 255.0,
                                 color.g() as f32 / 255.0,
                                 color.b() as f32 / 255.0,
@@ -361,7 +348,7 @@ where
                         }
 
                         let metadata = &self.metadata_set[self.metadata];
-                        let color = metadata.bg;
+                        let color = shade(metadata.bg, is_focused);
                         renderer.fill_quad(
                             mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
                             cosmic_text_to_iced_color(color),
@@ -487,9 +474,9 @@ where
                     metadata_set,
                 };
                 for glyph in run.glyphs.iter() {
-                    bg_rect.update(glyph, renderer);
+                    bg_rect.update(glyph, renderer, state.is_focused);
                 }
-                bg_rect.fill(renderer);
+                bg_rect.fill(renderer, state.is_focused);
             }
         });
 
@@ -1084,6 +1071,24 @@ where
         }
 
         status
+    }
+}
+
+fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
+    if is_focused {
+        log::debug!("No shade {:?}", color.as_rgba());
+        color
+    } else {
+        log::debug!("Shade orig {:?}", color.as_rgba());
+        let shade = 0.92;
+        let new = cosmic_text::Color::rgba(
+            (color.r() as f32 * shade) as u8,
+            (color.g() as f32 * shade) as u8,
+            (color.b() as f32 * shade) as u8,
+            color.a(),
+        );
+        log::debug!("Shade new {:?}", new.as_rgba());
+        new
     }
 }
 
