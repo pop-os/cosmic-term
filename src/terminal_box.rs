@@ -255,6 +255,7 @@ where
             let background_color = meta.bg;
 
             //TODO: get shaded background color from theme
+            /*
             let mut shade: f32 = 1.0;
             if !state.is_focused {
                 shade = 0.90;
@@ -264,6 +265,13 @@ where
                 background_color.g() as f32 * shade / 255.0,
                 background_color.b() as f32 * shade / 255.0,
                 background_color.a() as f32 * shade / 255.0,
+            );
+            */
+            let background = Color::new(
+                background_color.r() as f32 / 255.0,
+                background_color.g() as f32 / 255.0,
+                background_color.b() as f32 / 255.0,
+                background_color.a() as f32 / 255.0,
             );
 
             renderer.fill_quad(
