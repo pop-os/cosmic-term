@@ -54,6 +54,10 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
         menu_action(fl!("paste"), Action::Paste),
         menu_action(fl!("select-all"), Action::SelectAll),
         horizontal_rule(1),
+        menu_action(fl!("split-horizontal"), Action::PaneSplitHorizontal),
+        menu_action(fl!("split-vertical"), Action::PaneSplitVertical),
+        menu_action(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
+        horizontal_rule(1),
         menu_action(fl!("new-tab"), Action::TabNew),
         menu_action(fl!("settings"), Action::Settings),
         menu_checkbox(

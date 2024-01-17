@@ -17,7 +17,7 @@ use cosmic::{
         window, Alignment, Event, Length, Padding, Point,
     },
     style,
-    widget::{self, button, segmented_button},
+    widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
@@ -41,7 +41,7 @@ mod localize;
 use menu::menu_bar;
 mod menu;
 
-use terminal::{Terminal, TerminalScroll};
+use terminal::{Terminal, TerminalPaneGrid, TerminalScroll};
 mod terminal;
 
 use terminal_box::terminal_box;
@@ -167,6 +167,9 @@ pub enum Action {
     Settings,
     ShowHeaderBar(bool),
     TabNew,
+    PaneSplitHorizontal,
+    PaneSplitVertical,
+    PaneToggleMaximized,
 }
 
 impl Action {
@@ -178,6 +181,9 @@ impl Action {
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
             Action::TabNew => Message::TabNew,
+            Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
+            Action::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
+            Action::PaneToggleMaximized => Message::PaneToggleMaximized,
         }
     }
 }
@@ -199,6 +205,12 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
+    PaneClicked(pane_grid::Pane),
+    PaneSplit(pane_grid::Axis),
+    PaneToggleMaximized,
+    PaneFocusAdjacent(pane_grid::Direction),
+    PaneDragged(pane_grid::DragEvent),
+    PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
@@ -212,8 +224,8 @@ pub enum Message {
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(segmented_button::Entity, Option<Point>),
     TabNew,
-    TermEvent(segmented_button::Entity, TermEvent),
-    TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
+    TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
+    TermEventTx(mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
     ShowAdvancedFontSettings(bool),
     WindowClose,
@@ -239,7 +251,7 @@ impl ContextPage {
 /// The [`App`] stores application-specific state.
 pub struct App {
     core: Core,
-    tab_model: segmented_button::Model<segmented_button::SingleSelect>,
+    pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
     app_themes: Vec<String>,
@@ -259,11 +271,11 @@ pub struct App {
     theme_names: Vec<String>,
     themes: HashMap<String, TermColors>,
     context_page: ContextPage,
-    terminal_id: widget::Id,
+    terminal_ids: HashMap<pane_grid::Pane, widget::Id>,
     find: bool,
     find_search_id: widget::Id,
     find_search_value: String,
-    term_event_tx_opt: Option<mpsc::Sender<(segmented_button::Entity, TermEvent)>>,
+    term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: TermConfig,
     show_advanced_font_settings: bool,
@@ -273,11 +285,14 @@ pub struct App {
 impl App {
     fn update_config(&mut self) -> Command<Message> {
         //TODO: provide iterator over data
-        let entities: Vec<_> = self.tab_model.iter().collect();
-        for entity in entities {
-            if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                let mut terminal = terminal.lock().unwrap();
-                terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+        let panes: Vec<_> = self.pane_model.panes.iter().collect();
+        for (_pane, tab_model) in panes {
+            let entities: Vec<_> = tab_model.iter().collect();
+            for entity in entities {
+                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                    let mut terminal = terminal.lock().unwrap();
+                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                }
             }
         }
 
@@ -303,22 +318,33 @@ impl App {
             Command::none()
         } else if self.find {
             widget::text_input::focus(self.find_search_id.clone())
+        } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focus).cloned() {
+            widget::text_input::focus(terminal_id)
         } else {
-            widget::text_input::focus(self.terminal_id.clone())
+            Command::none()
         }
     }
 
     // Call this any time the tab changes
-    fn update_title(&mut self) -> Command<Message> {
-        let (header_title, window_title) = match self.tab_model.text(self.tab_model.active()) {
-            Some(tab_title) => (
-                tab_title.to_string(),
-                format!("{tab_title} — COSMIC Terminal"),
-            ),
-            None => (String::new(), "COSMIC Terminal".to_string()),
-        };
-        self.set_header_title(header_title);
-        Command::batch([self.set_window_title(window_title), self.update_focus()])
+    fn update_title(&mut self, pane: Option<pane_grid::Pane>) -> Command<Message> {
+        let pane = pane.unwrap_or(self.pane_model.focus);
+        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+            let (header_title, window_title) = match tab_model.text(tab_model.active()) {
+                Some(tab_title) => (
+                    tab_title.to_string(),
+                    format!("{tab_title} — COSMIC Terminal"),
+                ),
+                None => (String::new(), "COSMIC Terminal".to_string()),
+            };
+            self.set_header_title(header_title);
+            Command::batch([self.set_window_title(window_title), self.update_focus()])
+        } else {
+            log::error!("Failed to get the specific pane");
+            Command::batch([
+                self.set_window_title("COSMIC Terminal".to_string()),
+                self.update_focus(),
+            ])
+        }
     }
 
     fn set_curr_font_weights_and_stretches(&mut self) {
@@ -693,10 +719,13 @@ impl Application for App {
         let themes = terminal_theme::terminal_themes();
         let mut theme_names: Vec<_> = themes.keys().map(|x| x.clone()).collect();
         theme_names.sort();
+        let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
+        let mut terminal_ids = HashMap::new();
+        terminal_ids.insert(pane_model.focus, widget::Id::unique());
 
         let mut app = App {
             core,
-            tab_model: segmented_button::ModelBuilder::default().build(),
+            pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
             app_themes,
@@ -716,7 +745,7 @@ impl Application for App {
             theme_names,
             themes,
             context_page: ContextPage::Settings,
-            terminal_id: widget::Id::unique(),
+            terminal_ids,
             find: false,
             find_search_id: widget::Id::unique(),
             find_search_value: String::new(),
@@ -728,7 +757,7 @@ impl Application for App {
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = app.update_title();
+        let command = app.update_title(None);
 
         (app, command)
     }
@@ -763,13 +792,17 @@ impl Application for App {
                 }
             }
             Message::Copy(entity_opt) => {
-                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
-                if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                    let terminal = terminal.lock().unwrap();
-                    let term = terminal.term.lock();
-                    if let Some(text) = term.selection_to_string() {
-                        return clipboard::write(text);
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        let term = terminal.term.lock();
+                        if let Some(text) = term.selection_to_string() {
+                            return clipboard::write(text);
+                        }
                     }
+                } else {
+                    log::warn!("Failed to get focused pane");
                 }
             }
             Message::DefaultFont(index) => {
@@ -781,14 +814,16 @@ impl Application for App {
                                 let mut font_system = font_system().write().unwrap();
                                 font_system.raw().db_mut().set_monospace_family(font_name);
                             }
-
-                            let entities: Vec<_> = self.tab_model.iter().collect();
-                            for entity in entities {
-                                if let Some(terminal) =
-                                    self.tab_model.data::<Mutex<Terminal>>(entity)
-                                {
-                                    let mut terminal = terminal.lock().unwrap();
-                                    terminal.update_cell_size();
+                            let panes: Vec<_> = self.pane_model.panes.iter().collect();
+                            for (_pane, tab_model) in panes {
+                                let entities: Vec<_> = tab_model.iter().collect();
+                                for entity in entities {
+                                    if let Some(terminal) =
+                                        tab_model.data::<Mutex<Terminal>>(entity)
+                                    {
+                                        let mut terminal = terminal.lock().unwrap();
+                                        terminal.update_cell_size();
+                                    }
                                 }
                             }
 
@@ -868,10 +903,12 @@ impl Application for App {
             }
             Message::FindNext => {
                 if !self.find_search_value.is_empty() {
-                    let entity = self.tab_model.active();
-                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.search(&self.find_search_value, true);
+                    if let Some(tab_model) = self.pane_model.active() {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.search(&self.find_search_value, true);
+                        }
                     }
                 }
 
@@ -880,10 +917,12 @@ impl Application for App {
             }
             Message::FindPrevious => {
                 if !self.find_search_value.is_empty() {
-                    let entity = self.tab_model.active();
-                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.search(&self.find_search_value, false);
+                    if let Some(tab_model) = self.pane_model.active() {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.search(&self.find_search_value, false);
+                        }
                     }
                 }
 
@@ -896,6 +935,93 @@ impl Application for App {
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
+            Message::PaneClicked(pane) => {
+                self.pane_model.focus = pane;
+                return self.update_title(Some(pane));
+            }
+            Message::PaneSplit(axis) => {
+                let result = self.pane_model.panes.split(
+                    axis,
+                    self.pane_model.focus,
+                    segmented_button::ModelBuilder::default().build(),
+                );
+                if let Some((pane, _)) = result {
+                    self.terminal_ids.insert(pane, widget::Id::unique());
+                    self.pane_model.focus = pane;
+
+                    match &self.term_event_tx_opt {
+                        Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
+                            Some(colors) => {
+                                let current_pane = self.pane_model.focus;
+                                if let Some(tab_model) = self.pane_model.active_mut() {
+                                    let entity = tab_model
+                                        .insert()
+                                        .text("New Terminal")
+                                        .closable()
+                                        .activate()
+                                        .id();
+                                    // Use the startup options, or defaults
+                                    let options = self.startup_options.take().unwrap_or_default();
+                                    let mut terminal = Terminal::new(
+                                        current_pane,
+                                        entity,
+                                        term_event_tx.clone(),
+                                        self.term_config.clone(),
+                                        options,
+                                        &self.config,
+                                        *colors,
+                                    );
+                                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                                    tab_model
+                                        .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                } else {
+                                    log::error!("Found no active pane");
+                                }
+                            }
+                            None => {
+                                log::error!(
+                                    "failed to find terminal theme {:?}",
+                                    self.config.syntax_theme()
+                                );
+                                //TODO: fall back to known good theme
+                            }
+                        },
+                        None => {
+                            log::warn!("tried to create new tab before having event channel");
+                        }
+                    }
+                    self.pane_model.panes_created += 1;
+                    return self.update_title(Some(pane));
+                }
+            }
+            Message::PaneToggleMaximized => {
+                if self.pane_model.panes.maximized().is_some() {
+                    self.pane_model.panes.restore();
+                } else {
+                    self.pane_model.panes.maximize(self.pane_model.focus);
+                }
+                return self.update_focus();
+            }
+            Message::PaneFocusAdjacent(direction) => {
+                if let Some(adjacent) = self
+                    .pane_model
+                    .panes
+                    .adjacent(self.pane_model.focus, direction)
+                {
+                    self.pane_model.focus = adjacent;
+                    return Command::batch([
+                        self.update_focus(),
+                        self.update_title(Some(adjacent)),
+                    ]);
+                }
+            }
+            Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
+                self.pane_model.panes.resize(split, ratio);
+            }
+            Message::PaneDragged(pane_grid::DragEvent::Dropped { pane, target }) => {
+                self.pane_model.panes.drop(pane, target);
+            }
+            Message::PaneDragged(_) => {}
             Message::Paste(entity_opt) => {
                 return clipboard::read(move |value_opt| match value_opt {
                     Some(value) => message::app(Message::PasteValue(entity_opt, value)),
@@ -903,17 +1029,21 @@ impl Application for App {
                 });
             }
             Message::PasteValue(entity_opt, value) => {
-                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
-                if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                    let terminal = terminal.lock().unwrap();
-                    terminal.paste(value);
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        terminal.paste(value);
+                    }
                 }
             }
             Message::SelectAll(entity_opt) => {
-                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
-                if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                    let mut terminal = terminal.lock().unwrap();
-                    terminal.select_all();
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.select_all();
+                    }
                 }
             }
             Message::ShowHeaderBar(show_headerbar) => {
@@ -945,78 +1075,96 @@ impl Application for App {
                 }
             },
             Message::TabActivate(entity) => {
-                self.tab_model.activate(entity);
-                return self.update_title();
+                if let Some(tab_model) = self.pane_model.active_mut() {
+                    tab_model.activate(entity);
+                }
+                return self.update_title(None);
             }
             Message::TabClose(entity_opt) => {
-                let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
+                if let Some(tab_model) = self.pane_model.active_mut() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
 
-                // Activate closest item
-                if let Some(position) = self.tab_model.position(entity) {
-                    if position > 0 {
-                        self.tab_model.activate_position(position - 1);
-                    } else {
-                        self.tab_model.activate_position(position + 1);
+                    // Activate closest item
+                    if let Some(position) = tab_model.position(entity) {
+                        if position > 0 {
+                            tab_model.activate_position(position - 1);
+                        } else {
+                            tab_model.activate_position(position + 1);
+                        }
+                    }
+
+                    // Remove item
+                    tab_model.remove(entity);
+
+                    // If that was the last tab, close window
+                    if tab_model.iter().next().is_none() {
+                        if let Some((_state, sibling)) =
+                            self.pane_model.panes.close(self.pane_model.focus)
+                        {
+                            self.pane_model.focus = sibling;
+                        } else {
+                            return window::close(window::Id::MAIN);
+                        }
                     }
                 }
 
-                // Remove item
-                self.tab_model.remove(entity);
-
-                // If that was the last tab, close window
-                if self.tab_model.iter().next().is_none() {
-                    return window::close(window::Id::MAIN);
-                }
-
-                return self.update_title();
+                return self.update_title(None);
             }
             Message::TabContextAction(entity, action) => {
-                match self.tab_model.data::<Mutex<Terminal>>(entity) {
-                    Some(terminal) => {
-                        // Close context menu
-                        {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = None;
+                if let Some(tab_model) = self.pane_model.active() {
+                    match tab_model.data::<Mutex<Terminal>>(entity) {
+                        Some(terminal) => {
+                            // Close context menu
+                            {
+                                let mut terminal = terminal.lock().unwrap();
+                                terminal.context_menu = None;
+                            }
+                            // Run action's message
+                            return self.update(action.message(entity));
                         }
-                        // Run action's message
-                        return self.update(action.message(entity));
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             Message::TabContextMenu(entity, position_opt) => {
-                match self.tab_model.data::<Mutex<Terminal>>(entity) {
-                    Some(terminal) => {
-                        // Update context menu position
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = position_opt;
+                if let Some(tab_model) = self.pane_model.active() {
+                    match tab_model.data::<Mutex<Terminal>>(entity) {
+                        Some(terminal) => {
+                            // Update context menu position
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = position_opt;
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             Message::TabNew => match &self.term_event_tx_opt {
                 Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
                     Some(colors) => {
-                        let entity = self
-                            .tab_model
-                            .insert()
-                            .text("New Terminal")
-                            .closable()
-                            .activate()
-                            .id();
-                        // Use the startup options, or defaults
-                        let options = self.startup_options.take().unwrap_or_default();
-                        let mut terminal = Terminal::new(
-                            entity,
-                            term_event_tx.clone(),
-                            self.term_config.clone(),
-                            options,
-                            &self.config,
-                            colors.clone(),
-                        );
-                        terminal.set_config(&self.config, &self.themes, self.zoom_adj);
-                        self.tab_model
-                            .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                        let current_pane = self.pane_model.focus;
+                        if let Some(tab_model) = self.pane_model.active_mut() {
+                            let entity = tab_model
+                                .insert()
+                                .text("New Terminal")
+                                .closable()
+                                .activate()
+                                .id();
+                            // Use the startup options, or defaults
+                            let options = self.startup_options.take().unwrap_or_default();
+                            let mut terminal = Terminal::new(
+                                current_pane,
+                                entity,
+                                term_event_tx.clone(),
+                                self.term_config.clone(),
+                                options,
+                                &self.config,
+                                *colors,
+                            );
+                            terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                            tab_model.data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                        } else {
+                            log::error!("Found no active pane");
+                        }
                     }
                     None => {
                         log::error!(
@@ -1030,52 +1178,66 @@ impl Application for App {
                     log::warn!("tried to create new tab before having event channel");
                 }
             },
-            Message::TermEvent(entity, event) => match event {
-                TermEvent::Bell => {
-                    //TODO: audible or visible bell options?
-                }
-                TermEvent::ColorRequest(index, f) => {
-                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                        let terminal = terminal.lock().unwrap();
-                        let rgb = terminal.colors()[index].unwrap_or_default();
-                        let text = f(rgb);
-                        terminal.input_no_scroll(text.into_bytes());
+            Message::TermEvent(pane, entity, event) => {
+                match event {
+                    TermEvent::Bell => {
+                        //TODO: audible or visible bell options?
+                    }
+                    TermEvent::ColorRequest(index, f) => {
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let terminal = terminal.lock().unwrap();
+                                let rgb = terminal.colors()[index].unwrap_or_default();
+                                let text = f(rgb);
+                                terminal.input_no_scroll(text.into_bytes());
+                            }
+                        }
+                    }
+                    TermEvent::Exit => {
+                        return self.update(Message::TabClose(Some(entity)));
+                    }
+                    TermEvent::PtyWrite(text) => {
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let terminal = terminal.lock().unwrap();
+                                terminal.input_no_scroll(text.into_bytes());
+                            }
+                        }
+                    }
+                    TermEvent::ResetTitle => {
+                        if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                            tab_model.text_set(entity, "New Terminal");
+                        }
+                        return self.update_title(Some(pane));
+                    }
+                    TermEvent::TextAreaSizeRequest(f) => {
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let terminal = terminal.lock().unwrap();
+                                let text = f(terminal.size().into());
+                                terminal.input_no_scroll(text.into_bytes());
+                            }
+                        }
+                    }
+                    TermEvent::Title(title) => {
+                        if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                            tab_model.text_set(entity, title);
+                        }
+                        return self.update_title(Some(pane));
+                    }
+                    TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let mut terminal = terminal.lock().unwrap();
+                                terminal.needs_update = true;
+                            }
+                        }
+                    }
+                    _ => {
+                        log::warn!("TODO: {:?}", event);
                     }
                 }
-                TermEvent::Exit => {
-                    return self.update(Message::TabClose(Some(entity)));
-                }
-                TermEvent::PtyWrite(text) => {
-                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                        let terminal = terminal.lock().unwrap();
-                        terminal.input_no_scroll(text.into_bytes());
-                    }
-                }
-                TermEvent::ResetTitle => {
-                    self.tab_model.text_set(entity, "New Terminal");
-                    return self.update_title();
-                }
-                TermEvent::TextAreaSizeRequest(f) => {
-                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                        let terminal = terminal.lock().unwrap();
-                        let text = f(terminal.size().into());
-                        terminal.input_no_scroll(text.into_bytes());
-                    }
-                }
-                TermEvent::Title(title) => {
-                    self.tab_model.text_set(entity, title);
-                    return self.update_title();
-                }
-                TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
-                    if let Some(terminal) = self.tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.needs_update = true;
-                    }
-                }
-                _ => {
-                    log::warn!("TODO: {:?}", event);
-                }
-            },
+            }
             Message::TermEventTx(term_event_tx) => {
                 self.term_event_tx_opt = Some(term_event_tx);
             }
@@ -1139,114 +1301,128 @@ impl Application for App {
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
+            let mut tab_column = widget::column::with_capacity(1);
 
-        let mut tab_column = widget::column::with_capacity(1);
-
-        if self.tab_model.iter().count() > 1 {
-            tab_column = tab_column.push(
-                widget::container(
-                    widget::view_switcher::horizontal(&self.tab_model)
-                        .button_height(32)
-                        .button_spacing(space_xxs)
-                        .on_activate(Message::TabActivate)
-                        .on_close(|entity| Message::TabClose(Some(entity))),
-                )
-                .style(style::Container::Background)
-                .width(Length::Fill),
-            );
-        }
-
-        let entity = self.tab_model.active();
-        match self.tab_model.data::<Mutex<Terminal>>(entity) {
-            Some(terminal) => {
-                let terminal_box = terminal_box(terminal)
-                    .id(self.terminal_id.clone())
-                    .on_context_menu(move |position_opt| {
-                        Message::TabContextMenu(entity, position_opt)
-                    });
-
-                let context_menu = {
-                    let terminal = terminal.lock().unwrap();
-                    terminal.context_menu
-                };
-
-                let tab_element: Element<'_, Message> = match context_menu {
-                    Some(position) => widget::popover(
-                        terminal_box.context_menu(position),
-                        menu::context_menu(&self.config, entity),
+            if tab_model.iter().count() > 1 {
+                tab_column = tab_column.push(
+                    widget::container(
+                        widget::view_switcher::horizontal(tab_model)
+                            .button_height(32)
+                            .button_spacing(space_xxs)
+                            .on_activate(Message::TabActivate)
+                            .on_close(|entity| Message::TabClose(Some(entity))),
                     )
-                    .position(position)
-                    .into(),
-                    None => terminal_box.into(),
-                };
-                tab_column = tab_column.push(tab_element);
+                    .style(style::Container::Background)
+                    .width(Length::Fill),
+                );
             }
-            None => {
-                //TODO
-            }
-        }
 
-        if self.find {
-            let find_input =
-                widget::text_input::text_input(fl!("find-placeholder"), &self.find_search_value)
-                    .id(self.find_search_id.clone())
-                    .on_input(Message::FindSearchValueChanged)
-                    // This is inverted for ease of use, usually in terminals you want to search
-                    // upwards, which is FindPrevious
-                    .on_submit(if self.modifiers.contains(Modifiers::SHIFT) {
-                        Message::FindNext
-                    } else {
-                        Message::FindPrevious
-                    })
-                    .width(Length::Fixed(320.0))
-                    .trailing_icon(
-                        button(icon_cache_get("edit-clear-symbolic", 16))
-                            .on_press(Message::FindSearchValueChanged(String::new()))
-                            .style(style::Button::Icon)
-                            .into(),
+            let entity = tab_model.active();
+            let terminal_id = self
+                .terminal_ids
+                .get(&pane)
+                .cloned()
+                .unwrap_or_else(widget::Id::unique);
+            match tab_model.data::<Mutex<Terminal>>(entity) {
+                Some(terminal) => {
+                    let terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
+                        move |position_opt| Message::TabContextMenu(entity, position_opt),
                     );
-            let find_widget = widget::row::with_children(vec![
-                find_input.into(),
-                widget::tooltip(
-                    button(icon_cache_get("go-up-symbolic", 16))
-                        .on_press(Message::FindPrevious)
-                        .padding(space_xxs)
-                        .style(style::Button::Icon),
-                    fl!("find-previous"),
-                    widget::tooltip::Position::Top,
+
+                    let context_menu = {
+                        let terminal = terminal.lock().unwrap();
+                        terminal.context_menu
+                    };
+
+                    let tab_element: Element<'_, Message> = match context_menu {
+                        Some(position) => widget::popover(
+                            terminal_box.context_menu(position),
+                            menu::context_menu(&self.config, entity),
+                        )
+                        .position(position)
+                        .into(),
+                        None => terminal_box.into(),
+                    };
+                    tab_column = tab_column.push(tab_element);
+                }
+                None => {
+                    //TODO
+                }
+            }
+
+            if self.find {
+                let find_input = widget::text_input::text_input(
+                    fl!("find-placeholder"),
+                    &self.find_search_value,
                 )
-                .into(),
-                widget::tooltip(
-                    button(icon_cache_get("go-down-symbolic", 16))
-                        .on_press(Message::FindNext)
-                        .padding(space_xxs)
-                        .style(style::Button::Icon),
-                    fl!("find-next"),
-                    widget::tooltip::Position::Top,
-                )
-                .into(),
-                widget::horizontal_space(Length::Fill).into(),
-                button(icon_cache_get("window-close-symbolic", 16))
-                    .on_press(Message::Find(false))
-                    .padding(space_xxs)
-                    .style(style::Button::Icon)
+                .id(self.find_search_id.clone())
+                .on_input(Message::FindSearchValueChanged)
+                // This is inverted for ease of use, usually in terminals you want to search
+                // upwards, which is FindPrevious
+                .on_submit(if self.modifiers.contains(Modifiers::SHIFT) {
+                    Message::FindNext
+                } else {
+                    Message::FindPrevious
+                })
+                .width(Length::Fixed(320.0))
+                .trailing_icon(
+                    button(icon_cache_get("edit-clear-symbolic", 16))
+                        .on_press(Message::FindSearchValueChanged(String::new()))
+                        .style(style::Button::Icon)
+                        .into(),
+                );
+                let find_widget = widget::row::with_children(vec![
+                    find_input.into(),
+                    widget::tooltip(
+                        button(icon_cache_get("go-up-symbolic", 16))
+                            .on_press(Message::FindPrevious)
+                            .padding(space_xxs)
+                            .style(style::Button::Icon),
+                        fl!("find-previous"),
+                        widget::tooltip::Position::Top,
+                    )
                     .into(),
-            ])
-            .align_items(Alignment::Center)
+                    widget::tooltip(
+                        button(icon_cache_get("go-down-symbolic", 16))
+                            .on_press(Message::FindNext)
+                            .padding(space_xxs)
+                            .style(style::Button::Icon),
+                        fl!("find-next"),
+                        widget::tooltip::Position::Top,
+                    )
+                    .into(),
+                    widget::horizontal_space(Length::Fill).into(),
+                    button(icon_cache_get("window-close-symbolic", 16))
+                        .on_press(Message::Find(false))
+                        .padding(space_xxs)
+                        .style(style::Button::Icon)
+                        .into(),
+                ])
+                .align_items(Alignment::Center)
+                .padding(space_xxs)
+                .spacing(space_xxs);
+
+                tab_column = tab_column.push(
+                    widget::cosmic_container::container(find_widget)
+                        .layer(cosmic_theme::Layer::Primary),
+                );
+            }
+
+            pane_grid::Content::new(tab_column)
+        })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .spacing(space_xxs)
+        .on_click(Message::PaneClicked)
+        .on_resize(space_xxs, Message::PaneResized)
+        .on_drag(Message::PaneDragged);
+
+        container(pane_grid)
+            .width(Length::Fill)
+            .height(Length::Fill)
             .padding(space_xxs)
-            .spacing(space_xxs);
-
-            tab_column = tab_column.push(
-                widget::cosmic_container::container(find_widget)
-                    .layer(cosmic_theme::Layer::Primary),
-            );
-        }
-
-        let content: Element<_> = tab_column.into();
-
-        // Uncomment to debug layout:
-        //content.explain(cosmic::iced::Color::WHITE)
-        content
+            .into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
@@ -1292,6 +1468,76 @@ impl Application for App {
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                         Some(Message::TabNew)
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::R,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::ALT {
+                        Some(Message::PaneSplit(pane_grid::Axis::Vertical))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::D,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::ALT {
+                        Some(Message::PaneSplit(pane_grid::Axis::Horizontal))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::X,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::PaneToggleMaximized)
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Left,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Left))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Right,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Right))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Up,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Up))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Down,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Down))
                     } else {
                         None
                     }
@@ -1354,9 +1600,9 @@ impl Application for App {
                     // Create first terminal tab
                     output.send(Message::TabNew).await.unwrap();
 
-                    while let Some((entity, event)) = event_rx.recv().await {
+                    while let Some((pane, entity, event)) = event_rx.recv().await {
                         output
-                            .send(Message::TermEvent(entity, event))
+                            .send(Message::TermEvent(pane, entity, event))
                             .await
                             .unwrap();
                     }

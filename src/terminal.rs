@@ -15,7 +15,10 @@ use alacritty_terminal::{
     vte::ansi::{Color, NamedColor, Rgb},
     Term,
 };
-use cosmic::{iced::advanced::graphics::text::font_system, widget::segmented_button};
+use cosmic::{
+    iced::advanced::graphics::text::font_system,
+    widget::{pane_grid, segmented_button},
+};
 use cosmic_text::{
     Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
 };
@@ -67,14 +70,15 @@ impl From<Size> for WindowSize {
 
 #[derive(Clone)]
 pub struct EventProxy(
+    pane_grid::Pane,
     segmented_button::Entity,
-    mpsc::Sender<(segmented_button::Entity, Event)>,
+    mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
 );
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {
         //TODO: handle error
-        let _ = self.1.blocking_send((self.0, event));
+        let _ = self.2.blocking_send((self.0, self.1, event));
     }
 }
 
@@ -132,6 +136,33 @@ fn linear_color(color: cosmic_text::Color) -> cosmic_text::Color {
     )
 }
 
+type TabModel = segmented_button::Model<segmented_button::SingleSelect>;
+pub struct TerminalPaneGrid {
+    pub panes: pane_grid::State<TabModel>,
+    pub panes_created: usize,
+    pub focus: pane_grid::Pane,
+}
+
+impl TerminalPaneGrid {
+    pub fn new(model: TabModel) -> Self {
+        let (panes, pane) = pane_grid::State::new(model);
+        let mut terminal_ids = HashMap::new();
+        terminal_ids.insert(pane, cosmic::widget::Id::unique());
+
+        Self {
+            panes,
+            panes_created: 1,
+            focus: pane,
+        }
+    }
+    pub fn active(&self) -> Option<&TabModel> {
+        self.panes.get(self.focus)
+    }
+    pub fn active_mut(&mut self) -> Option<&mut TabModel> {
+        self.panes.get_mut(self.focus)
+    }
+}
+
 pub struct Terminal {
     default_attrs: Attrs<'static>,
     buffer: Arc<Buffer>,
@@ -151,8 +182,9 @@ pub struct Terminal {
 impl Terminal {
     //TODO: error handling
     pub fn new(
+        pane: pane_grid::Pane,
         entity: segmented_button::Entity,
-        event_tx: mpsc::Sender<(segmented_button::Entity, Event)>,
+        event_tx: mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
         config: Config,
         options: Options,
         app_config: &AppConfig,
@@ -191,7 +223,7 @@ impl Terminal {
             cell_width,
             cell_height,
         };
-        let event_proxy = EventProxy(entity, event_tx);
+        let event_proxy = EventProxy(pane, entity, event_tx);
         let term = Arc::new(FairMutex::new(Term::new(
             config,
             &size,

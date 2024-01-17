@@ -251,6 +251,17 @@ where
         // Render default background
         {
             let background_color = cosmic_text::Color(terminal.default_attrs().metadata as u32);
+            //TODO: get shaded background color from theme
+            let mut shade: f32 = 1.0;
+            if !state.is_focused {
+                shade = 0.90;
+            }
+            let background = Color::new(
+                background_color.r() as f32 * shade / 255.0,
+                background_color.g() as f32 * shade / 255.0,
+                background_color.b() as f32 * shade / 255.0,
+                background_color.a() as f32 * shade / 255.0,
+            );
             renderer.fill_quad(
                 Quad {
                     bounds: Rectangle::new(
@@ -261,12 +272,7 @@ where
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
                 },
-                Color::new(
-                    background_color.r() as f32 / 255.0,
-                    background_color.g() as f32 / 255.0,
-                    background_color.b() as f32 / 255.0,
-                    background_color.a() as f32 / 255.0,
-                ),
+                background,
             );
         }
 
@@ -710,6 +716,21 @@ where
                 ) {
                     (true, _, _, _) => {
                         // Ignore super
+                    }
+                    (false, true, true, false) => {
+                        // Handle ctrl-alt for non-control characters
+                        // Or should I try to minimize this to only
+                        // catch control sequences that conflicts with
+                        // keykodes for Split
+                        // if character != '\u{4}' && character != '\u{12}' {
+                        // is there any valid case for control characters with modifers
+                        // ctrl-alt?
+                        if !character.is_control() {
+                            let mut buf = [0, 0, 0, 0];
+                            let str = character.encode_utf8(&mut buf);
+                            terminal.input_scroll(str.as_bytes().to_vec());
+                            status = Status::Captured;
+                        }
                     }
                     (false, true, _, false) => {
                         // Handle ctrl for control characters (Ctrl-A to Ctrl-Z)

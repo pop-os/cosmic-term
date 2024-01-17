@@ -48,3 +48,6 @@ menu-settings = Settings...
 
 # Context menu
 show-headerbar = Show header bar
+split-horizontal = Split Horizontal
+split-vertical = Split Vertical
+pane-toggle-maximize = Toggle Pane Maximized
