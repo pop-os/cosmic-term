@@ -1109,6 +1109,7 @@ impl Application for App {
                         if let Some((_state, sibling)) =
                             self.pane_model.panes.close(self.pane_model.focus)
                         {
+                            self.terminal_ids.remove(&self.pane_model.focus);
                             self.pane_model.focus = sibling;
                         } else {
                             return window::close(window::Id::MAIN);
