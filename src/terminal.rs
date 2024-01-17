@@ -114,25 +114,6 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     cosmic_text::Color::rgb(rgb.r, rgb.g, rgb.b)
 }
 
-fn linear_color(color: cosmic_text::Color) -> cosmic_text::Color {
-    // As described in: https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
-    fn linear_component(byte: u8) -> u8 {
-        let float = byte as f32 / 255.0;
-        let linear = if float < 0.04045 {
-            float / 12.92
-        } else {
-            ((float + 0.055) / 1.055).powf(2.4)
-        };
-        (linear * 255.0).round() as u8
-    }
-    cosmic_text::Color::rgba(
-        linear_component(color.r()),
-        linear_component(color.g()),
-        linear_component(color.b()),
-        color.a(),
-    )
-}
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Metadata {
     pub bg: cosmic_text::Color,
@@ -143,11 +124,18 @@ pub struct Metadata {
 impl Metadata {
     fn new(bg: cosmic_text::Color, underline_color: cosmic_text::Color) -> Self {
         let flags = Flags::empty();
-        Self { bg, underline_color, flags }
+        Self {
+            bg,
+            underline_color,
+            flags,
+        }
     }
 
     fn with_underline_color(self, underline_color: cosmic_text::Color) -> Self {
-        Self { underline_color, ..self }
+        Self {
+            underline_color,
+            ..self
+        }
     }
 
     fn with_flags(self, flags: Flags) -> Self {
@@ -682,9 +670,11 @@ impl Terminal {
                     }
 
                     // Convert foreground to linear
-                    attrs = attrs.color(linear_color(fg));
+                    attrs = attrs.color(fg);
 
-                    let underline_color = indexed.cell.underline_color()
+                    let underline_color = indexed
+                        .cell
+                        .underline_color()
                         .map(|c| convert_color(&self.colors, c))
                         .unwrap_or(fg);
                     let metadata = Metadata::new(bg, fg)

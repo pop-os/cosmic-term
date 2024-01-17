@@ -38,7 +38,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Terminal, TerminalScroll, terminal::Metadata};
+use crate::{terminal::Metadata, Terminal, TerminalScroll};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -321,7 +321,10 @@ where
 
                         macro_rules! mk_pos_offset {
                             ($x_offset:expr, $bottom_offset:expr) => {
-                                Vector::new(self.start_x + $x_offset, self.line_top + self.line_height - $bottom_offset)
+                                Vector::new(
+                                    self.start_x + $x_offset,
+                                    self.line_top + self.line_height - $bottom_offset,
+                                )
                             };
                         }
 
@@ -329,14 +332,13 @@ where
                             ($pos_offset:expr, $style_line_height:expr, $width:expr) => {
                                 Quad {
                                     bounds: Rectangle::new(
-                                                self.view_position + $pos_offset,
-                                                Size::new($width, $style_line_height),
-                                            ),
-                                            border_radius: 0.0.into(),
-                                            border_width: 0.0,
-                                            border_color: Color::TRANSPARENT,
+                                        self.view_position + $pos_offset,
+                                        Size::new($width, $style_line_height),
+                                    ),
+                                    border_radius: 0.0.into(),
+                                    border_width: 0.0,
+                                    border_color: Color::TRANSPARENT,
                                 }
-
                             };
                             ($pos_offset:expr, $style_line_height:expr) => {
                                 mk_quad!($pos_offset, $style_line_height, self.end_x - self.start_x)
@@ -351,7 +353,8 @@ where
                         );
 
                         if !metadata.flags.is_empty() {
-                            let style_line_height = (self.glyph_font_size / 10.0).max(2.0).min(16.0);
+                            let style_line_height =
+                                (self.glyph_font_size / 10.0).max(2.0).min(16.0);
 
                             let line_color = cosmic_text_to_iced_color(metadata.underline_color);
 
@@ -377,7 +380,7 @@ where
                                 let pos_offset1 = mk_pos_offset!(0.0, bottom_offset);
                                 let underline1_quad = mk_quad!(pos_offset1, style_line_height);
 
-                                let pos_offset2 = mk_pos_offset!(0.0, bottom_offset/2.0);
+                                let pos_offset2 = mk_pos_offset!(0.0, bottom_offset / 2.0);
                                 let underline2_quad = mk_quad!(pos_offset2, style_line_height);
 
                                 renderer.fill_quad(underline1_quad, line_color);
@@ -394,9 +397,10 @@ where
                                 while accu_width < full_width {
                                     dot_width = dot_width.min(full_width - accu_width);
                                     let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                    let underline_quad = mk_quad!(pos_offset, style_line_height, dot_width);
+                                    let underline_quad =
+                                        mk_quad!(pos_offset, style_line_height, dot_width);
                                     renderer.fill_quad(underline_quad, line_color);
-                                    accu_width  += 2.0 * dot_width;
+                                    accu_width += 2.0 * dot_width;
                                 }
                             }
 
@@ -410,16 +414,18 @@ where
 
                                 // gap-width dash first
                                 let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                let underline_quad = mk_quad!(pos_offset, style_line_height, gap_width);
+                                let underline_quad =
+                                    mk_quad!(pos_offset, style_line_height, gap_width);
                                 renderer.fill_quad(underline_quad, line_color);
                                 accu_width += gap_width * 2.0;
 
                                 while accu_width < full_width {
                                     dash_width = dash_width.min(full_width - accu_width);
                                     let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                    let underline_quad = mk_quad!(pos_offset, style_line_height, dash_width);
+                                    let underline_quad =
+                                        mk_quad!(pos_offset, style_line_height, dash_width);
                                     renderer.fill_quad(underline_quad, line_color);
-                                    accu_width  += dash_width + gap_width;
+                                    accu_width += dash_width + gap_width;
                                 }
                             }
 
@@ -442,7 +448,8 @@ where
                                     };
 
                                     let pos_offset = mk_pos_offset!(accu_width, dot_bottom_offset);
-                                    let underline_quad = mk_quad!(pos_offset, style_line_height, dot_width);
+                                    let underline_quad =
+                                        mk_quad!(pos_offset, style_line_height, dot_width);
                                     renderer.fill_quad(underline_quad, line_color);
                                     accu_width += dot_width;
                                 }
