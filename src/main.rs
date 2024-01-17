@@ -776,6 +776,14 @@ impl Application for App {
         self.update_focus()
     }
 
+    fn on_context_drawer(&mut self) -> Command<Message> {
+        if !self.core.window.show_context {
+            self.update_focus()
+        } else {
+            Command::none()
+        }
+    }
+
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
