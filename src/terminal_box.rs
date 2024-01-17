@@ -254,7 +254,6 @@ where
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
             let background_color = shade(meta.bg, state.is_focused);
 
-
             renderer.fill_quad(
                 Quad {
                     bounds: Rectangle::new(
@@ -307,13 +306,17 @@ where
                         }
                     }
 
-                    fn fill<Renderer: renderer::Renderer>(&mut self, renderer: &mut Renderer, is_focused: bool) {
+                    fn fill<Renderer: renderer::Renderer>(
+                        &mut self,
+                        renderer: &mut Renderer,
+                        is_focused: bool,
+                    ) {
                         if self.metadata == self.default_metadata {
                             return;
                         }
 
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
-                            Color::new( 
+                            Color::new(
                                 color.r() as f32 / 255.0,
                                 color.g() as f32 / 255.0,
                                 color.b() as f32 / 255.0,
