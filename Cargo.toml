@@ -22,7 +22,6 @@ palette = "0.7"
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
-branch = "refactor"
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"

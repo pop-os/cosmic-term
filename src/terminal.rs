@@ -118,25 +118,6 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     cosmic_text::Color::rgb(rgb.r, rgb.g, rgb.b)
 }
 
-fn linear_color(color: cosmic_text::Color) -> cosmic_text::Color {
-    // As described in: https://en.wikipedia.org/wiki/SRGB#The_reverse_transformation
-    fn linear_component(byte: u8) -> u8 {
-        let float = byte as f32 / 255.0;
-        let linear = if float < 0.04045 {
-            float / 12.92
-        } else {
-            ((float + 0.055) / 1.055).powf(2.4)
-        };
-        (linear * 255.0).round() as u8
-    }
-    cosmic_text::Color::rgba(
-        linear_component(color.r()),
-        linear_component(color.g()),
-        linear_component(color.b()),
-        color.a(),
-    )
-}
-
 type TabModel = segmented_button::Model<segmented_button::SingleSelect>;
 pub struct TerminalPaneGrid {
     pub panes: pane_grid::State<TabModel>,
@@ -254,7 +235,9 @@ impl Terminal {
             // Use size of space to determine cell size
             buffer.set_text(&mut font_system, " ", default_attrs, Shaping::Advanced);
             let layout = buffer.line_layout(&mut font_system, 0).unwrap();
-            (layout[0].w, metrics.line_height)
+            let w = layout[0].w;
+            buffer.set_monospace_width(font_system, Some(w));
+            (w, metrics.line_height)
         };
 
         let size = Size {
@@ -597,7 +580,9 @@ impl Terminal {
                 // Use size of space to determine cell size
                 buffer.set_text(font_system.raw(), " ", default_attrs, Shaping::Advanced);
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
-                (layout[0].w, buffer.metrics().line_height)
+                let w = layout[0].w;
+                buffer.set_monospace_width(font_system.raw(), Some(w));
+                (w, buffer.metrics().line_height)
             })
         };
 
@@ -721,7 +706,7 @@ impl Terminal {
                     }
 
                     // Convert foreground to linear
-                    attrs = attrs.color(linear_color(fg));
+                    attrs = attrs.color(fg);
 
                     let underline_color = indexed
                         .cell
