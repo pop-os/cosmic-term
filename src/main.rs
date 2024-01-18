@@ -212,6 +212,8 @@ pub enum Message {
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(segmented_button::Entity, Option<Point>),
     TabNew,
+    TabPrev,
+    TabNext,
     TermEvent(segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
@@ -1030,6 +1032,38 @@ impl Application for App {
                     log::warn!("tried to create new tab before having event channel");
                 }
             },
+            Message::TabNext => {
+                let len = self.tab_model.iter().count();
+                // Next tab position. Wraps around to 0 (first tab) if the last tab is active.
+                let pos = self
+                    .tab_model
+                    .position(self.tab_model.active())
+                    .map(|i| (i as usize + 1) % len)
+                    .expect("at least one tab is always open");
+
+                let entity = self.tab_model.iter().nth(pos);
+                if let Some(entity) = entity {
+                    return self.update(Message::TabActivate(entity));
+                }
+            }
+            Message::TabPrev => {
+                let pos = self
+                    .tab_model
+                    .position(self.tab_model.active())
+                    .and_then(|i| (i as usize).checked_sub(1))
+                    .unwrap_or_else(|| {
+                        self.tab_model
+                            .iter()
+                            .count()
+                            .checked_sub(1)
+                            .unwrap_or_default()
+                    });
+
+                let entity = self.tab_model.iter().nth(pos);
+                if let Some(entity) = entity {
+                    return self.update(Message::TabActivate(entity));
+                }
+            }
             Message::TermEvent(entity, event) => match event {
                 TermEvent::Bell => {
                     //TODO: audible or visible bell options?
@@ -1306,6 +1340,14 @@ impl Application for App {
                         None
                     }
                 }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: key @ (KeyCode::PageUp | KeyCode::PageDown),
+                    modifiers: Modifiers::CTRL,
+                }) => match key {
+                    KeyCode::PageDown => Some(Message::TabPrev),
+                    KeyCode::PageUp => Some(Message::TabNext),
+                    _ => None,
+                },
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key_code: KeyCode::V,
                     modifiers,
