@@ -1019,10 +1019,7 @@ impl Application for App {
                     .adjacent(self.pane_model.focus, direction)
                 {
                     self.pane_model.focus = adjacent;
-                    return Command::batch([
-                        self.update_focus(),
-                        self.update_title(Some(adjacent)),
-                    ]);
+                    return self.update_title(Some(adjacent));
                 }
             }
             Message::PaneResized(pane_grid::ResizeEvent { split, ratio }) => {
