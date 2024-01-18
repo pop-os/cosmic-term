@@ -1079,19 +1079,15 @@ where
 
 fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
     if is_focused {
-        log::debug!("No shade {:?}", color.as_rgba());
         color
     } else {
-        log::debug!("Shade orig {:?}", color.as_rgba());
         let shade = 0.92;
-        let new = cosmic_text::Color::rgba(
+        cosmic_text::Color::rgba(
             (color.r() as f32 * shade) as u8,
             (color.g() as f32 * shade) as u8,
             (color.b() as f32 * shade) as u8,
             color.a(),
-        );
-        log::debug!("Shade new {:?}", new.as_rgba());
-        new
+        )
     }
 }
 
