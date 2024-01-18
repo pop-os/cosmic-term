@@ -208,6 +208,7 @@ pub enum Message {
     SyntaxTheme(usize, bool),
     SystemThemeModeChange(cosmic_theme::ThemeMode),
     TabActivate(segmented_button::Entity),
+    TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(segmented_button::Entity, Option<Point>),
@@ -950,6 +951,21 @@ impl Application for App {
                 self.tab_model.activate(entity);
                 return self.update_title();
             }
+            Message::TabActivateJump(pos) => {
+                // Length is always at least one so there shouldn't be a division by zero
+                let len = self.tab_model.iter().count();
+                // The typical pattern is that 1-8 selects tabs 1-8 while 9 selects the last tab
+                let pos = if pos >= 8 || pos > len - 1 {
+                    len - 1
+                } else {
+                    pos % len
+                };
+
+                let entity = self.tab_model.iter().nth(pos);
+                if let Some(entity) = entity {
+                    return self.update(Message::TabActivate(entity));
+                }
+            }
             Message::TabClose(entity_opt) => {
                 let entity = entity_opt.unwrap_or_else(|| self.tab_model.active());
 
@@ -1348,6 +1364,29 @@ impl Application for App {
                     KeyCode::PageUp => Some(Message::TabNext),
                     _ => None,
                 },
+                // Ctrl + N to switch tabs
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code:
+                        key @ (KeyCode::Key1
+                        | KeyCode::Key2
+                        | KeyCode::Key3
+                        | KeyCode::Key4
+                        | KeyCode::Key5
+                        | KeyCode::Key6
+                        | KeyCode::Key7
+                        | KeyCode::Key8
+                        | KeyCode::Key9
+                        | KeyCode::Key0),
+                    modifiers: Modifiers::CTRL,
+                }) => {
+                    // 0 to 9
+                    // Key1 is 0 and Key0 is 9
+                    // This does not seem to be platform specific according to iced's source
+                    let code = key as u32 as usize;
+                    debug_assert!(code <= 9);
+
+                    Some(Message::TabActivateJump(code))
+                }
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key_code: KeyCode::V,
                     modifiers,
