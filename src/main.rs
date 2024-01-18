@@ -1103,7 +1103,7 @@ impl Application for App {
                     // Remove item
                     tab_model.remove(entity);
 
-                    // If that was the last tab, close window
+                    // If that was the last tab, close current pane
                     if tab_model.iter().next().is_none() {
                         if let Some((_state, sibling)) =
                             self.pane_model.panes.close(self.pane_model.focus)
@@ -1111,6 +1111,7 @@ impl Application for App {
                             self.terminal_ids.remove(&self.pane_model.focus);
                             self.pane_model.focus = sibling;
                         } else {
+                            //Last pane, closing window
                             return window::close(window::Id::MAIN);
                         }
                     }
