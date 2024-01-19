@@ -14,8 +14,9 @@ use cosmic::{
     },
     Element,
 };
+use std::collections::HashMap;
 
-use crate::{fl, Action, Config, ContextPage, Message};
+use crate::{fl, Action, Config, KeyBind, Message};
 
 macro_rules! menu_button {
     ($($x:expr),+ $(,)?) => (
@@ -59,7 +60,7 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
         menu_action(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
         horizontal_rule(1),
         menu_action(fl!("new-tab"), Action::TabNew),
-        menu_action(fl!("settings"), Action::Settings),
+        menu_action(fl!("menu-settings"), Action::Settings),
         menu_checkbox(
             fl!("show-headerbar"),
             config.show_headerbar,
@@ -84,7 +85,7 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
     .into()
 }
 
-pub fn menu_bar<'a>() -> Element<'a, Message> {
+pub fn menu_bar<'a>(key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message> {
     //TODO: port to libcosmic
     let menu_root = |label| {
         widget::button(widget::text(label))
@@ -92,20 +93,24 @@ pub fn menu_bar<'a>() -> Element<'a, Message> {
             .style(theme::Button::MenuRoot)
     };
 
-    let find_key = |message: &Message| -> String {
-        //TODO: hotkey config
+    let find_key = |action: &Action| -> String {
+        for (key_bind, key_action) in key_binds.iter() {
+            if action == key_action {
+                return key_bind.to_string();
+            }
+        }
         String::new()
     };
 
-    let menu_item = |label, message| {
-        let key = find_key(&message);
+    let menu_item = |label, action| {
+        let key = find_key(&action);
         MenuTree::new(
             menu_button!(
                 widget::text(label),
                 horizontal_space(Length::Fill),
                 widget::text(key)
             )
-            .on_press(message),
+            .on_press(action.message(None)),
         )
     };
 
@@ -113,30 +118,40 @@ pub fn menu_bar<'a>() -> Element<'a, Message> {
         MenuTree::with_children(
             menu_root(fl!("file")),
             vec![
-                menu_item(fl!("new-tab"), Message::TabNew),
-                menu_item(fl!("new-window"), Message::WindowNew),
+                menu_item(fl!("new-tab"), Action::TabNew),
+                menu_item(fl!("new-window"), Action::WindowNew),
                 MenuTree::new(horizontal_rule(1)),
-                menu_item(fl!("close-tab"), Message::TabClose(None)),
+                menu_item(fl!("close-tab"), Action::TabClose),
                 MenuTree::new(horizontal_rule(1)),
-                menu_item(fl!("quit"), Message::WindowClose),
+                menu_item(fl!("quit"), Action::WindowClose),
             ],
         ),
         MenuTree::with_children(
             menu_root(fl!("edit")),
             vec![
-                menu_item(fl!("copy"), Message::Copy(None)),
-                menu_item(fl!("paste"), Message::Paste(None)),
-                menu_item(fl!("select-all"), Message::SelectAll(None)),
+                menu_item(fl!("copy"), Action::Copy),
+                menu_item(fl!("paste"), Action::Paste),
+                menu_item(fl!("select-all"), Action::SelectAll),
                 MenuTree::new(horizontal_rule(1)),
-                menu_item(fl!("find"), Message::Find(true)),
+                menu_item(fl!("find"), Action::Find),
             ],
         ),
         MenuTree::with_children(
             menu_root(fl!("view")),
-            vec![menu_item(
-                fl!("menu-settings"),
-                Message::ToggleContextPage(ContextPage::Settings),
-            )],
+            vec![
+                menu_item(fl!("zoom-in"), Action::ZoomIn),
+                menu_item(fl!("zoom-reset"), Action::ZoomReset),
+                menu_item(fl!("zoom-out"), Action::ZoomOut),
+                MenuTree::new(horizontal_rule(1)),
+                menu_item(fl!("next-tab"), Action::TabNext),
+                menu_item(fl!("previous-tab"), Action::TabPrev),
+                MenuTree::new(horizontal_rule(1)),
+                menu_item(fl!("split-horizontal"), Action::PaneSplitHorizontal),
+                menu_item(fl!("split-vertical"), Action::PaneSplitVertical),
+                menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
+                MenuTree::new(horizontal_rule(1)),
+                menu_item(fl!("menu-settings"), Action::Settings),
+            ],
         ),
     ])
     .item_height(ItemHeight::Dynamic(40))

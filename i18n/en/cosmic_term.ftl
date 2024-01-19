@@ -44,6 +44,11 @@ find = Find
 
 ## View
 view = View
+zoom-in = Larger text
+zoom-reset = Default text size
+zoom-out = Smaller text
+next-tab = Next tab
+previous-tab = Previous tab
 menu-settings = Settings...
 
 # Context menu

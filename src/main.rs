@@ -162,7 +162,7 @@ pub struct Flags {
     term_config: TermConfig,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
     Copy,
     Find,
@@ -190,15 +190,17 @@ pub enum Action {
     TabNew,
     TabNext,
     TabPrev,
+    WindowClose,
+    WindowNew,
     ZoomIn,
     ZoomOut,
     ZoomReset,
 }
 
 impl Action {
-    pub fn message(self, entity: segmented_button::Entity) -> Message {
+    pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
-            Action::Copy => Message::Copy(Some(entity)),
+            Action::Copy => Message::Copy(entity_opt),
             Action::Find => Message::Find(true),
             Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Action::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
@@ -207,8 +209,8 @@ impl Action {
             Action::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
             Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
-            Action::Paste => Message::Paste(Some(entity)),
-            Action::SelectAll => Message::SelectAll(Some(entity)),
+            Action::Paste => Message::Paste(entity_opt),
+            Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
             Action::TabActivate0 => Message::TabActivateJump(0),
@@ -220,10 +222,12 @@ impl Action {
             Action::TabActivate6 => Message::TabActivateJump(6),
             Action::TabActivate7 => Message::TabActivateJump(7),
             Action::TabActivate8 => Message::TabActivateJump(8),
-            Action::TabClose => Message::TabClose(None),
+            Action::TabClose => Message::TabClose(entity_opt),
             Action::TabNew => Message::TabNew,
             Action::TabNext => Message::TabNext,
             Action::TabPrev => Message::TabPrev,
+            Action::WindowClose => Message::WindowClose,
+            Action::WindowNew => Message::WindowNew,
             Action::ZoomIn => Message::ZoomIn,
             Action::ZoomOut => Message::ZoomOut,
             Action::ZoomReset => Message::ZoomReset,
@@ -997,12 +1001,9 @@ impl Application for App {
                 }
             },
             Message::Key(modifiers, key_code) => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    let entity = tab_model.active();
-                    for (key_bind, action) in self.key_binds.iter() {
-                        if key_bind.matches(modifiers, key_code) {
-                            return self.update(action.message(entity));
-                        }
+                for (key_bind, action) in self.key_binds.iter() {
+                    if key_bind.matches(modifiers, key_code) {
+                        return self.update(action.message(None));
                     }
                 }
             }
@@ -1205,7 +1206,7 @@ impl Application for App {
                                 terminal.context_menu = None;
                             }
                             // Run action's message
-                            return self.update(action.message(entity));
+                            return self.update(action.message(Some(entity)));
                         }
                         _ => {}
                     }
@@ -1371,7 +1372,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar().into()]
+        vec![menu_bar(&self.key_binds).into()]
     }
 
     /// Creates a view after each update.
