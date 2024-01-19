@@ -220,10 +220,13 @@ pub enum Message {
     SyntaxTheme(usize, bool),
     SystemThemeModeChange(cosmic_theme::ThemeMode),
     TabActivate(segmented_button::Entity),
+    TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(segmented_button::Entity, Option<Point>),
     TabNew,
+    TabPrev,
+    TabNext,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
@@ -1087,6 +1090,23 @@ impl Application for App {
                 }
                 return self.update_title(None);
             }
+            Message::TabActivateJump(pos) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    // Length is always at least one so there shouldn't be a division by zero
+                    let len = tab_model.iter().count();
+                    // The typical pattern is that 1-8 selects tabs 1-8 while 9 selects the last tab
+                    let pos = if pos >= 8 || pos > len - 1 {
+                        len - 1
+                    } else {
+                        pos % len
+                    };
+
+                    let entity = tab_model.iter().nth(pos);
+                    if let Some(entity) = entity {
+                        return self.update(Message::TabActivate(entity));
+                    }
+                }
+            }
             Message::TabClose(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active_mut() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
@@ -1148,6 +1168,36 @@ impl Application for App {
                 }
             }
             Message::TabNew => self.create_and_focus_new_terminal(self.pane_model.focus),
+            Message::TabNext => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let len = tab_model.iter().count();
+                    // Next tab position. Wraps around to 0 (first tab) if the last tab is active.
+                    let pos = tab_model
+                        .position(tab_model.active())
+                        .map(|i| (i as usize + 1) % len)
+                        .expect("at least one tab is always open");
+
+                    let entity = tab_model.iter().nth(pos);
+                    if let Some(entity) = entity {
+                        return self.update(Message::TabActivate(entity));
+                    }
+                }
+            }
+            Message::TabPrev => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let pos = tab_model
+                        .position(tab_model.active())
+                        .and_then(|i| (i as usize).checked_sub(1))
+                        .unwrap_or_else(|| {
+                            tab_model.iter().count().checked_sub(1).unwrap_or_default()
+                        });
+
+                    let entity = tab_model.iter().nth(pos);
+                    if let Some(entity) = entity {
+                        return self.update(Message::TabActivate(entity));
+                    }
+                }
+            }
             Message::TermEvent(pane, entity, event) => {
                 match event {
                     TermEvent::Bell => {
@@ -1438,6 +1488,56 @@ impl Application for App {
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                         Some(Message::TabNew)
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::W,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        Some(Message::TabClose(None))
+                    } else {
+                        None
+                    }
+                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: key @ (KeyCode::PageUp | KeyCode::PageDown),
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        match key {
+                            KeyCode::PageDown => Some(Message::TabPrev),
+                            KeyCode::PageUp => Some(Message::TabNext),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                }
+                // Ctrl + Shift + N to jump to a tab
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code:
+                        key @ (KeyCode::Key1
+                        | KeyCode::Key2
+                        | KeyCode::Key3
+                        | KeyCode::Key4
+                        | KeyCode::Key5
+                        | KeyCode::Key6
+                        | KeyCode::Key7
+                        | KeyCode::Key8
+                        | KeyCode::Key9),
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        // 0 to 8
+                        // Key1 is 0 and Key9 is 8
+                        // This does not seem to be platform specific according to iced's source
+                        let code = key as u32 as usize;
+                        debug_assert!(code <= 8);
+
+                        Some(Message::TabActivateJump(code))
                     } else {
                         None
                     }
