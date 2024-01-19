@@ -36,6 +36,9 @@ mod config;
 use icon_cache::IconCache;
 mod icon_cache;
 
+use key_bind::{key_binds, KeyBind};
+mod key_bind;
+
 mod localize;
 
 use menu::menu_bar;
@@ -162,28 +165,68 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug)]
 pub enum Action {
     Copy,
+    Find,
+    PaneFocusDown,
+    PaneFocusLeft,
+    PaneFocusRight,
+    PaneFocusUp,
+    PaneSplitHorizontal,
+    PaneSplitVertical,
+    PaneToggleMaximized,
     Paste,
     SelectAll,
     Settings,
     ShowHeaderBar(bool),
+    TabActivate0,
+    TabActivate1,
+    TabActivate2,
+    TabActivate3,
+    TabActivate4,
+    TabActivate5,
+    TabActivate6,
+    TabActivate7,
+    TabActivate8,
+    TabClose,
     TabNew,
-    PaneSplitHorizontal,
-    PaneSplitVertical,
-    PaneToggleMaximized,
+    TabNext,
+    TabPrev,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
 }
 
 impl Action {
     pub fn message(self, entity: segmented_button::Entity) -> Message {
         match self {
             Action::Copy => Message::Copy(Some(entity)),
+            Action::Find => Message::Find(true),
+            Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
+            Action::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
+            Action::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
+            Action::PaneFocusUp => Message::PaneFocusAdjacent(pane_grid::Direction::Up),
+            Action::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
+            Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
+            Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(Some(entity)),
             Action::SelectAll => Message::SelectAll(Some(entity)),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
+            Action::TabActivate0 => Message::TabActivateJump(0),
+            Action::TabActivate1 => Message::TabActivateJump(1),
+            Action::TabActivate2 => Message::TabActivateJump(2),
+            Action::TabActivate3 => Message::TabActivateJump(3),
+            Action::TabActivate4 => Message::TabActivateJump(4),
+            Action::TabActivate5 => Message::TabActivateJump(5),
+            Action::TabActivate6 => Message::TabActivateJump(6),
+            Action::TabActivate7 => Message::TabActivateJump(7),
+            Action::TabActivate8 => Message::TabActivateJump(8),
+            Action::TabClose => Message::TabClose(None),
             Action::TabNew => Message::TabNew,
-            Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
-            Action::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
-            Action::PaneToggleMaximized => Message::PaneToggleMaximized,
+            Action::TabNext => Message::TabNext,
+            Action::TabPrev => Message::TabPrev,
+            Action::ZoomIn => Message::ZoomIn,
+            Action::ZoomOut => Message::ZoomOut,
+            Action::ZoomReset => Message::ZoomReset,
         }
     }
 }
@@ -201,6 +244,7 @@ pub enum Message {
     DefaultDimFontWeight(usize),
     DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
+    Key(Modifiers, KeyCode),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -257,6 +301,7 @@ pub struct App {
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    key_binds: HashMap<KeyBind, Action>,
     app_themes: Vec<String>,
     font_names: Vec<String>,
     font_size_names: Vec<String>,
@@ -775,6 +820,7 @@ impl Application for App {
             pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
+            key_binds: key_binds(),
             app_themes,
             font_names,
             font_size_names,
@@ -950,6 +996,16 @@ impl Application for App {
                     log::warn!("failed to find zoom step with index {}", index);
                 }
             },
+            Message::Key(modifiers, key_code) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    for (key_bind, action) in self.key_binds.iter() {
+                        if key_bind.matches(modifiers, key_code) {
+                            return self.update(action.message(entity));
+                        }
+                    }
+                }
+            }
             Message::Find(find) => {
                 self.find = find;
 
@@ -1453,205 +1509,9 @@ impl Application for App {
         Subscription::batch([
             event::listen_with(|event, _status| match event {
                 Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::A,
+                    key_code,
                     modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::SelectAll(None))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::C,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::Copy(None))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::F,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::Find(true))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::T,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::TabNew)
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::W,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::TabClose(None))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: key @ (KeyCode::PageUp | KeyCode::PageDown),
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        match key {
-                            KeyCode::PageDown => Some(Message::TabPrev),
-                            KeyCode::PageUp => Some(Message::TabNext),
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
-                }
-                // Ctrl + Shift + N to jump to a tab
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code:
-                        key @ (KeyCode::Key1
-                        | KeyCode::Key2
-                        | KeyCode::Key3
-                        | KeyCode::Key4
-                        | KeyCode::Key5
-                        | KeyCode::Key6
-                        | KeyCode::Key7
-                        | KeyCode::Key8
-                        | KeyCode::Key9),
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        // 0 to 8
-                        // Key1 is 0 and Key9 is 8
-                        // This does not seem to be platform specific according to iced's source
-                        let code = key as u32 as usize;
-                        debug_assert!(code <= 8);
-
-                        Some(Message::TabActivateJump(code))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::R,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::ALT {
-                        Some(Message::PaneSplit(pane_grid::Axis::Vertical))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::D,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::ALT {
-                        Some(Message::PaneSplit(pane_grid::Axis::Horizontal))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::X,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::PaneToggleMaximized)
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Left,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Left))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Right,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Right))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Up,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Up))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Down,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::PaneFocusAdjacent(pane_grid::Direction::Down))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::V,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
-                        Some(Message::Paste(None))
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Equals,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL {
-                        Some(Message::ZoomIn)
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Minus,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL {
-                        Some(Message::ZoomOut)
-                    } else {
-                        None
-                    }
-                }
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code: KeyCode::Key0,
-                    modifiers,
-                }) => {
-                    if modifiers == Modifiers::CTRL {
-                        Some(Message::ZoomReset)
-                    } else {
-                        None
-                    }
-                }
+                }) => Some(Message::Key(modifiers, key_code)),
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
                 }
