@@ -1685,24 +1685,30 @@ impl Application for App {
                 Self::APP_ID.into(),
                 CONFIG_VERSION,
             )
-            .map(|(_, res)| match res {
-                Ok(config) => Message::Config(config),
-                Err((errs, config)) => {
-                    log::info!("errors loading config: {:?}", errs);
-                    Message::Config(config)
+            .map(|update| {
+                if !update.errors.is_empty() {
+                    log::debug!(
+                        "errors loading config {:?}: {:?}",
+                        update.keys,
+                        update.errors
+                    );
                 }
+                Message::Config(update.config)
             }),
             cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
                 TypeId::of::<ThemeSubscription>(),
                 cosmic_theme::THEME_MODE_ID.into(),
                 cosmic_theme::ThemeMode::version(),
             )
-            .map(|(_, u)| match u {
-                Ok(t) => Message::SystemThemeModeChange(t),
-                Err((errs, t)) => {
-                    log::info!("errors loading theme mode: {:?}", errs);
-                    Message::SystemThemeModeChange(t)
+            .map(|update| {
+                if !update.errors.is_empty() {
+                    log::debug!(
+                        "errors loading theme mode {:?}: {:?}",
+                        update.keys,
+                        update.errors
+                    );
                 }
+                Message::SystemThemeModeChange(update.config)
             }),
         ])
     }
