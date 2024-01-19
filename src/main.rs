@@ -1358,13 +1358,19 @@ impl Application for App {
                 }
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key_code: key @ (KeyCode::PageUp | KeyCode::PageDown),
-                    modifiers: Modifiers::CTRL,
-                }) => match key {
-                    KeyCode::PageDown => Some(Message::TabPrev),
-                    KeyCode::PageUp => Some(Message::TabNext),
-                    _ => None,
-                },
-                // Ctrl + N to switch tabs
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        match key {
+                            KeyCode::PageDown => Some(Message::TabPrev),
+                            KeyCode::PageUp => Some(Message::TabNext),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                }
+                // Ctrl + Shift + N to jump to a tab
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key_code:
                         key @ (KeyCode::Key1
@@ -1375,17 +1381,20 @@ impl Application for App {
                         | KeyCode::Key6
                         | KeyCode::Key7
                         | KeyCode::Key8
-                        | KeyCode::Key9
-                        | KeyCode::Key0),
-                    modifiers: Modifiers::CTRL,
+                        | KeyCode::Key9),
+                    modifiers,
                 }) => {
-                    // 0 to 9
-                    // Key1 is 0 and Key0 is 9
-                    // This does not seem to be platform specific according to iced's source
-                    let code = key as u32 as usize;
-                    debug_assert!(code <= 9);
+                    if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
+                        // 0 to 8
+                        // Key1 is 0 and Key9 is 8
+                        // This does not seem to be platform specific according to iced's source
+                        let code = key as u32 as usize;
+                        debug_assert!(code <= 8);
 
-                    Some(Message::TabActivateJump(code))
+                        Some(Message::TabActivateJump(code))
+                    } else {
+                        None
+                    }
                 }
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key_code: KeyCode::V,
