@@ -1415,7 +1415,7 @@ impl Application for App {
                     let tab_element: Element<'_, Message> = match context_menu {
                         Some(position) => widget::popover(
                             terminal_box.context_menu(position),
-                            menu::context_menu(&self.config, entity),
+                            menu::context_menu(&self.config, &self.key_binds, entity),
                         )
                         .position(position)
                         .into(),

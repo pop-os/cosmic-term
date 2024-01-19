@@ -33,9 +33,28 @@ macro_rules! menu_button {
     );
 }
 
-pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> Element<'a, Message> {
-    let menu_action = |label, action| {
-        menu_button!(widget::text(label)).on_press(Message::TabContextAction(entity, action))
+pub fn context_menu<'a>(
+    config: &Config,
+    key_binds: &HashMap<KeyBind, Action>,
+    entity: segmented_button::Entity,
+) -> Element<'a, Message> {
+    let find_key = |action: &Action| -> String {
+        for (key_bind, key_action) in key_binds.iter() {
+            if action == key_action {
+                return key_bind.to_string();
+            }
+        }
+        String::new()
+    };
+
+    let menu_item = |label, action| {
+        let key = find_key(&action);
+        menu_button!(
+            widget::text(label),
+            horizontal_space(Length::Fill),
+            widget::text(key)
+        )
+        .on_press(Message::TabContextAction(entity, action))
     };
 
     let menu_checkbox = |label, value, action| {
@@ -51,16 +70,16 @@ pub fn context_menu<'a>(config: &Config, entity: segmented_button::Entity) -> El
     };
 
     widget::container(column!(
-        menu_action(fl!("copy"), Action::Copy),
-        menu_action(fl!("paste"), Action::Paste),
-        menu_action(fl!("select-all"), Action::SelectAll),
+        menu_item(fl!("copy"), Action::Copy),
+        menu_item(fl!("paste"), Action::Paste),
+        menu_item(fl!("select-all"), Action::SelectAll),
         horizontal_rule(1),
-        menu_action(fl!("split-horizontal"), Action::PaneSplitHorizontal),
-        menu_action(fl!("split-vertical"), Action::PaneSplitVertical),
-        menu_action(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
+        menu_item(fl!("split-horizontal"), Action::PaneSplitHorizontal),
+        menu_item(fl!("split-vertical"), Action::PaneSplitVertical),
+        menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
         horizontal_rule(1),
-        menu_action(fl!("new-tab"), Action::TabNew),
-        menu_action(fl!("menu-settings"), Action::Settings),
+        menu_item(fl!("new-tab"), Action::TabNew),
+        menu_item(fl!("menu-settings"), Action::Settings),
         menu_checkbox(
             fl!("show-headerbar"),
             config.show_headerbar,

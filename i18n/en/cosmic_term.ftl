@@ -51,7 +51,7 @@ next-tab = Next tab
 previous-tab = Previous tab
 split-horizontal = Split horizontal
 split-vertical = Split vertical
-pane-toggle-maximize = Toggle pane maximized
+pane-toggle-maximize = Toggle maximized
 menu-settings = Settings...
 
 # Context menu

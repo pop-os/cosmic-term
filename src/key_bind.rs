@@ -37,6 +37,7 @@ impl fmt::Display for KeyBind {
     }
 }
 
+//TODO: load from config
 pub fn key_binds() -> HashMap<KeyBind, Action> {
     let mut key_binds = HashMap::new();
 
