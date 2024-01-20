@@ -575,7 +575,7 @@ where
         layout: Layout<'_>,
         cursor_position: mouse::Cursor,
         _renderer: &Renderer,
-        _clipboard: &mut dyn Clipboard,
+        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle<f32>,
     ) -> Status {
@@ -977,6 +977,11 @@ where
                                 }
                             }
                         }
+                    } else if let Button::Middle = button {
+                        #[cfg(target_family = "unix")]
+                        if let Some(value) = clipboard.read_primary() {
+                            terminal.input_scroll(value.as_bytes().to_vec());
+                        }
                     }
 
                     // Update context menu state
@@ -994,6 +999,13 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
+                #[cfg(target_family = "unix")]
+                if let Some(Dragging::Buffer) = state.dragging {
+                    let term = terminal.term.lock();
+                    if let Some(text) = term.selection_to_string() {
+                        clipboard.write_primary(text);
+                    }
+                }
                 state.dragging = None;
                 status = Status::Captured;
             }

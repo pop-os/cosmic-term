@@ -213,6 +213,8 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
     Paste(Option<segmented_button::Entity>),
+    #[cfg(target_family = "unix")]
+    PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
     UseBrightBold(bool),
@@ -1038,6 +1040,13 @@ impl Application for App {
                     None => message::none(),
                 });
             }
+            #[cfg(target_family = "unix")]
+            Message::PastePrimary(entity_opt) => {
+                return clipboard::read_primary(move |value_opt| match value_opt {
+                    Some(value) => message::app(Message::PasteValue(entity_opt, value)),
+                    None => message::none(),
+                });
+            }
             Message::PasteValue(entity_opt, value) => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
@@ -1618,6 +1627,17 @@ impl Application for App {
                 }) => {
                     if modifiers == Modifiers::CTRL | Modifiers::SHIFT {
                         Some(Message::Paste(None))
+                    } else {
+                        None
+                    }
+                }
+                #[cfg(target_family = "unix")]
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key_code: KeyCode::Insert,
+                    modifiers,
+                }) => {
+                    if modifiers == Modifiers::SHIFT {
+                        Some(Message::PastePrimary(None))
                     } else {
                         None
                     }
