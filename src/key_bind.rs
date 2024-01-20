@@ -61,6 +61,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl, Shift], Q, WindowClose);
     bind!([Ctrl, Shift], T, TabNew);
     bind!([Ctrl, Shift], V, Paste);
+    #[cfg(target_family = "unix")]
     bind!([Shift], Insert, PastePrimary);
     bind!([Ctrl, Shift], W, TabClose);
 

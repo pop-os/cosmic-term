@@ -174,6 +174,7 @@ pub enum Action {
     PaneSplitVertical,
     PaneToggleMaximized,
     Paste,
+    #[cfg(target_family = "unix")]
     PastePrimary,
     SelectAll,
     Settings,
@@ -211,6 +212,7 @@ impl Action {
             Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
+            #[cfg(target_family = "unix")]
             Action::PastePrimary => Message::PastePrimary(entity_opt),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
