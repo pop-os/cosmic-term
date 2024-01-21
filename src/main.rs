@@ -13,6 +13,7 @@ use cosmic::{
         clipboard, event,
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
+        mouse::{Button as MouseButton, Event as MouseEvent},
         subscription::{self, Subscription},
         window, Alignment, Event, Length, Padding, Point,
     },
@@ -165,6 +166,8 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
     Copy,
+    #[cfg(target_family = "unix")]
+    CopyPrimary,
     Find,
     PaneFocusDown,
     PaneFocusLeft,
@@ -203,6 +206,8 @@ impl Action {
     pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Action::Copy => Message::Copy(entity_opt),
+            #[cfg(target_family = "unix")]
+            Action::CopyPrimary => Message::CopyPrimary(entity_opt),
             Action::Find => Message::Find(true),
             Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Action::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
@@ -245,6 +250,7 @@ pub enum Message {
     AppTheme(AppTheme),
     Config(Config),
     Copy(Option<segmented_button::Entity>),
+    CopyPrimary(Option<segmented_button::Entity>),
     DefaultFont(usize),
     DefaultFontSize(usize),
     DefaultFontStretch(usize),
@@ -257,6 +263,8 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
+    #[cfg(target_family = "unix")]
+    MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     PaneClicked(pane_grid::Pane),
     PaneSplit(pane_grid::Axis),
     PaneToggleMaximized,
@@ -916,6 +924,20 @@ impl Application for App {
                     log::warn!("Failed to get focused pane");
                 }
             }
+            Message::CopyPrimary(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        let term = terminal.term.lock();
+                        if let Some(text) = term.selection_to_string() {
+                            return clipboard::write_primary(text);
+                        }
+                    }
+                } else {
+                    log::warn!("Failed to get focused pane");
+                }
+            }
             Message::DefaultFont(index) => {
                 match self.font_names.get(index) {
                     Some(font_name) => {
@@ -1049,6 +1071,17 @@ impl Application for App {
             }
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
+            }
+            #[cfg(target_family = "unix")]
+            Message::MiddleClick(pane, entity_opt) => {
+                self.pane_model.focus = pane;
+                return Command::batch([
+                    self.update_focus(),
+                    clipboard::read_primary(move |value_opt| match value_opt {
+                        Some(value) => message::app(Message::PasteValue(entity_opt, value)),
+                        None => message::none(),
+                    }),
+                ]);
             }
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
@@ -1409,6 +1442,7 @@ impl Application for App {
             }
 
             let entity = tab_model.active();
+            let entity_middle_click = tab_model.active();
             let terminal_id = self
                 .terminal_ids
                 .get(&pane)
@@ -1416,9 +1450,16 @@ impl Application for App {
                 .unwrap_or_else(widget::Id::unique);
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
-                    let terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
+                    let mut terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
                         move |position_opt| Message::TabContextMenu(entity, position_opt),
                     );
+
+                    #[cfg(target_family = "unix")]
+                    {
+                        terminal_box = terminal_box.on_middle_click(move || {
+                            Message::MiddleClick(pane, Some(entity_middle_click))
+                        });
+                    }
 
                     let context_menu = {
                         let terminal = terminal.lock().unwrap();
@@ -1528,6 +1569,9 @@ impl Application for App {
                 }) => Some(Message::Key(modifiers, key_code)),
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
+                }
+                Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
+                    Some(Message::CopyPrimary(None))
                 }
                 _ => None,
             }),

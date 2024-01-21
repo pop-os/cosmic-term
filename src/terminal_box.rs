@@ -47,6 +47,7 @@ pub struct TerminalBox<'a, Message> {
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -61,6 +62,7 @@ where
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
+            on_middle_click: None,
         }
     }
 
@@ -89,6 +91,11 @@ where
         on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
+        self
+    }
+
+    pub fn on_middle_click(mut self, on_middle_click: impl Fn() -> Message + 'a) -> Self {
+        self.on_middle_click = Some(Box::new(on_middle_click));
         self
     }
 }
@@ -575,7 +582,7 @@ where
         layout: Layout<'_>,
         cursor_position: mouse::Cursor,
         _renderer: &Renderer,
-        clipboard: &mut dyn Clipboard,
+        _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle<f32>,
     ) -> Status {
@@ -977,10 +984,9 @@ where
                                 }
                             }
                         }
-                    } else if let Button::Middle = button {
-                        #[cfg(target_family = "unix")]
-                        if let Some(value) = clipboard.read_primary() {
-                            terminal.paste(value);
+                    } else if button == Button::Middle {
+                        if let Some(on_middle_click) = &self.on_middle_click {
+                            shell.publish(on_middle_click());
                         }
                     }
 
@@ -999,13 +1005,6 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
-                #[cfg(target_family = "unix")]
-                if let Some(Dragging::Buffer) = state.dragging {
-                    let term = terminal.term.lock();
-                    if let Some(text) = term.selection_to_string() {
-                        clipboard.write_primary(text);
-                    }
-                }
                 state.dragging = None;
                 status = Status::Captured;
             }
