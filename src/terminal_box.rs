@@ -980,7 +980,7 @@ where
                     } else if let Button::Middle = button {
                         #[cfg(target_family = "unix")]
                         if let Some(value) = clipboard.read_primary() {
-                            terminal.input_scroll(value.as_bytes().to_vec());
+                            terminal.paste(value);
                         }
                     }
 
