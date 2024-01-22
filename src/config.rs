@@ -43,6 +43,7 @@ pub struct Config {
     pub use_bright_bold: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
+    pub focus_follow_mouse: bool,
 }
 
 impl Default for Config {
@@ -60,6 +61,7 @@ impl Default for Config {
             use_bright_bold: false,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
+            focus_follow_mouse: false,
         }
     }
 }

@@ -260,6 +260,7 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
+    MouseEnter(pane_grid::Pane),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
@@ -284,6 +285,7 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    FocusFollowMouse(bool),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -637,6 +639,10 @@ impl App {
             .add(
                 widget::settings::item::builder(fl!("show-headerbar"))
                     .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
+            .add(
+                widget::settings::item::builder(fl!("focus-follow-mouse"))
+                    .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
             );
 
         widget::settings::view_column(vec![settings_view.into()]).into()
@@ -1047,6 +1053,10 @@ impl Application for App {
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
+            Message::MouseEnter(pane) => {
+                self.pane_model.focus = pane;
+                return self.update_focus();
+            }
             Message::PaneClicked(pane) => {
                 self.pane_model.focus = pane;
                 return self.update_title(Some(pane));
@@ -1122,6 +1132,12 @@ impl Application for App {
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
                     self.config.use_bright_bold = use_bright_bold;
+                    return self.save_config();
+                }
+            }
+            Message::FocusFollowMouse(focus_follow_mouse) => {
+                if focus_follow_mouse != self.config.focus_follow_mouse {
+                    self.config.focus_follow_mouse = focus_follow_mouse;
                     return self.save_config();
                 }
             }
@@ -1403,9 +1419,14 @@ impl Application for App {
                 .unwrap_or_else(widget::Id::unique);
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
-                    let terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
+                    let mut terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
                         move |position_opt| Message::TabContextMenu(entity, position_opt),
                     );
+
+                    if self.config.focus_follow_mouse {
+                        terminal_box =
+                            terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
+                    }
 
                     let context_menu = {
                         let terminal = terminal.lock().unwrap();

@@ -24,10 +24,10 @@ palette = "0.7"
 git = "https://github.com/pop-os/cosmic-text.git"
 
 [dependencies.libcosmic]
-git = "https://github.com/pop-os/libcosmic.git"
+#git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
 features = ["tokio", "winit"]
-#path = "../libcosmic"
+path = "../libcosmic"
 
 [features]
 default = ["wgpu"]

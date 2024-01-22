@@ -2,6 +2,7 @@
 
 ## Settings
 settings = Settings
+focus-follow-mouse = Focus Follow Mouse
 
 ### Appearance
 appearance = Appearance
