@@ -166,7 +166,6 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
     Copy,
-    #[cfg(target_family = "unix")]
     CopyPrimary,
     Find,
     PaneFocusDown,
@@ -177,7 +176,6 @@ pub enum Action {
     PaneSplitVertical,
     PaneToggleMaximized,
     Paste,
-    #[cfg(target_family = "unix")]
     PastePrimary,
     SelectAll,
     Settings,
@@ -206,7 +204,6 @@ impl Action {
     pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Action::Copy => Message::Copy(entity_opt),
-            #[cfg(target_family = "unix")]
             Action::CopyPrimary => Message::CopyPrimary(entity_opt),
             Action::Find => Message::Find(true),
             Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
@@ -217,7 +214,6 @@ impl Action {
             Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
-            #[cfg(target_family = "unix")]
             Action::PastePrimary => Message::PastePrimary(entity_opt),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
@@ -263,7 +259,6 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
-    #[cfg(target_family = "unix")]
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     PaneClicked(pane_grid::Pane),
     PaneSplit(pane_grid::Axis),
@@ -273,7 +268,6 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
     Paste(Option<segmented_button::Entity>),
-    #[cfg(target_family = "unix")]
     PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     SelectAll(Option<segmented_button::Entity>),
@@ -1072,7 +1066,6 @@ impl Application for App {
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
             }
-            #[cfg(target_family = "unix")]
             Message::MiddleClick(pane, entity_opt) => {
                 self.pane_model.focus = pane;
                 return Command::batch([
@@ -1134,7 +1127,6 @@ impl Application for App {
                     None => message::none(),
                 });
             }
-            #[cfg(target_family = "unix")]
             Message::PastePrimary(entity_opt) => {
                 return clipboard::read_primary(move |value_opt| match value_opt {
                     Some(value) => message::app(Message::PasteValue(entity_opt, value)),
@@ -1450,16 +1442,14 @@ impl Application for App {
                 .unwrap_or_else(widget::Id::unique);
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
-                    let mut terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
-                        move |position_opt| Message::TabContextMenu(entity, position_opt),
-                    );
-
-                    #[cfg(target_family = "unix")]
-                    {
-                        terminal_box = terminal_box.on_middle_click(move || {
+                    let terminal_box = terminal_box(terminal)
+                        .id(terminal_id)
+                        .on_context_menu(move |position_opt| {
+                            Message::TabContextMenu(entity, position_opt)
+                        })
+                        .on_middle_click(move || {
                             Message::MiddleClick(pane, Some(entity_middle_click))
                         });
-                    }
 
                     let context_menu = {
                         let terminal = terminal.lock().unwrap();
