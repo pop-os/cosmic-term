@@ -634,6 +634,10 @@ where
                         terminal.input_scroll(b"\x1B[1;5H".as_slice());
                         status = Status::Captured;
                     }
+                    KeyCode::Insert => {
+                        terminal.input_scroll(b"\x1B[2;5~".as_slice());
+                        status = Status::Captured;
+                    }
                     KeyCode::Delete => {
                         terminal.input_scroll(b"\x1B[3;5~".as_slice());
                         status = Status::Captured;
@@ -696,10 +700,98 @@ where
                     }
                     _ => (),
                 },
-                (_, _, true, _) => {
-                    // Ignore alt keys
-                    //TODO: alt keys for control characters
-                }
+                // Handle alt keys
+                (_, _, true, _) => match key_code {
+                    KeyCode::Up => {
+                        terminal.input_scroll(b"\x1B[1;3A".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Down => {
+                        terminal.input_scroll(b"\x1B[1;3B".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Right => {
+                        terminal.input_scroll(b"\x1B[1;3C".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Left => {
+                        terminal.input_scroll(b"\x1B[1;3D".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::End => {
+                        terminal.input_scroll(b"\x1B[1;3F".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Home => {
+                        terminal.input_scroll(b"\x1B[1;3H".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Insert => {
+                        terminal.input_scroll(b"\x1B[2;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Delete => {
+                        terminal.input_scroll(b"\x1B[3;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::PageUp => {
+                        terminal.input_scroll(b"\x1B[5;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::PageDown => {
+                        terminal.input_scroll(b"\x1B[6;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F1 => {
+                        terminal.input_scroll(b"\x1B[1;3P".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F2 => {
+                        terminal.input_scroll(b"\x1B1;3Q".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F3 => {
+                        terminal.input_scroll(b"\x1B1;3R".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F4 => {
+                        terminal.input_scroll(b"\x1B1;3S".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F5 => {
+                        terminal.input_scroll(b"\x1B[15;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F6 => {
+                        terminal.input_scroll(b"\x1B[17;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F7 => {
+                        terminal.input_scroll(b"\x1B[18;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F8 => {
+                        terminal.input_scroll(b"\x1B[19;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F9 => {
+                        terminal.input_scroll(b"\x1B[20;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F10 => {
+                        terminal.input_scroll(b"\x1B[21;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F11 => {
+                        terminal.input_scroll(b"\x1B[23;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F12 => {
+                        terminal.input_scroll(b"\x1B[24;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    _ => (),
+                },
                 // Handle shift keys
                 (_, _, _, true) => match key_code {
                     KeyCode::End => {
