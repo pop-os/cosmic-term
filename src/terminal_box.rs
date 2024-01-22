@@ -47,6 +47,8 @@ pub struct TerminalBox<'a, Message> {
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
+    mouse_inside_boundary: Option<bool>,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -61,6 +63,8 @@ where
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
+            on_mouse_enter: None,
+            mouse_inside_boundary: None,
         }
     }
 
@@ -89,6 +93,11 @@ where
         on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
+        self
+    }
+
+    pub fn on_mouse_enter(mut self, on_mouse_enter: impl Fn() -> Message + 'a) -> Self {
+        self.on_mouse_enter = Some(Box::new(on_mouse_enter));
         self
     }
 }
@@ -998,6 +1007,19 @@ where
                 status = Status::Captured;
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
+                if let Some(on_mouse_enter) = &self.on_mouse_enter {
+                    let mouse_is_inside = cursor_position.position_in(layout.bounds()).is_some();
+                    if let Some(known_is_inside) = self.mouse_inside_boundary {
+                        if mouse_is_inside != known_is_inside {
+                            if mouse_is_inside {
+                                shell.publish(on_mouse_enter());
+                            }
+                            self.mouse_inside_boundary = Some(mouse_is_inside);
+                        }
+                    } else {
+                        self.mouse_inside_boundary = Some(mouse_is_inside);
+                    }
+                }
                 if let Some(dragging) = &state.dragging {
                     if let Some(p) = cursor_position.position() {
                         let x = (p.x - layout.bounds().x) - self.padding.left;
