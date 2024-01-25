@@ -38,9 +38,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{terminal::Metadata, Terminal, TerminalScroll};
+use crate::{terminal::Metadata, Terminal, TerminalScroll, Message};
 
-pub struct TerminalBox<'a, Message> {
+pub struct TerminalBox<'a> {
     terminal: &'a Mutex<Terminal>,
     id: Option<Id>,
     padding: Padding,
@@ -51,7 +51,7 @@ pub struct TerminalBox<'a, Message> {
     mouse_inside_boundary: Option<bool>,
 }
 
-impl<'a, Message> TerminalBox<'a, Message>
+impl<'a> TerminalBox<'a>
 where
     Message: Clone,
 {
@@ -102,14 +102,12 @@ where
     }
 }
 
-pub fn terminal_box<'a, Message>(terminal: &'a Mutex<Terminal>) -> TerminalBox<'a, Message>
-where
-    Message: Clone,
+pub fn terminal_box<'a>(terminal: &'a Mutex<Terminal>) -> TerminalBox<'a>
 {
     TerminalBox::new(terminal)
 }
 
-impl<'a, Message> Widget<Message, Renderer> for TerminalBox<'a, Message>
+impl<'a> Widget<Message, Renderer> for TerminalBox<'a>
 where
     Message: Clone,
 {
@@ -192,6 +190,10 @@ where
     ) -> mouse::Interaction {
         let state = tree.state.downcast_ref::<State>();
 
+        if state.scrollbar_hover {
+            return mouse::Interaction::Idle;
+        }
+
         match &state.dragging {
             Some(Dragging::Scrollbar { .. }) => return mouse::Interaction::Idle,
             _ => {}
@@ -218,7 +220,7 @@ where
         theme: &Theme,
         _style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: mouse::Cursor,
+        _cursor_position: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         let instant = Instant::now();
@@ -231,8 +233,7 @@ where
         let view_position =
             layout.position() + [self.padding.left as f32, self.padding.top as f32].into();
         let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
-            - self.padding.horizontal() as i32
-            - scrollbar_w as i32;
+            - self.padding.horizontal() as i32;
         let view_h = cmp::min(viewport.height as i32, layout.bounds().height as i32)
             - self.padding.vertical() as i32;
 
@@ -267,7 +268,7 @@ where
                 Quad {
                     bounds: Rectangle::new(
                         view_position,
-                        Size::new(view_w as f32 + scrollbar_w, view_h as f32),
+                        Size::new(view_w as f32, view_h as f32),
                     ),
                     border_radius: 0.0.into(),
                     border_width: 0.0,
@@ -504,7 +505,7 @@ where
             let scrollbar_y = start * view_h as f32;
             let scrollbar_h = end * view_h as f32 - scrollbar_y;
             let scrollbar_rect = Rectangle::new(
-                [view_w as f32, scrollbar_y].into(),
+                [view_w as f32 - scrollbar_w, scrollbar_y].into(),
                 Size::new(scrollbar_w, scrollbar_h),
             );
 
@@ -513,19 +514,18 @@ where
                 _ => false,
             };
 
-            let mut hover = false;
-            if let Some(p) = cursor_position.position_in(layout.bounds()) {
-                let x = p.x - self.padding.left;
-                if x >= scrollbar_rect.x && x < (scrollbar_rect.x + scrollbar_rect.width) {
-                    hover = true;
-                }
-            }
+            let hover = state.scrollbar_hover;
 
             let mut scrollbar_draw = scrollbar_rect + Vector::new(view_position.x, view_position.y);
             if !hover && !pressed {
-                // Decrease draw width and keep centered when not hovered or pressed
-                scrollbar_draw.width /= 2.0;
-                scrollbar_draw.x += scrollbar_draw.width / 2.0;
+                if state.is_focused && state.recent_mouse_activity() {
+                    // Decrease draw width and keep centered when not hovered or pressed
+                    scrollbar_draw.width /= 2.0;
+                    scrollbar_draw.x += scrollbar_draw.width / 2.0;
+                } else {
+                    // Hide if not focused or no recent mouse activity
+                    scrollbar_draw.width = 0.0;
+                }
             }
 
             // neutral_6, 0.7
@@ -596,6 +596,12 @@ where
         let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
 
         let mut status = Status::Ignored;
+
+        // Immediately disable scrollbar if keyboard activity
+        if matches!(event, Event::Keyboard(_)) {
+            state.last_mouse_activity = None;
+        }
+
         match event {
             Event::Keyboard(KeyEvent::KeyPressed {
                 key_code,
@@ -1004,6 +1010,10 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
+                if state.update_last_mouse_activity(layout, shell, &terminal, None) {
+                    status = Status::Captured;
+                }
+
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     state.is_focused = true;
 
@@ -1011,7 +1021,7 @@ where
                     if let Button::Left = button {
                         let x = p.x - self.padding.left;
                         let y = p.y - self.padding.top;
-                        if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
+                        if x >= 0.0 && x < buffer_size.0 - scrollbar_rect.width && y >= 0.0 && y < buffer_size.1 {
                             let click_kind =
                                 if let Some((click_kind, click_time)) = state.click.take() {
                                     if click_time.elapsed() < self.click_timing {
@@ -1095,10 +1105,24 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
+                state.update_last_mouse_activity(layout, shell, &terminal, None);
                 state.dragging = None;
                 status = Status::Captured;
             }
-            Event::Mouse(MouseEvent::CursorMoved { .. }) => {
+            Event::Mouse(MouseEvent::CursorMoved { position }) => {
+                if state.update_last_mouse_activity(layout, shell, &terminal, Some(position)) {
+                    status = Status::Captured;
+                }
+
+                state.scrollbar_hover = {
+                    let box_bounds = layout.bounds();
+                    box_bounds.contains(position) && {
+                        let local_pos_x = position.x - box_bounds.x;
+                        let scrollbar_rect_end_x = scrollbar_rect.x + scrollbar_rect.width;
+                        (scrollbar_rect.x..=scrollbar_rect_end_x).contains(&local_pos_x)
+                    }
+                };
+
                 if let Some(on_mouse_enter) = &self.on_mouse_enter {
                     let mouse_is_inside = cursor_position.position_in(layout.bounds()).is_some();
                     if let Some(known_is_inside) = self.mouse_inside_boundary {
@@ -1152,6 +1176,10 @@ where
                 }
             }
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
+                if state.update_last_mouse_activity(layout, shell, &terminal, None) {
+                    status = Status::Captured;
+                }
+
                 if let Some(_p) = cursor_position.position_in(layout.bounds()) {
                     match delta {
                         ScrollDelta::Lines { x: _, y } => {
@@ -1205,11 +1233,9 @@ fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
     }
 }
 
-impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, Renderer>
-where
-    Message: Clone + 'a,
+impl<'a> From<TerminalBox<'a>> for Element<'a, Message, Renderer>
 {
-    fn from(terminal_box: TerminalBox<'a, Message>) -> Self {
+    fn from(terminal_box: TerminalBox<'a>) -> Self {
         Self::new(terminal_box)
     }
 }
@@ -1233,11 +1259,16 @@ pub struct State {
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
     is_focused: bool,
+    last_mouse_activity: Option<Instant>,
+    scrollbar_hover: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
 }
 
 impl State {
+    const RECENT_MOUSE_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(1);
+    const SCHED_UPDATE_THROTTLE_PERIOD: Duration = Duration::from_millis(500);
+
     /// Creates a new [`State`].
     pub fn new() -> State {
         State {
@@ -1245,9 +1276,50 @@ impl State {
             click: None,
             dragging: None,
             is_focused: false,
+            last_mouse_activity: None,
+            scrollbar_hover: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
         }
+    }
+
+    fn mouse_activity_since(&self, dur: Duration) -> bool {
+        self.last_mouse_activity
+            .is_some_and(|lma| lma.elapsed() < dur)
+    }
+
+    fn recent_mouse_activity(&self) -> bool {
+        self.mouse_activity_since(Self::RECENT_MOUSE_ACTIVITY_TIMEOUT)
+    }
+
+    fn update_last_mouse_activity(&mut self,
+        layout: Layout<'_>,
+        shell: &mut Shell<Message>,
+        terminal: &Terminal,
+        pos_opt: Option<Point<f32>>) -> bool
+    {
+        let mut ret = false;
+
+        if self.is_focused && pos_opt.map(|pos| layout.bounds().contains(pos)).unwrap_or(true) {
+            // Avoid too many scheduled updates and breaking on_mouse_enter
+            if !self.mouse_activity_since(Self::SCHED_UPDATE_THROTTLE_PERIOD) {
+                // Constify when stable
+                let update_after =  {
+                    Self::RECENT_MOUSE_ACTIVITY_TIMEOUT + Self::SCHED_UPDATE_THROTTLE_PERIOD
+                };
+                self.last_mouse_activity = Some(Instant::now());
+                shell.publish(
+                    Message::ScheduleTermUpdate(
+                        terminal.pane,
+                        terminal.entity,
+                        update_after,
+                    )
+                );
+                ret = true;
+            }
+        }
+
+        ret
     }
 }
 

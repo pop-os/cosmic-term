@@ -175,6 +175,8 @@ impl Metadata {
 }
 
 pub struct Terminal {
+    pub pane: pane_grid::Pane,
+    pub entity: segmented_button::Entity,
     default_attrs: Attrs<'static>,
     buffer: Arc<Buffer>,
     size: Size,
@@ -261,6 +263,8 @@ impl Terminal {
         let _pty_join_handle = pty_event_loop.spawn();
 
         Self {
+            pane,
+            entity,
             colors,
             dim_font_weight: Weight(dim_font_weight),
             bold_font_weight: Weight(bold_font_weight),
