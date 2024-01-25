@@ -1,5 +1,4 @@
 use cosmic::{iced::Length, widget, Element};
-use libsecret::prelude::RetrievableExtManual;
 
 use crate::{fl, Message};
 
@@ -7,24 +6,14 @@ pub struct PasswordManager {
     pub input_description: String,
     pub input_password: String,
     pub cached_password_list: Option<Vec<String>>,
-    schema: libsecret::Schema,
 }
 
 impl PasswordManager {
     pub fn new() -> Self {
-        let mut attributes = std::collections::HashMap::new();
-        attributes.insert("application", libsecret::SchemaAttributeType::String);
-        attributes.insert("identifier", libsecret::SchemaAttributeType::String);
-        let schema = libsecret::Schema::new(
-            "com.system76.CosmicTerm",
-            libsecret::SchemaFlags::NONE,
-            attributes,
-        );
         Self {
             input_description: Default::default(),
             input_password: Default::default(),
             cached_password_list: None,
-            schema,
         }
     }
 
@@ -39,72 +28,158 @@ impl PasswordManager {
     }
 
     pub fn get_password(&self, identifier: &str) -> Option<String> {
+        let ss = match secret_service::blocking::SecretService::connect(
+            secret_service::EncryptionType::Dh,
+        ) {
+            Ok(ss) => ss,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return None;
+            }
+        };
+        let collection = match ss.get_default_collection() {
+            Ok(c) => c,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return None;
+            }
+        };
+
         let mut attributes = std::collections::HashMap::new();
         attributes.insert("application", "com.system76.CosmicTerm");
         attributes.insert("identifier", identifier);
 
-        libsecret::password_lookup_sync(Some(&self.schema), attributes, gio::Cancellable::NONE)
-            .map_or(None, |result| result.map(|s| s.to_string()))
+        let search_items = match collection.search_items(attributes) {
+            Ok(sr) => sr,
+            Err(err) => {
+                log::error!("Failed to search for passwords: {err}");
+                return None;
+            }
+        };
+
+        if let Some(Ok(secret)) = search_items.first().map(|item| item.get_secret()) {
+            return String::from_utf8(secret).ok();
+        }
+        return None;
     }
 
     pub fn get_password_list(&self) -> Vec<String> {
         let mut list = Vec::new();
-        let mut attributes = std::collections::HashMap::new();
-        attributes.insert("application", "com.system76.CosmicTerm");
-        match libsecret::password_search_sync(
-            Some(&self.schema),
-            attributes,
-            libsecret::SearchFlags::ALL,
-            gio::Cancellable::NONE,
+        let ss = match secret_service::blocking::SecretService::connect(
+            secret_service::EncryptionType::Dh,
         ) {
-            Ok(passwords) => {
-                for r in passwords {
-                    if let Some(label) = r.attributes().get("identifier").cloned() {
-                        list.push(label);
-                    }
-                }
-            }
+            Ok(ss) => ss,
             Err(err) => {
-                log::error!("Failed to list password: {err}");
+                log::error!("Failed to connect to Secret Service: {err}");
+                return list;
             }
         };
+        let collection = match ss.get_default_collection() {
+            Ok(c) => c,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return list;
+            }
+        };
+
+        let mut attributes = std::collections::HashMap::new();
+        attributes.insert("application", "com.system76.CosmicTerm");
+
+        let search_items = match collection.search_items(attributes) {
+            Ok(sr) => sr,
+            Err(err) => {
+                log::error!("Failed to search for passwords: {err}");
+                return list;
+            }
+        };
+
+        list = search_items
+            .iter()
+            .flat_map(|item| {
+                item.get_attributes()
+                    .ok()
+                    .and_then(|attribs| attribs.get("identifier").cloned())
+            })
+            .collect();
+
         list.sort();
         list
     }
 
     pub fn delete_password(&mut self, identifier: &str) {
+        let ss = match secret_service::blocking::SecretService::connect(
+            secret_service::EncryptionType::Dh,
+        ) {
+            Ok(ss) => ss,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return;
+            }
+        };
+        let collection = match ss.get_default_collection() {
+            Ok(c) => c,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return;
+            }
+        };
+
         let mut attributes = std::collections::HashMap::new();
         attributes.insert("application", "com.system76.CosmicTerm");
         attributes.insert("identifier", identifier);
-        if let Err(err) =
-            libsecret::password_clear_sync(Some(&self.schema), attributes, gio::Cancellable::NONE)
-        {
-            log::error!("Failed to delete password {identifier}: {err}");
+
+        let search_items = match collection.search_items(attributes) {
+            Ok(sr) => sr,
+            Err(err) => {
+                log::error!("Failed to search for passwords: {err}");
+                return;
+            }
+        };
+
+        if let Some(item) = search_items.first() {
+            if let Err(err) = item.delete() {
+                log::error!("Failed to delete password {identifier}: {err}");
+            }
         }
         self.clear_password_cache();
         self.populate_password_cache();
     }
 
     pub fn add_inputed_password(&mut self) {
+        let ss = match secret_service::blocking::SecretService::connect(
+            secret_service::EncryptionType::Dh,
+        ) {
+            Ok(ss) => ss,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return;
+            }
+        };
+        let collection = match ss.get_default_collection() {
+            Ok(c) => c,
+            Err(err) => {
+                log::error!("Failed to connect to Secret Service: {err}");
+                return;
+            }
+        };
+
         let mut attributes = std::collections::HashMap::new();
         attributes.insert("application", "com.system76.CosmicTerm");
         attributes.insert("identifier", &self.input_description);
 
         let label = format!("CosmicTerm - {}", self.input_description);
 
-        let collection = libsecret::COLLECTION_DEFAULT;
-
-        let res = libsecret::password_store_sync(
-            Some(&self.schema),
-            attributes,
-            Some(collection),
+        if let Err(err) = collection.create_item(
             &label,
-            &self.input_password,
-            gio::Cancellable::NONE,
-        );
-        if let Err(err) = res {
-            log::error!("Failed to store password: {}", err);
+            attributes,
+            self.input_password.as_bytes(),
+            true,
+            "text/plain",
+        ) {
+            log::error!("Failed to store password in secret service: {}", err);
+            return;
         }
+
         if let Some(password_list) = self.cached_password_list.as_mut() {
             password_list.push(self.input_description.clone());
             password_list.sort();
