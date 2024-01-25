@@ -67,6 +67,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     //TODO: Adjust bindings as desired by UX
     bind!([Ctrl, Alt], D, PaneSplitHorizontal);
     bind!([Ctrl, Alt], R, PaneSplitVertical);
+    bind!([Ctrl, Alt], P, PasswordManager);
     bind!([Ctrl, Shift], X, PaneToggleMaximized);
 
     // Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs

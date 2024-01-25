@@ -54,6 +54,12 @@ split-horizontal = Split horizontal
 split-vertical = Split vertical
 pane-toggle-maximize = Toggle maximized
 menu-settings = Settings...
+menu-password-manager = Passwords...
 
 # Context menu
 show-headerbar = Show header bar
+
+# Password Manager
+password-manager = Password Manager
+passwords = Passwords
+add-password = Add Password

@@ -50,6 +50,7 @@ mod terminal;
 use terminal_box::terminal_box;
 mod terminal_box;
 
+mod password_manager;
 mod terminal_theme;
 
 lazy_static::lazy_static! {
@@ -176,6 +177,7 @@ pub enum Action {
     Paste,
     SelectAll,
     Settings,
+    PasswordManager,
     ShowHeaderBar(bool),
     TabActivate0,
     TabActivate1,
@@ -212,6 +214,7 @@ impl Action {
             Action::Paste => Message::Paste(entity_opt),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
+            Action::PasswordManager => Message::ToggleContextPage(ContextPage::PasswordManager),
             Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
             Action::TabActivate0 => Message::TabActivateJump(0),
             Action::TabActivate1 => Message::TabActivateJump(1),
@@ -263,6 +266,11 @@ pub enum Message {
     MouseEnter(pane_grid::Pane),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
+    Password(String),
+    PasswordAdd,
+    PasswordDelete(String),
+    PasswordDescriptionSubmit(String),
+    PasswordValueSubmit(String),
     SelectAll(Option<segmented_button::Entity>),
     UseBrightBold(bool),
     ShowHeaderBar(bool),
@@ -291,12 +299,14 @@ pub enum Message {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContextPage {
     Settings,
+    PasswordManager,
 }
 
 impl ContextPage {
     fn title(&self) -> String {
         match self {
             Self::Settings => fl!("settings"),
+            Self::PasswordManager => fl!("password-manager"),
         }
     }
 }
@@ -334,6 +344,7 @@ pub struct App {
     term_config: TermConfig,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
+    password_mgr: password_manager::PasswordManager,
 }
 
 impl App {
@@ -857,6 +868,7 @@ impl Application for App {
             term_event_tx_opt: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
+            password_mgr: Default::default(),
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -870,6 +882,9 @@ impl Application for App {
         if self.core.window.show_context {
             // Close context drawer if open
             self.core.window.show_context = false;
+            if self.context_page == ContextPage::PasswordManager {
+                self.password_mgr.clear_password_cache();
+            }
         } else if self.find {
             // Close find if open
             self.find = false;
@@ -881,6 +896,9 @@ impl Application for App {
 
     fn on_context_drawer(&mut self) -> Command<Message> {
         if !self.core.window.show_context {
+            if self.context_page == ContextPage::PasswordManager {
+                self.password_mgr.clear_password_cache();
+            }
             self.update_focus()
         } else {
             Command::none()
@@ -1114,6 +1132,32 @@ impl Application for App {
                     }
                 }
             }
+            Message::Password(identifier) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    if let Some(password) = self.password_mgr.get_password(&identifier) {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let terminal = terminal.lock().unwrap();
+                            terminal.paste(password);
+                            terminal.input_scroll(b"\n".as_slice());
+                        }
+                    }
+                }
+                self.core.window.show_context = false;
+                self.password_mgr.clear_password_cache();
+            }
+            Message::PasswordAdd => {
+                self.password_mgr.add_inputed_password();
+            }
+            Message::PasswordDelete(identifier) => {
+                self.password_mgr.delete_password(&identifier);
+            }
+            Message::PasswordDescriptionSubmit(description) => {
+                self.password_mgr.input_description = description;
+            }
+            Message::PasswordValueSubmit(value) => {
+                self.password_mgr.input_password = value;
+            }
             Message::SelectAll(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
@@ -1341,6 +1385,13 @@ impl Application for App {
                     self.context_page = context_page;
                     self.core.window.show_context = true;
                 }
+                if context_page == ContextPage::PasswordManager {
+                    if self.core.window.show_context {
+                        self.password_mgr.populate_password_cache();
+                    } else {
+                        self.password_mgr.clear_password_cache();
+                    }
+                }
                 self.set_context_title(context_page.title());
             }
             Message::ShowAdvancedFontSettings(show) => {
@@ -1384,6 +1435,7 @@ impl Application for App {
 
         Some(match self.context_page {
             ContextPage::Settings => self.settings(),
+            ContextPage::PasswordManager => self.password_mgr.context_page(),
         })
     }
 

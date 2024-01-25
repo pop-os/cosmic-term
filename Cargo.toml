@@ -19,6 +19,8 @@ i18n-embed-fl = "0.6"
 rust-embed = "6"
 paste = "1.0"
 palette = "0.7"
+libsecret = { version = "0.4.0", features = ["v0_20"] }
+gio = "0.18.4"
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
