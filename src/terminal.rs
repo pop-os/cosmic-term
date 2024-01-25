@@ -344,21 +344,27 @@ impl Terminal {
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width != self.size.width || height != self.size.height {
-            let instant = Instant::now();
-
             self.size.width = width;
             self.size.height = height;
-
-            self.notifier.on_resize(self.size.into());
-            self.term.lock().resize(self.size);
-
-            self.with_buffer_mut(|buffer| {
-                let mut font_system = font_system().write().unwrap();
-                buffer.set_size(font_system.raw(), width as f32, height as f32);
-            });
-
-            log::debug!("resize {:?}", instant.elapsed());
+            self.update_cell_size()
         }
+    }
+
+    fn finish_resize(&mut self) {
+        let instant = Instant::now();
+
+        let width = self.size.width;
+        let height = self.size.height;
+
+        self.notifier.on_resize(self.size.into());
+        self.term.lock().resize(self.size);
+
+        self.with_buffer_mut(|buffer| {
+            let mut font_system = font_system().write().unwrap();
+            buffer.set_size(font_system.raw(), width as f32, height as f32);
+        });
+
+        log::debug!("resize {:?}", instant.elapsed());
     }
 
     pub fn scroll(&self, scroll: TerminalScroll) {
@@ -574,6 +580,7 @@ impl Terminal {
         let default_attrs = self.default_attrs;
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
+            let width = self.size.width as f32;
             self.with_buffer_mut(|buffer| {
                 buffer.set_wrap(font_system.raw(), Wrap::None);
 
@@ -581,19 +588,25 @@ impl Terminal {
                 buffer.set_text(font_system.raw(), " ", default_attrs, Shaping::Advanced);
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
-                buffer.set_monospace_width(font_system.raw(), Some(w));
-                (w, buffer.metrics().line_height)
+
+                // Increase the font size slightly so that `cell_width * cols`  fills
+                // the view fully horizontally.
+                let cols = (width / w).floor();
+                let new_w = width / cols;
+                let old_metrics = buffer.metrics();
+                let font_size = old_metrics.font_size * (new_w / w);
+                let line_height = (font_size * 1.4).ceil();
+                let new_metrics = Metrics::new(font_size, line_height);
+                buffer.set_metrics(font_system.raw(), new_metrics);
+
+                buffer.set_monospace_width(font_system.raw(), Some(new_w));
+                (new_w, buffer.metrics().line_height)
             })
         };
 
-        let old_size = self.size;
-        self.size = Size {
-            width: 0,
-            height: 0,
-            cell_width,
-            cell_height,
-        };
-        self.resize(old_size.width, old_size.height);
+        self.size.cell_width = cell_width;
+        self.size.cell_height = cell_height;
+        self.finish_resize();
 
         self.update();
     }
