@@ -19,7 +19,7 @@ default-dim-font-weight = デフォルトの暗いフォントの太さ
 default-bold-font-weight = デフォルトの太字の太さ
 use-bright-bold = 太字を明るい色で表示する
 default-font-size = デフォルトのフォントサイズ
-default-zoom-step =
+default-zoom-step =ズームの間隔
 
 # Find
 find-placeholder = 検索...
