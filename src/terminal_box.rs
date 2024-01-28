@@ -790,6 +790,10 @@ where
                         terminal.input_scroll(b"\x1B[24;3~".as_slice());
                         status = Status::Captured;
                     }
+                    KeyCode::Backspace => {
+                        terminal.input_scroll(b"\x1B\x7F".as_slice());
+                        status = Status::Captured;
+                    }
                     _ => (),
                 },
                 // Handle shift keys
