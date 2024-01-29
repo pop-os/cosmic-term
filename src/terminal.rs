@@ -634,7 +634,9 @@ impl Terminal {
                         }
 
                         // Tab skip/stop is handled by alacritty_terminal
-                        if buffer.lines[line_i].set_text(text.replace('\t', " "), attrs_list.clone()) {
+                        if buffer.lines[line_i]
+                            .set_text(text.replace('\t', " "), attrs_list.clone())
+                        {
                             buffer.set_redraw(true);
                         }
                         line_i += 1;
