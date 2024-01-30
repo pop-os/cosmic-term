@@ -594,6 +594,7 @@ where
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
 
         let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
+        let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
 
         let mut status = Status::Ignored;
         match event {
@@ -1009,98 +1010,128 @@ where
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
-                    state.is_focused = true;
+                    let x = p.x - self.padding.left;
+                    let y = p.y - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
 
-                    // Handle left click drag
-                    if let Button::Left = button {
-                        let x = p.x - self.padding.left;
-                        let y = p.y - self.padding.top;
-                        if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
-                            let click_kind =
-                                if let Some((click_kind, click_time)) = state.click.take() {
-                                    if click_time.elapsed() < self.click_timing {
-                                        match click_kind {
-                                            ClickKind::Single => ClickKind::Double,
-                                            ClickKind::Double => ClickKind::Triple,
-                                            ClickKind::Triple => ClickKind::Single,
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        state.is_focused = true;
+
+                        // Handle left click drag
+                        if let Button::Left = button {
+                            let x = p.x - self.padding.left;
+                            let y = p.y - self.padding.top;
+                            if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
+                                let click_kind =
+                                    if let Some((click_kind, click_time)) = state.click.take() {
+                                        if click_time.elapsed() < self.click_timing {
+                                            match click_kind {
+                                                ClickKind::Single => ClickKind::Double,
+                                                ClickKind::Double => ClickKind::Triple,
+                                                ClickKind::Triple => ClickKind::Single,
+                                            }
+                                        } else {
+                                            ClickKind::Single
                                         }
                                     } else {
                                         ClickKind::Single
-                                    }
+                                    };
+                                let location = terminal.viewport_to_point(TermPoint::new(
+                                    row as usize,
+                                    TermColumn(col as usize),
+                                ));
+                                let side = if col.fract() < 0.5 {
+                                    TermSide::Left
                                 } else {
-                                    ClickKind::Single
+                                    TermSide::Right
                                 };
-                            //TODO: better calculation of position
-                            let col = x / terminal.size().cell_width;
-                            let row = y / terminal.size().cell_height;
-                            let location = terminal.viewport_to_point(TermPoint::new(
-                                row as usize,
-                                TermColumn(col as usize),
-                            ));
-                            let side = if col.fract() < 0.5 {
-                                TermSide::Left
-                            } else {
-                                TermSide::Right
-                            };
-                            let selection = match click_kind {
-                                ClickKind::Single => {
-                                    Selection::new(SelectionType::Simple, location, side)
+                                let selection = match click_kind {
+                                    ClickKind::Single => {
+                                        Selection::new(SelectionType::Simple, location, side)
+                                    }
+                                    ClickKind::Double => {
+                                        Selection::new(SelectionType::Semantic, location, side)
+                                    }
+                                    ClickKind::Triple => {
+                                        Selection::new(SelectionType::Lines, location, side)
+                                    }
+                                };
+                                {
+                                    let mut term = terminal.term.lock();
+                                    term.selection = Some(selection);
                                 }
-                                ClickKind::Double => {
-                                    Selection::new(SelectionType::Semantic, location, side)
-                                }
-                                ClickKind::Triple => {
-                                    Selection::new(SelectionType::Lines, location, side)
-                                }
-                            };
-                            {
-                                let mut term = terminal.term.lock();
-                                term.selection = Some(selection);
-                            }
-                            terminal.needs_update = true;
-                            state.click = Some((click_kind, Instant::now()));
-                            state.dragging = Some(Dragging::Buffer);
-                        } else if scrollbar_rect.contains(Point::new(x, y)) {
-                            if let Some(start_scroll) = terminal.scrollbar() {
-                                state.dragging = Some(Dragging::Scrollbar {
-                                    start_y: y,
-                                    start_scroll,
-                                });
-                            }
-                        } else if x >= scrollbar_rect.x
-                            && x < (scrollbar_rect.x + scrollbar_rect.width)
-                        {
-                            if terminal.scrollbar().is_some() {
-                                let scroll_ratio =
-                                    terminal.with_buffer(|buffer| y / buffer.size().1);
-                                terminal.scroll_to(scroll_ratio);
+                                terminal.needs_update = true;
+                                state.click = Some((click_kind, Instant::now()));
+                                state.dragging = Some(Dragging::Buffer);
+                            } else if scrollbar_rect.contains(Point::new(x, y)) {
                                 if let Some(start_scroll) = terminal.scrollbar() {
                                     state.dragging = Some(Dragging::Scrollbar {
                                         start_y: y,
                                         start_scroll,
                                     });
                                 }
+                            } else if x >= scrollbar_rect.x
+                                && x < (scrollbar_rect.x + scrollbar_rect.width)
+                            {
+                                if terminal.scrollbar().is_some() {
+                                    let scroll_ratio =
+                                        terminal.with_buffer(|buffer| y / buffer.size().1);
+                                    terminal.scroll_to(scroll_ratio);
+                                    if let Some(start_scroll) = terminal.scrollbar() {
+                                        state.dragging = Some(Dragging::Scrollbar {
+                                            start_y: y,
+                                            start_scroll,
+                                        });
+                                    }
+                                }
                             }
                         }
+                        // Update context menu state
+                        if let Some(on_context_menu) = &self.on_context_menu {
+                            shell.publish((on_context_menu)(match self.context_menu {
+                                Some(_) => None,
+                                None => match button {
+                                    Button::Right => Some(p),
+                                    _ => None,
+                                },
+                            }));
+                        }
+                        status = Status::Captured;
                     }
-
-                    // Update context menu state
-                    if let Some(on_context_menu) = &self.on_context_menu {
-                        shell.publish((on_context_menu)(match self.context_menu {
-                            Some(_) => None,
-                            None => match button {
-                                Button::Right => Some(p),
-                                _ => None,
-                            },
-                        }));
-                    }
-
-                    status = Status::Captured;
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
                 state.dragging = None;
-                status = Status::Captured;
+                if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    let x = p.x - self.padding.left;
+                    let y = p.y - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        status = Status::Captured;
+                    }
+                } else {
+                    status = Status::Captured;
+                }
+            }
+            Event::Mouse(MouseEvent::ButtonReleased(_button)) => {
+                if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    let x = p.x - self.padding.left;
+                    let y = p.y - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    }
+                }
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if let Some(on_mouse_enter) = &self.on_mouse_enter {
@@ -1116,74 +1147,82 @@ where
                         self.mouse_inside_boundary = Some(mouse_is_inside);
                     }
                 }
-                if let Some(dragging) = &state.dragging {
-                    if let Some(p) = cursor_position.position() {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
-                        let y = (p.y - layout.bounds().y) - self.padding.top;
-                        match dragging {
-                            Dragging::Buffer => {
-                                //TODO: better calculation of position
-                                let col = x / terminal.size().cell_width;
-                                let row = y / terminal.size().cell_height;
-                                let location = terminal.viewport_to_point(TermPoint::new(
-                                    row as usize,
-                                    TermColumn(col as usize),
-                                ));
-                                let side = if col.fract() < 0.5 {
-                                    TermSide::Left
-                                } else {
-                                    TermSide::Right
-                                };
-                                {
-                                    let mut term = terminal.term.lock();
-                                    if let Some(selection) = &mut term.selection {
-                                        selection.update(location, side);
+                if let Some(p) = cursor_position.position() {
+                    let x = (p.x - layout.bounds().x) - self.padding.left;
+                    let y = (p.y - layout.bounds().y) - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        if let Some(dragging) = &state.dragging {
+                            match dragging {
+                                Dragging::Buffer => {
+                                    let location = terminal.viewport_to_point(TermPoint::new(
+                                        row as usize,
+                                        TermColumn(col as usize),
+                                    ));
+                                    let side = if col.fract() < 0.5 {
+                                        TermSide::Left
+                                    } else {
+                                        TermSide::Right
+                                    };
+                                    {
+                                        let mut term = terminal.term.lock();
+                                        if let Some(selection) = &mut term.selection {
+                                            selection.update(location, side);
+                                        }
                                     }
+                                    terminal.needs_update = true;
                                 }
-                                terminal.needs_update = true;
-                            }
-                            Dragging::Scrollbar {
-                                start_y,
-                                start_scroll,
-                            } => {
-                                let scroll_offset = terminal
-                                    .with_buffer(|buffer| ((y - start_y) / buffer.size().1));
-                                terminal.scroll_to(start_scroll.0 + scroll_offset);
+                                Dragging::Scrollbar {
+                                    start_y,
+                                    start_scroll,
+                                } => {
+                                    let scroll_offset = terminal
+                                        .with_buffer(|buffer| ((y - start_y) / buffer.size().1));
+                                    terminal.scroll_to(start_scroll.0 + scroll_offset);
+                                }
                             }
                         }
+                        status = Status::Captured;
                     }
-                    status = Status::Captured;
                 }
             }
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
                 if let Some(_p) = cursor_position.position_in(layout.bounds()) {
-                    match delta {
-                        ScrollDelta::Lines { x: _, y } => {
-                            //TODO: this adjustment is just a guess!
-                            state.scroll_pixels = 0.0;
-                            let lines = (-y * 6.0) as i32;
-                            if lines != 0 {
-                                terminal.scroll(TerminalScroll::Delta(-lines));
+                    if is_mouse_mode {
+                        terminal.scroll_mouse(delta);
+                    } else {
+                        match delta {
+                            ScrollDelta::Lines { x: _, y } => {
+                                //TODO: this adjustment is just a guess!
+                                state.scroll_pixels = 0.0;
+                                let lines = (-y * 6.0) as i32;
+                                if lines != 0 {
+                                    terminal.scroll(TerminalScroll::Delta(-lines));
+                                }
+                                status = Status::Captured;
                             }
-                            status = Status::Captured;
-                        }
-                        ScrollDelta::Pixels { x: _, y } => {
-                            //TODO: this adjustment is just a guess!
-                            state.scroll_pixels -= y * 6.0;
-                            let mut lines = 0;
-                            let metrics = terminal.with_buffer(|buffer| buffer.metrics());
-                            while state.scroll_pixels <= -metrics.line_height {
-                                lines -= 1;
-                                state.scroll_pixels += metrics.line_height;
+                            ScrollDelta::Pixels { x: _, y } => {
+                                //TODO: this adjustment is just a guess!
+                                state.scroll_pixels -= y * 6.0;
+                                let mut lines = 0;
+                                let metrics = terminal.with_buffer(|buffer| buffer.metrics());
+                                while state.scroll_pixels <= -metrics.line_height {
+                                    lines -= 1;
+                                    state.scroll_pixels += metrics.line_height;
+                                }
+                                while state.scroll_pixels >= metrics.line_height {
+                                    lines += 1;
+                                    state.scroll_pixels -= metrics.line_height;
+                                }
+                                if lines != 0 {
+                                    terminal.scroll(TerminalScroll::Delta(-lines));
+                                }
+                                status = Status::Captured;
                             }
-                            while state.scroll_pixels >= metrics.line_height {
-                                lines += 1;
-                                state.scroll_pixels -= metrics.line_height;
-                            }
-                            if lines != 0 {
-                                terminal.scroll(TerminalScroll::Delta(-lines));
-                            }
-                            status = Status::Captured;
                         }
                     }
                 }

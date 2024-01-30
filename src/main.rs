@@ -32,6 +32,7 @@ use tokio::sync::mpsc;
 
 use config::{AppTheme, Config, CONFIG_VERSION};
 mod config;
+mod mouse_reporter;
 
 use icon_cache::IconCache;
 mod icon_cache;

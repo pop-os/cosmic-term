@@ -17,6 +17,7 @@ use alacritty_terminal::{
 };
 use cosmic::{
     iced::advanced::graphics::text::font_system,
+    iced::mouse::ScrollDelta,
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
@@ -34,7 +35,7 @@ use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
-use crate::config::Config as AppConfig;
+use crate::{config::Config as AppConfig, mouse_reporter::MouseReporter};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -189,6 +190,7 @@ pub struct Terminal {
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
     pub metadata_set: IndexSet<Metadata>,
+    mouse_reporter: MouseReporter,
 }
 
 impl Terminal {
@@ -275,6 +277,7 @@ impl Terminal {
             search_regex_opt: None,
             search_value: String::new(),
             metadata_set,
+            mouse_reporter: Default::default(),
         }
     }
 
@@ -775,6 +778,40 @@ impl Terminal {
     pub fn viewport_to_point(&self, point: Point<usize>) -> Point {
         let term = self.term.lock();
         viewport_to_point(term.grid().display_offset(), point)
+    }
+
+    pub fn report_mouse(
+        &mut self,
+        event: cosmic::iced::Event,
+        modifiers: &cosmic::iced::keyboard::Modifiers,
+        x: u32,
+        y: u32,
+    ) {
+        let term_lock = self.term.lock();
+        let mode = term_lock.mode();
+        if mode.contains(TermMode::SGR_MOUSE) {
+            if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
+                self.input_no_scroll(code)
+            }
+        } else {
+            if let Some(code) = self.mouse_reporter.normal_mouse_code(
+                event,
+                modifiers,
+                mode.contains(TermMode::UTF8_MOUSE),
+                x,
+                y,
+            ) {
+                self.input_no_scroll(code)
+            }
+        }
+    }
+    pub fn scroll_mouse(&mut self, delta: ScrollDelta) {
+        self.mouse_reporter.report_mouse_wheel_scroll(
+            self,
+            self.size().cell_width,
+            self.size().cell_height,
+            delta,
+        );
     }
 }
 
