@@ -1418,9 +1418,9 @@ impl Application for App {
         {
             let color = Color::from(cosmic_theme.bg_color());
             let bytes = color.into_rgba8();
-            let data = (bytes[0] as u32)
+            let data = (bytes[2] as u32)
                 | ((bytes[1] as u32) << 8)
-                | ((bytes[2] as u32) << 16)
+                | ((bytes[0] as u32) << 16)
                 | 0xFF000000;
             terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
         }
