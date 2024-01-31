@@ -805,13 +805,33 @@ impl Terminal {
             }
         }
     }
-    pub fn scroll_mouse(&mut self, delta: ScrollDelta) {
-        self.mouse_reporter.report_mouse_wheel_scroll(
-            self,
-            self.size().cell_width,
-            self.size().cell_height,
-            delta,
-        );
+    pub fn scroll_mouse(
+        &mut self,
+        delta: ScrollDelta,
+        modifiers: &cosmic::iced::keyboard::Modifiers,
+        x: u32,
+        y: u32,
+    ) {
+        let term_lock = self.term.lock();
+        let mode = term_lock.mode();
+        if mode.contains(TermMode::SGR_MOUSE) {
+            self.mouse_reporter.report_sgr_mouse_wheel_scroll(
+                self,
+                self.size().cell_width,
+                self.size().cell_height,
+                delta,
+                modifiers,
+                x,
+                y,
+            );
+        } else {
+            self.mouse_reporter.report_mouse_wheel_as_arrows(
+                self,
+                self.size().cell_width,
+                self.size().cell_height,
+                delta,
+            );
+        }
     }
 }
 

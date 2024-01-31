@@ -172,9 +172,50 @@ impl MouseReporter {
         }
     }
 
+    pub fn report_sgr_mouse_wheel_scroll(
+        &self,
+        terminal: &Terminal,
+        term_cell_width: f32,
+        term_cell_height: f32,
+        delta: ScrollDelta,
+        modifiers: &Modifiers,
+        x: u32,
+        y: u32,
+    ) {
+        let (delta_x, delta_y) = match delta {
+            ScrollDelta::Lines { x, y } => (x, y),
+            ScrollDelta::Pixels { x, y } => (x / term_cell_width, y / term_cell_height),
+        };
+        let (mut button_no, amount) = if delta_y > 0.0 {
+            (64, delta_y.abs()) //Wheel UP
+        } else if delta_y < 0.0 {
+            (65, delta_y.abs()) //Wheel Down
+        } else if delta_x < 0.0 {
+            (66, delta_x.abs()) //Wheel Left
+        } else if delta_x > 0.0 {
+            (67, delta_x.abs()) //Wheel Right
+        } else {
+            return;
+        };
+
+        if modifiers.shift() {
+            button_no += 4;
+        }
+        if modifiers.alt() {
+            button_no += 8;
+        }
+        if modifiers.control() {
+            button_no += 16;
+        }
+        let term_code = format!("\x1b[<{};{};{}M", button_no, x + 1, y + 1);
+        for _ in 0..amount as u32 {
+            terminal.input_no_scroll(term_code.as_bytes().to_vec());
+        }
+    }
+
     //Emulate mouse wheel scroll with up/down arrows. Using mouse spec uses
     //scroll-back and scroll-forw actions, which moves whole windows like page up/page down.
-    pub fn report_mouse_wheel_scroll(
+    pub fn report_mouse_wheel_as_arrows(
         &self,
         terminal: &Terminal,
         term_cell_width: f32,
@@ -188,9 +229,9 @@ impl MouseReporter {
         //Send delta_y * SCROLL_SPEED number of Up/Down arrows
         for _ in 0..(delta_y.abs() as u32 * SCROLL_SPEED) {
             if delta_y > 0.0 {
-                terminal.input_no_scroll(b"\x1B[1;3A".as_slice())
+                terminal.input_no_scroll(b"\x1B[A".as_slice())
             } else if delta_y < 0.0 {
-                terminal.input_no_scroll(b"\x1B[1;3B".as_slice())
+                terminal.input_no_scroll(b"\x1B[B".as_slice())
             }
         }
     }

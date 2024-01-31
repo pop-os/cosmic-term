@@ -1191,9 +1191,14 @@ where
                 }
             }
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
-                if let Some(_p) = cursor_position.position_in(layout.bounds()) {
+                if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     if is_mouse_mode {
-                        terminal.scroll_mouse(delta);
+                        let x = (p.x - layout.bounds().x) - self.padding.left;
+                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+                        terminal.scroll_mouse(delta, &state.modifiers, col as u32, row as u32);
                     } else {
                         match delta {
                             ScrollDelta::Lines { x: _, y } => {
