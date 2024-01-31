@@ -17,7 +17,7 @@ use cosmic::{
         window, Alignment, Event, Length, Padding, Point,
     },
     style,
-    widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
+    widget::{self, button, container, pane_grid::{self, Pane, PaneGrid}, segmented_button},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
@@ -286,6 +286,8 @@ pub enum Message {
     ZoomOut,
     ZoomReset,
     FocusFollowMouse(bool),
+    ScheduleTermUpdate(Pane, segmented_button::Entity, Duration),
+    RunScheduledTermUpdate(Pane, segmented_button::Entity),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -889,6 +891,23 @@ impl Application for App {
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
+            Message::RunScheduledTermUpdate(pane, entity) => {
+                // Only update if the same terminal is still focused
+                if self.pane_model.focus == pane {
+                    if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.needs_update = true;
+                        }
+                    }
+                }
+            },
+            Message::ScheduleTermUpdate(pane, entity, after) => {
+                return Command::perform(
+                    tokio::time::sleep(after),
+                    move |_| message::app(Message::RunScheduledTermUpdate(pane, entity)),
+                );
+            },
             Message::AppTheme(app_theme) => {
                 self.config.app_theme = app_theme;
                 return self.save_config();
