@@ -28,7 +28,10 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     mem,
-    sync::{Arc, Weak},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Weak,
+    },
     time::Instant,
 };
 use tokio::sync::mpsc;
@@ -98,6 +101,8 @@ fn as_dim(mut color: Color) -> Color {
     color
 }
 
+pub static WINDOW_BG_COLOR: AtomicU32 = AtomicU32::new(0xFF000000);
+
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
@@ -105,7 +110,7 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
             None => match named_color {
                 NamedColor::Background => {
                     // Allow using an unset background
-                    return cosmic_text::Color(0);
+                    return cosmic_text::Color(WINDOW_BG_COLOR.load(Ordering::SeqCst));
                 }
                 _ => {
                     log::warn!("missing named color {:?}", named_color);

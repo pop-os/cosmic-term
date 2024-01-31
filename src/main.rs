@@ -14,7 +14,7 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
-        window, Alignment, Event, Length, Limits, Padding, Point,
+        window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
     style,
     widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
@@ -25,7 +25,7 @@ use std::{
     any::TypeId,
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
-    sync::Mutex,
+    sync::{atomic::Ordering, Mutex},
     time::Duration,
 };
 use tokio::sync::mpsc;
@@ -1413,7 +1413,17 @@ impl Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let cosmic_theme = self.core().system_theme().cosmic();
+        let cosmic_theme::Spacing { space_xxs, .. } = cosmic_theme.spacing;
+        {
+            let color = Color::from(cosmic_theme.bg_color());
+            let bytes = color.into_rgba8();
+            let data = (bytes[0] as u32)
+                | ((bytes[1] as u32) << 8)
+                | ((bytes[2] as u32) << 16)
+                | 0xFF000000;
+            terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
+        }
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
