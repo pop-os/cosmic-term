@@ -267,7 +267,7 @@ pub enum Message {
     UseBrightBold(bool),
     ShowHeaderBar(bool),
     SyntaxTheme(usize, bool),
-    SystemThemeModeChange(cosmic_theme::ThemeMode),
+    SystemThemeChange,
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
@@ -1152,7 +1152,7 @@ impl Application for App {
                     return self.save_config();
                 }
             }
-            Message::SystemThemeModeChange(_theme_mode) => {
+            Message::SystemThemeChange => {
                 return self.update_config();
             }
             Message::SyntaxTheme(index, dark) => match self.theme_names.get(index) {
@@ -1558,6 +1558,7 @@ impl Application for App {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
         struct ThemeSubscription;
+        struct ThemeModeSubscription;
 
         Subscription::batch([
             event::listen_with(|event, _status| match event {
@@ -1608,21 +1609,23 @@ impl Application for App {
                 }
                 Message::Config(update.config)
             }),
-            cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
+            cosmic_config::config_subscription::<_, cosmic_theme::Theme>(
                 TypeId::of::<ThemeSubscription>(),
+                if self.core.system_theme_mode().is_dark {
+                    cosmic_theme::DARK_THEME_ID
+                } else {
+                    cosmic_theme::LIGHT_THEME_ID
+                }
+                .into(),
+                cosmic_theme::Theme::version(),
+            )
+            .map(|_update| Message::SystemThemeChange),
+            cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
+                TypeId::of::<ThemeModeSubscription>(),
                 cosmic_theme::THEME_MODE_ID.into(),
                 cosmic_theme::ThemeMode::version(),
             )
-            .map(|update| {
-                if !update.errors.is_empty() {
-                    log::debug!(
-                        "errors loading theme mode {:?}: {:?}",
-                        update.keys,
-                        update.errors
-                    );
-                }
-                Message::SystemThemeModeChange(update.config)
-            }),
+            .map(|_update| Message::SystemThemeChange),
         ])
     }
 }
