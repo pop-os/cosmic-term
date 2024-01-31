@@ -1403,6 +1403,15 @@ impl Application for App {
         vec![menu_bar(&self.key_binds).into()]
     }
 
+    fn header_end(&self) -> Vec<Element<Self::Message>> {
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        vec![widget::button(widget::icon::from_name("list-add-symbolic"))
+            .on_press(Message::TabNew)
+            .padding(space_xxs)
+            .style(style::Button::Icon)
+            .into()]
+    }
+
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
