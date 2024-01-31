@@ -2,7 +2,6 @@
 
 ## Settings
 settings = Settings
-focus-follow-mouse = Focus Follow Mouse
 
 ### Appearance
 appearance = Appearance
@@ -10,17 +9,29 @@ theme = Theme
 match-desktop = Match desktop
 dark = Dark
 light = Light
-syntax-dark = Syntax dark
-syntax-light = Syntax light
+syntax-dark = Color scheme dark
+syntax-light = Color scheme light
+default-zoom-step = Zoom steps
+
+### Font
+font = Font
 advanced-font-settings = Advanced Font Settings
-default-font = Default font
-default-font-stretch = Default font stretch
-default-font-weight = Default font weight
-default-dim-font-weight = Default dim font weight
-default-bold-font-weight = Default bold font weight
-use-bright-bold = Use bright colors with bold text
-default-font-size = Default font size
-default-zoom-step = Default zoom step
+default-font = Font
+default-font-size = Font size
+default-font-stretch = Font stretch
+default-font-weight = Normal font weight
+default-dim-font-weight = Dim font weight
+default-bold-font-weight = Bold font weight
+use-bright-bold = Make bold text brighter
+
+### Splits
+splits = Splits
+focus-follow-mouse = Typing focus follows mouse
+
+### Advanced
+advanced = Advanced
+show-headerbar = Show header
+show-header-description = Reveal the header from the right-click menu.
 
 # Find
 find-placeholder = Find...
@@ -54,6 +65,3 @@ split-horizontal = Split horizontal
 split-vertical = Split vertical
 pane-toggle-maximize = Toggle maximized
 menu-settings = Settings...
-
-# Context menu
-show-headerbar = Show header bar

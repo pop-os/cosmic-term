@@ -525,6 +525,67 @@ impl App {
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
 
+        let appearance_section = widget::settings::view_section(fl!("appearance"))
+            .add(
+                widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
+                    &self.app_themes,
+                    Some(app_theme_selected),
+                    move |index| {
+                        Message::AppTheme(match index {
+                            1 => AppTheme::Dark,
+                            2 => AppTheme::Light,
+                            _ => AppTheme::System,
+                        })
+                    },
+                )),
+            )
+            .add(
+                //TODO: rename to color-scheme-dark?
+                widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
+                    &self.theme_names,
+                    dark_selected,
+                    move |index| Message::SyntaxTheme(index, true),
+                )),
+            )
+            .add(
+                //TODO: rename to color-scheme-light?
+                widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
+                    &self.theme_names,
+                    light_selected,
+                    move |index| Message::SyntaxTheme(index, false),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-zoom-step")).control(
+                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
+                        Message::DefaultZoomStep(index)
+                    }),
+                ),
+            );
+        //TODO: background opacity
+
+        let mut font_section = widget::settings::view_section(fl!("font"))
+            .add(
+                widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
+                    &self.font_names,
+                    font_selected,
+                    |index| Message::DefaultFont(index),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-font-size")).control(
+                    widget::dropdown(&self.font_size_names, font_size_selected, |index| {
+                        Message::DefaultFontSize(index)
+                    }),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
+                    self.show_advanced_font_settings,
+                    Message::ShowAdvancedFontSettings,
+                ),
+            );
+
         let advanced_font_settings = || {
             let section = widget::settings::view_section("")
                 .add(
@@ -562,6 +623,10 @@ impl App {
                             |index| Message::DefaultBoldFontWeight(index),
                         ),
                     ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("use-bright-bold"))
+                        .toggler(self.config.use_bright_bold, Message::UseBrightBold),
                 );
             let padding = Padding {
                 top: 0.0,
@@ -572,81 +637,28 @@ impl App {
             widget::container(section).padding(padding)
         };
 
-        let mut settings_view = widget::settings::view_section(fl!("appearance"))
-            .add(
-                widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
-                    &self.app_themes,
-                    Some(app_theme_selected),
-                    move |index| {
-                        Message::AppTheme(match index {
-                            1 => AppTheme::Dark,
-                            2 => AppTheme::Light,
-                            _ => AppTheme::System,
-                        })
-                    },
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
-                    &self.theme_names,
-                    dark_selected,
-                    move |index| Message::SyntaxTheme(index, true),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
-                    &self.theme_names,
-                    light_selected,
-                    move |index| Message::SyntaxTheme(index, false),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
-                    &self.font_names,
-                    font_selected,
-                    |index| Message::DefaultFont(index),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
-                    self.show_advanced_font_settings,
-                    Message::ShowAdvancedFontSettings,
-                ),
-            );
-
         if self.show_advanced_font_settings {
-            settings_view = settings_view.add(advanced_font_settings());
+            font_section = font_section.add(advanced_font_settings());
         }
 
-        let settings_view = settings_view
-            .add(
-                widget::settings::item::builder(fl!("use-bright-bold"))
-                    .toggler(self.config.use_bright_bold, Message::UseBrightBold),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font-size")).control(
-                    widget::dropdown(&self.font_size_names, font_size_selected, |index| {
-                        Message::DefaultFontSize(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-zoom-step")).control(
-                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
-                        Message::DefaultZoomStep(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("show-headerbar"))
-                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .add(
-                widget::settings::item::builder(fl!("focus-follow-mouse"))
-                    .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
-            );
+        let splits_section = widget::settings::view_section(fl!("splits")).add(
+            widget::settings::item::builder(fl!("focus-follow-mouse"))
+                .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
+        );
 
-        widget::settings::view_column(vec![settings_view.into()]).into()
+        let advanced_section = widget::settings::view_section(fl!("advanced")).add(
+            widget::settings::item::builder(fl!("show-headerbar"))
+                .description(fl!("show-header-description"))
+                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+        );
+
+        widget::settings::view_column(vec![
+            appearance_section.into(),
+            font_section.into(),
+            splits_section.into(),
+            advanced_section.into(),
+        ])
+        .into()
     }
 
     fn create_and_focus_new_terminal(&mut self, pane: pane_grid::Pane) {
