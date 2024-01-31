@@ -102,10 +102,16 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
             Some(rgb) => rgb,
-            None => {
-                log::warn!("missing named color {:?}", named_color);
-                Rgb::default()
-            }
+            None => match named_color {
+                NamedColor::Background => {
+                    // Allow using an unset background
+                    return cosmic_text::Color(0);
+                }
+                _ => {
+                    log::warn!("missing named color {:?}", named_color);
+                    Rgb::default()
+                }
+            },
         },
         Color::Spec(rgb) => rgb,
         Color::Indexed(index) => match colors[index as usize] {

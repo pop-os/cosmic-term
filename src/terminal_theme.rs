@@ -476,7 +476,7 @@ fn cosmic_dark() -> Colors {
 
     // Set special colors
     colors[NamedColor::Foreground] = colors[NamedColor::BrightWhite];
-    colors[NamedColor::Background] = colors[NamedColor::Black];
+    // Background comes from theme settings: colors[NamedColor::Background] = colors[NamedColor::Black];
     colors[NamedColor::Cursor] = colors[NamedColor::BrightWhite];
     colors[NamedColor::BrightForeground] = colors[NamedColor::BrightWhite];
 
@@ -517,7 +517,7 @@ fn cosmic_light() -> Colors {
 
     // Set special colors
     colors[NamedColor::Foreground] = colors[NamedColor::Black];
-    colors[NamedColor::Background] = colors[NamedColor::BrightWhite];
+    // Background comes from theme settings: colors[NamedColor::Background] = colors[NamedColor::BrightWhite];
     colors[NamedColor::Cursor] = colors[NamedColor::Black];
     colors[NamedColor::BrightForeground] = colors[NamedColor::BrightBlack];
 
