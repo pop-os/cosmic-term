@@ -14,7 +14,7 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         subscription::{self, Subscription},
-        window, Alignment, Event, Length, Padding, Point,
+        window, Alignment, Event, Length, Limits, Padding, Point,
     },
     style,
     widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
@@ -141,8 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         settings = settings.client_decorations(false);
     }
 
-    //TODO: allow size limits on iced_winit
-    //settings = settings.size_limits(Limits::NONE.min_width(400.0).min_height(200.0));
+    settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
     let flags = Flags {
         config_handler,
