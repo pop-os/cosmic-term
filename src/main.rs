@@ -26,7 +26,6 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
     sync::{atomic::Ordering, Mutex},
-    time::Duration,
 };
 use tokio::sync::mpsc;
 
@@ -665,7 +664,6 @@ impl App {
         match &self.term_event_tx_opt {
             Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
                 Some(colors) => {
-                    let current_pane = self.pane_model.focus;
                     if let Some(tab_model) = self.pane_model.active_mut() {
                         let entity = tab_model
                             .insert()
@@ -676,7 +674,7 @@ impl App {
                         // Use the startup options, or defaults
                         let options = self.startup_options.take().unwrap_or_default();
                         let mut terminal = Terminal::new(
-                            current_pane,
+                            pane,
                             entity,
                             term_event_tx.clone(),
                             self.term_config.clone(),
@@ -1343,7 +1341,14 @@ impl Application for App {
                 }
             }
             Message::TermEventTx(term_event_tx) => {
-                self.term_event_tx_opt = Some(term_event_tx);
+                if self.term_event_tx_opt.is_none() {
+                    // Create first terminal tab if this is the first time
+                    // we get a terminal event channel
+                    self.term_event_tx_opt = Some(term_event_tx);
+                    self.create_and_focus_new_terminal(self.pane_model.focus);
+                } else {
+                    self.term_event_tx_opt = Some(term_event_tx);
+                }
             }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
@@ -1577,12 +1582,6 @@ impl Application for App {
                 |mut output| async move {
                     let (event_tx, mut event_rx) = mpsc::channel(100);
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
-
-                    // Avoid creating two tabs at startup
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-
-                    // Create first terminal tab
-                    output.send(Message::TabNew).await.unwrap();
 
                     while let Some((pane, entity, event)) = event_rx.recv().await {
                         output
