@@ -26,7 +26,6 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
     sync::{atomic::Ordering, Mutex},
-    time::Duration,
 };
 use tokio::sync::mpsc;
 
@@ -1343,7 +1342,33 @@ impl Application for App {
                 }
             }
             Message::TermEventTx(term_event_tx) => {
+                // Check if the terminal event channel was reset
+                if self.term_event_tx_opt.is_some() {
+                    // Close tabs using old terminal event channel
+                    log::warn!("terminal event channel reset, closing tabs");
+
+                    // First, close other panes
+                    while let Some((_state, sibling)) =
+                        self.pane_model.panes.close(self.pane_model.focus)
+                    {
+                        self.terminal_ids.remove(&self.pane_model.focus);
+                        self.pane_model.focus = sibling;
+                    }
+
+                    // Next, close all tabs in the active pane
+                    if let Some(tab_model) = self.pane_model.active_mut() {
+                        let entities: Vec<_> = tab_model.iter().collect();
+                        for entity in entities {
+                            tab_model.remove(entity);
+                        }
+                    }
+                }
+
+                // Set new terminal event channel
                 self.term_event_tx_opt = Some(term_event_tx);
+
+                // Spawn first tab
+                return self.update(Message::TabNew);
             }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
@@ -1577,12 +1602,6 @@ impl Application for App {
                 |mut output| async move {
                     let (event_tx, mut event_rx) = mpsc::channel(100);
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
-
-                    // Avoid creating two tabs at startup
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-
-                    // Create first terminal tab
-                    output.send(Message::TabNew).await.unwrap();
 
                     while let Some((pane, entity, event)) = event_rx.recv().await {
                         output
