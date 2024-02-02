@@ -272,7 +272,7 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(segmented_button::Entity, Option<Point>),
+    TabContextMenu(pane_grid::Pane, Option<Point>),
     TabNew,
     TabPrev,
     TabNext,
@@ -1239,8 +1239,23 @@ impl Application for App {
                     }
                 }
             }
-            Message::TabContextMenu(entity, position_opt) => {
-                if let Some(tab_model) = self.pane_model.active() {
+            Message::TabContextMenu(pane, position_opt) => {
+                // Close any existing context menues
+                let panes: Vec<_> = self.pane_model.panes.iter().collect();
+                for (_pane, tab_model) in panes {
+                    let entity = tab_model.active();
+                    match tab_model.data::<Mutex<Terminal>>(entity) {
+                        Some(terminal) => {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = None;
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Show the context menu on the correct pane / terminal
+                if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                    let entity = tab_model.active();
                     match tab_model.data::<Mutex<Terminal>>(entity) {
                         Some(terminal) => {
                             // Update context menu position
@@ -1250,6 +1265,11 @@ impl Application for App {
                         _ => {}
                     }
                 }
+
+                // Shift focus to the pane / terminal
+                // with the context menu
+                self.pane_model.focus = pane;
+                return self.update_title(Some(pane));
             }
             Message::TabNew => self.create_and_focus_new_terminal(self.pane_model.focus),
             Message::TabNext => {
@@ -1450,7 +1470,7 @@ impl Application for App {
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
                     let mut terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
-                        move |position_opt| Message::TabContextMenu(entity, position_opt),
+                        move |position_opt| Message::TabContextMenu(pane, position_opt),
                     );
 
                     if self.config.focus_follow_mouse {
