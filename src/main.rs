@@ -367,9 +367,7 @@ impl App {
     }
 
     fn update_focus(&self) -> Command<Message> {
-        if self.core.window.show_context {
-            Command::none()
-        } else if self.find {
+        if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focus).cloned() {
             widget::text_input::focus(terminal_id)
@@ -883,6 +881,7 @@ impl Application for App {
         } else if self.find {
             // Close find if open
             self.find = false;
+            self.find_search_value.clear();
         }
 
         // Focus correct widget
@@ -1025,6 +1024,22 @@ impl Application for App {
             }
             Message::Find(find) => {
                 self.find = find;
+                if find {
+                    if let Some(tab_model) = self.pane_model.active() {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let terminal = terminal.lock().unwrap();
+                            let term = terminal.term.lock();
+                            if let Some(text) = term.selection_to_string() {
+                                self.find_search_value = text;
+                            }
+                        }
+                    } else {
+                        log::warn!("Failed to get focused pane");
+                    }
+                } else {
+                    self.find_search_value.clear();
+                }
 
                 // Focus correct input
                 return self.update_focus();
@@ -1504,7 +1519,8 @@ impl Application for App {
                 }
             }
 
-            if self.find {
+            //Only draw find in the currently focused pane
+            if self.find && pane == self.pane_model.focus {
                 let find_input = widget::text_input::text_input(
                     fl!("find-placeholder"),
                     &self.find_search_value,
