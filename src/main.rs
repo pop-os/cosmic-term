@@ -271,7 +271,7 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(segmented_button::Entity, Option<Point>),
+    TabContextMenu(pane_grid::Pane, Option<Point>),
     TabNew,
     TabPrev,
     TabNext,
@@ -367,9 +367,7 @@ impl App {
     }
 
     fn update_focus(&self) -> Command<Message> {
-        if self.core.window.show_context {
-            Command::none()
-        } else if self.find {
+        if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focus).cloned() {
             widget::text_input::focus(terminal_id)
@@ -883,6 +881,7 @@ impl Application for App {
         } else if self.find {
             // Close find if open
             self.find = false;
+            self.find_search_value.clear();
         }
 
         // Focus correct widget
@@ -1025,6 +1024,22 @@ impl Application for App {
             }
             Message::Find(find) => {
                 self.find = find;
+                if find {
+                    if let Some(tab_model) = self.pane_model.active() {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let terminal = terminal.lock().unwrap();
+                            let term = terminal.term.lock();
+                            if let Some(text) = term.selection_to_string() {
+                                self.find_search_value = text;
+                            }
+                        }
+                    } else {
+                        log::warn!("Failed to get focused pane");
+                    }
+                } else {
+                    self.find_search_value.clear();
+                }
 
                 // Focus correct input
                 return self.update_focus();
@@ -1238,8 +1253,23 @@ impl Application for App {
                     }
                 }
             }
-            Message::TabContextMenu(entity, position_opt) => {
-                if let Some(tab_model) = self.pane_model.active() {
+            Message::TabContextMenu(pane, position_opt) => {
+                // Close any existing context menues
+                let panes: Vec<_> = self.pane_model.panes.iter().collect();
+                for (_pane, tab_model) in panes {
+                    let entity = tab_model.active();
+                    match tab_model.data::<Mutex<Terminal>>(entity) {
+                        Some(terminal) => {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = None;
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Show the context menu on the correct pane / terminal
+                if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                    let entity = tab_model.active();
                     match tab_model.data::<Mutex<Terminal>>(entity) {
                         Some(terminal) => {
                             // Update context menu position
@@ -1249,6 +1279,11 @@ impl Application for App {
                         _ => {}
                     }
                 }
+
+                // Shift focus to the pane / terminal
+                // with the context menu
+                self.pane_model.focus = pane;
+                return self.update_title(Some(pane));
             }
             Message::TabNew => self.create_and_focus_new_terminal(self.pane_model.focus),
             Message::TabNext => {
@@ -1475,7 +1510,7 @@ impl Application for App {
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
                     let mut terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
-                        move |position_opt| Message::TabContextMenu(entity, position_opt),
+                        move |position_opt| Message::TabContextMenu(pane, position_opt),
                     );
 
                     if self.config.focus_follow_mouse {
@@ -1504,7 +1539,8 @@ impl Application for App {
                 }
             }
 
-            if self.find {
+            //Only draw find in the currently focused pane
+            if self.find && pane == self.pane_model.focus {
                 let find_input = widget::text_input::text_input(
                     fl!("find-placeholder"),
                     &self.find_search_value,
