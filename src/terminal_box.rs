@@ -47,6 +47,8 @@ pub struct TerminalBox<'a, Message> {
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
+    mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
@@ -62,6 +64,8 @@ where
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
+            on_mouse_enter: None,
+            mouse_inside_boundary: None,
             on_middle_click: None,
         }
     }
@@ -91,6 +95,11 @@ where
         on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
+        self
+    }
+
+    pub fn on_mouse_enter(mut self, on_mouse_enter: impl Fn() -> Message + 'a) -> Self {
+        self.on_mouse_enter = Some(Box::new(on_mouse_enter));
         self
     }
 
@@ -592,6 +601,7 @@ where
         let buffer_size = terminal.with_buffer(|buffer| buffer.size());
 
         let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
+        let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
 
         let mut status = Status::Ignored;
         match event {
@@ -630,6 +640,10 @@ where
                     }
                     KeyCode::Home => {
                         terminal.input_scroll(b"\x1B[1;5H".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Insert => {
+                        terminal.input_scroll(b"\x1B[2;5~".as_slice());
                         status = Status::Captured;
                     }
                     KeyCode::Delete => {
@@ -694,10 +708,102 @@ where
                     }
                     _ => (),
                 },
-                (_, _, true, _) => {
-                    // Ignore alt keys
-                    //TODO: alt keys for control characters
-                }
+                // Handle alt keys
+                (_, _, true, _) => match key_code {
+                    KeyCode::Up => {
+                        terminal.input_scroll(b"\x1B[1;3A".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Down => {
+                        terminal.input_scroll(b"\x1B[1;3B".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Right => {
+                        terminal.input_scroll(b"\x1B[1;3C".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Left => {
+                        terminal.input_scroll(b"\x1B[1;3D".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::End => {
+                        terminal.input_scroll(b"\x1B[1;3F".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Home => {
+                        terminal.input_scroll(b"\x1B[1;3H".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Insert => {
+                        terminal.input_scroll(b"\x1B[2;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Delete => {
+                        terminal.input_scroll(b"\x1B[3;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::PageUp => {
+                        terminal.input_scroll(b"\x1B[5;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::PageDown => {
+                        terminal.input_scroll(b"\x1B[6;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F1 => {
+                        terminal.input_scroll(b"\x1B[1;3P".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F2 => {
+                        terminal.input_scroll(b"\x1B1;3Q".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F3 => {
+                        terminal.input_scroll(b"\x1B1;3R".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F4 => {
+                        terminal.input_scroll(b"\x1B1;3S".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F5 => {
+                        terminal.input_scroll(b"\x1B[15;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F6 => {
+                        terminal.input_scroll(b"\x1B[17;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F7 => {
+                        terminal.input_scroll(b"\x1B[18;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F8 => {
+                        terminal.input_scroll(b"\x1B[19;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F9 => {
+                        terminal.input_scroll(b"\x1B[20;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F10 => {
+                        terminal.input_scroll(b"\x1B[21;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F11 => {
+                        terminal.input_scroll(b"\x1B[23;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::F12 => {
+                        terminal.input_scroll(b"\x1B[24;3~".as_slice());
+                        status = Status::Captured;
+                    }
+                    KeyCode::Backspace => {
+                        terminal.input_scroll(b"\x1B\x7F".as_slice());
+                        status = Status::Captured;
+                    }
+                    _ => (),
+                },
                 // Handle shift keys
                 (_, _, _, true) => match key_code {
                     KeyCode::End => {
@@ -911,113 +1017,36 @@ where
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
-                    state.is_focused = true;
+                    let x = p.x - self.padding.left;
+                    let y = p.y - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
 
-                    // Handle left click drag
-                    if let Button::Left = button {
-                        let x = p.x - self.padding.left;
-                        let y = p.y - self.padding.top;
-                        if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
-                            let click_kind =
-                                if let Some((click_kind, click_time)) = state.click.take() {
-                                    if click_time.elapsed() < self.click_timing {
-                                        match click_kind {
-                                            ClickKind::Single => ClickKind::Double,
-                                            ClickKind::Double => ClickKind::Triple,
-                                            ClickKind::Triple => ClickKind::Single,
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        state.is_focused = true;
+
+                        // Handle left click drag
+                        if let Button::Left = button {
+                            let x = p.x - self.padding.left;
+                            let y = p.y - self.padding.top;
+                            if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
+                                let click_kind =
+                                    if let Some((click_kind, click_time)) = state.click.take() {
+                                        if click_time.elapsed() < self.click_timing {
+                                            match click_kind {
+                                                ClickKind::Single => ClickKind::Double,
+                                                ClickKind::Double => ClickKind::Triple,
+                                                ClickKind::Triple => ClickKind::Single,
+                                            }
+                                        } else {
+                                            ClickKind::Single
                                         }
                                     } else {
                                         ClickKind::Single
-                                    }
-                                } else {
-                                    ClickKind::Single
-                                };
-                            //TODO: better calculation of position
-                            let col = x / terminal.size().cell_width;
-                            let row = y / terminal.size().cell_height;
-                            let location = terminal.viewport_to_point(TermPoint::new(
-                                row as usize,
-                                TermColumn(col as usize),
-                            ));
-                            let side = if col.fract() < 0.5 {
-                                TermSide::Left
-                            } else {
-                                TermSide::Right
-                            };
-                            let selection = match click_kind {
-                                ClickKind::Single => {
-                                    Selection::new(SelectionType::Simple, location, side)
-                                }
-                                ClickKind::Double => {
-                                    Selection::new(SelectionType::Semantic, location, side)
-                                }
-                                ClickKind::Triple => {
-                                    Selection::new(SelectionType::Lines, location, side)
-                                }
-                            };
-                            {
-                                let mut term = terminal.term.lock();
-                                term.selection = Some(selection);
-                            }
-                            terminal.needs_update = true;
-                            state.click = Some((click_kind, Instant::now()));
-                            state.dragging = Some(Dragging::Buffer);
-                        } else if scrollbar_rect.contains(Point::new(x, y)) {
-                            if let Some(start_scroll) = terminal.scrollbar() {
-                                state.dragging = Some(Dragging::Scrollbar {
-                                    start_y: y,
-                                    start_scroll,
-                                });
-                            }
-                        } else if x >= scrollbar_rect.x
-                            && x < (scrollbar_rect.x + scrollbar_rect.width)
-                        {
-                            if terminal.scrollbar().is_some() {
-                                let scroll_ratio =
-                                    terminal.with_buffer(|buffer| y / buffer.size().1);
-                                terminal.scroll_to(scroll_ratio);
-                                if let Some(start_scroll) = terminal.scrollbar() {
-                                    state.dragging = Some(Dragging::Scrollbar {
-                                        start_y: y,
-                                        start_scroll,
-                                    });
-                                }
-                            }
-                        }
-                    } else if button == Button::Middle {
-                        if let Some(on_middle_click) = &self.on_middle_click {
-                            shell.publish(on_middle_click());
-                        }
-                    }
-
-                    // Update context menu state
-                    if let Some(on_context_menu) = &self.on_context_menu {
-                        shell.publish((on_context_menu)(match self.context_menu {
-                            Some(_) => None,
-                            None => match button {
-                                Button::Right => Some(p),
-                                _ => None,
-                            },
-                        }));
-                    }
-
-                    status = Status::Captured;
-                }
-            }
-            Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
-                state.dragging = None;
-                status = Status::Captured;
-            }
-            Event::Mouse(MouseEvent::CursorMoved { .. }) => {
-                if let Some(dragging) = &state.dragging {
-                    if let Some(p) = cursor_position.position() {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
-                        let y = (p.y - layout.bounds().y) - self.padding.top;
-                        match dragging {
-                            Dragging::Buffer => {
-                                //TODO: better calculation of position
-                                let col = x / terminal.size().cell_width;
-                                let row = y / terminal.size().cell_height;
+                                    };
                                 let location = terminal.viewport_to_point(TermPoint::new(
                                     row as usize,
                                     TermColumn(col as usize),
@@ -1027,56 +1056,189 @@ where
                                 } else {
                                     TermSide::Right
                                 };
+                                let selection = match click_kind {
+                                    ClickKind::Single => {
+                                        Selection::new(SelectionType::Simple, location, side)
+                                    }
+                                    ClickKind::Double => {
+                                        Selection::new(SelectionType::Semantic, location, side)
+                                    }
+                                    ClickKind::Triple => {
+                                        Selection::new(SelectionType::Lines, location, side)
+                                    }
+                                };
                                 {
                                     let mut term = terminal.term.lock();
-                                    if let Some(selection) = &mut term.selection {
-                                        selection.update(location, side);
-                                    }
+                                    term.selection = Some(selection);
                                 }
                                 terminal.needs_update = true;
+                                state.click = Some((click_kind, Instant::now()));
+                                state.dragging = Some(Dragging::Buffer);
+                            } else if scrollbar_rect.contains(Point::new(x, y)) {
+                                if let Some(start_scroll) = terminal.scrollbar() {
+                                    state.dragging = Some(Dragging::Scrollbar {
+                                        start_y: y,
+                                        start_scroll,
+                                    });
+                                }
+                            } else if x >= scrollbar_rect.x
+                                && x < (scrollbar_rect.x + scrollbar_rect.width)
+                            {
+                                if terminal.scrollbar().is_some() {
+                                    let scroll_ratio =
+                                        terminal.with_buffer(|buffer| y / buffer.size().1);
+                                    terminal.scroll_to(scroll_ratio);
+                                    if let Some(start_scroll) = terminal.scrollbar() {
+                                        state.dragging = Some(Dragging::Scrollbar {
+                                            start_y: y,
+                                            start_scroll,
+                                        });
+                                    }
+                                }
                             }
-                            Dragging::Scrollbar {
-                                start_y,
-                                start_scroll,
-                            } => {
-                                let scroll_offset = terminal
-                                    .with_buffer(|buffer| ((y - start_y) / buffer.size().1));
-                                terminal.scroll_to(start_scroll.0 + scroll_offset);
+                        } else if button == Button::Middle {
+                            if let Some(on_middle_click) = &self.on_middle_click {
+                                shell.publish(on_middle_click());
                             }
                         }
+                        // Update context menu state
+                        if let Some(on_context_menu) = &self.on_context_menu {
+                            shell.publish((on_context_menu)(match self.context_menu {
+                                Some(_) => None,
+                                None => match button {
+                                    Button::Right => Some(p),
+                                    _ => None,
+                                },
+                            }));
+                        }
+                        status = Status::Captured;
                     }
+                }
+            }
+            Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
+                state.dragging = None;
+                if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    let x = p.x - self.padding.left;
+                    let y = p.y - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        status = Status::Captured;
+                    }
+                } else {
                     status = Status::Captured;
                 }
             }
-            Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
-                if let Some(_p) = cursor_position.position_in(layout.bounds()) {
-                    match delta {
-                        ScrollDelta::Lines { x: _, y } => {
-                            //TODO: this adjustment is just a guess!
-                            state.scroll_pixels = 0.0;
-                            let lines = (-y * 6.0) as i32;
-                            if lines != 0 {
-                                terminal.scroll(TerminalScroll::Delta(-lines));
+            Event::Mouse(MouseEvent::ButtonReleased(_button)) => {
+                if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    let x = p.x - self.padding.left;
+                    let y = p.y - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    }
+                }
+            }
+            Event::Mouse(MouseEvent::CursorMoved { .. }) => {
+                if let Some(on_mouse_enter) = &self.on_mouse_enter {
+                    let mouse_is_inside = cursor_position.position_in(layout.bounds()).is_some();
+                    if let Some(known_is_inside) = self.mouse_inside_boundary {
+                        if mouse_is_inside != known_is_inside {
+                            if mouse_is_inside {
+                                shell.publish(on_mouse_enter());
                             }
-                            status = Status::Captured;
+                            self.mouse_inside_boundary = Some(mouse_is_inside);
                         }
-                        ScrollDelta::Pixels { x: _, y } => {
-                            //TODO: this adjustment is just a guess!
-                            state.scroll_pixels -= y * 6.0;
-                            let mut lines = 0;
-                            let metrics = terminal.with_buffer(|buffer| buffer.metrics());
-                            while state.scroll_pixels <= -metrics.line_height {
-                                lines -= 1;
-                                state.scroll_pixels += metrics.line_height;
+                    } else {
+                        self.mouse_inside_boundary = Some(mouse_is_inside);
+                    }
+                }
+                if let Some(p) = cursor_position.position() {
+                    let x = (p.x - layout.bounds().x) - self.padding.left;
+                    let y = (p.y - layout.bounds().y) - self.padding.top;
+                    //TODO: better calculation of position
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
+                    if is_mouse_mode {
+                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        if let Some(dragging) = &state.dragging {
+                            match dragging {
+                                Dragging::Buffer => {
+                                    let location = terminal.viewport_to_point(TermPoint::new(
+                                        row as usize,
+                                        TermColumn(col as usize),
+                                    ));
+                                    let side = if col.fract() < 0.5 {
+                                        TermSide::Left
+                                    } else {
+                                        TermSide::Right
+                                    };
+                                    {
+                                        let mut term = terminal.term.lock();
+                                        if let Some(selection) = &mut term.selection {
+                                            selection.update(location, side);
+                                        }
+                                    }
+                                    terminal.needs_update = true;
+                                }
+                                Dragging::Scrollbar {
+                                    start_y,
+                                    start_scroll,
+                                } => {
+                                    let scroll_offset = terminal
+                                        .with_buffer(|buffer| ((y - start_y) / buffer.size().1));
+                                    terminal.scroll_to(start_scroll.0 + scroll_offset);
+                                }
                             }
-                            while state.scroll_pixels >= metrics.line_height {
-                                lines += 1;
-                                state.scroll_pixels -= metrics.line_height;
+                        }
+                        status = Status::Captured;
+                    }
+                }
+            }
+            Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
+                if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    if is_mouse_mode {
+                        let x = (p.x - layout.bounds().x) - self.padding.left;
+                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+                        terminal.scroll_mouse(delta, &state.modifiers, col as u32, row as u32);
+                    } else {
+                        match delta {
+                            ScrollDelta::Lines { x: _, y } => {
+                                //TODO: this adjustment is just a guess!
+                                state.scroll_pixels = 0.0;
+                                let lines = (-y * 6.0) as i32;
+                                if lines != 0 {
+                                    terminal.scroll(TerminalScroll::Delta(-lines));
+                                }
+                                status = Status::Captured;
                             }
-                            if lines != 0 {
-                                terminal.scroll(TerminalScroll::Delta(-lines));
+                            ScrollDelta::Pixels { x: _, y } => {
+                                //TODO: this adjustment is just a guess!
+                                state.scroll_pixels -= y * 6.0;
+                                let mut lines = 0;
+                                let metrics = terminal.with_buffer(|buffer| buffer.metrics());
+                                while state.scroll_pixels <= -metrics.line_height {
+                                    lines -= 1;
+                                    state.scroll_pixels += metrics.line_height;
+                                }
+                                while state.scroll_pixels >= metrics.line_height {
+                                    lines += 1;
+                                    state.scroll_pixels -= metrics.line_height;
+                                }
+                                if lines != 0 {
+                                    terminal.scroll(TerminalScroll::Delta(-lines));
+                                }
+                                status = Status::Captured;
                             }
-                            status = Status::Captured;
                         }
                     }
                 }

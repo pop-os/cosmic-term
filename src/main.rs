@@ -15,7 +15,7 @@ use cosmic::{
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
         subscription::{self, Subscription},
-        window, Alignment, Event, Length, Padding, Point,
+        window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
     style,
     widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
@@ -26,13 +26,14 @@ use std::{
     any::TypeId,
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
-    sync::Mutex,
+    sync::{atomic::Ordering, Mutex},
     time::Duration,
 };
 use tokio::sync::mpsc;
 
 use config::{AppTheme, Config, CONFIG_VERSION};
 mod config;
+mod mouse_reporter;
 
 use icon_cache::IconCache;
 mod icon_cache;
@@ -141,8 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         settings = settings.client_decorations(false);
     }
 
-    //TODO: allow size limits on iced_winit
-    //settings = settings.size_limits(Limits::NONE.min_width(400.0).min_height(200.0));
+    settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
     let flags = Flags {
         config_handler,
@@ -267,6 +267,7 @@ pub enum Message {
     PaneDragged(pane_grid::DragEvent),
     PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
+    MouseEnter(pane_grid::Pane),
     Paste(Option<segmented_button::Entity>),
     PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
@@ -274,7 +275,7 @@ pub enum Message {
     UseBrightBold(bool),
     ShowHeaderBar(bool),
     SyntaxTheme(usize, bool),
-    SystemThemeModeChange(cosmic_theme::ThemeMode),
+    SystemThemeChange,
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
@@ -292,6 +293,7 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    FocusFollowMouse(bool),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -530,6 +532,67 @@ impl App {
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
 
+        let appearance_section = widget::settings::view_section(fl!("appearance"))
+            .add(
+                widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
+                    &self.app_themes,
+                    Some(app_theme_selected),
+                    move |index| {
+                        Message::AppTheme(match index {
+                            1 => AppTheme::Dark,
+                            2 => AppTheme::Light,
+                            _ => AppTheme::System,
+                        })
+                    },
+                )),
+            )
+            .add(
+                //TODO: rename to color-scheme-dark?
+                widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
+                    &self.theme_names,
+                    dark_selected,
+                    move |index| Message::SyntaxTheme(index, true),
+                )),
+            )
+            .add(
+                //TODO: rename to color-scheme-light?
+                widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
+                    &self.theme_names,
+                    light_selected,
+                    move |index| Message::SyntaxTheme(index, false),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-zoom-step")).control(
+                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
+                        Message::DefaultZoomStep(index)
+                    }),
+                ),
+            );
+        //TODO: background opacity
+
+        let mut font_section = widget::settings::view_section(fl!("font"))
+            .add(
+                widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
+                    &self.font_names,
+                    font_selected,
+                    |index| Message::DefaultFont(index),
+                )),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-font-size")).control(
+                    widget::dropdown(&self.font_size_names, font_size_selected, |index| {
+                        Message::DefaultFontSize(index)
+                    }),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
+                    self.show_advanced_font_settings,
+                    Message::ShowAdvancedFontSettings,
+                ),
+            );
+
         let advanced_font_settings = || {
             let section = widget::settings::view_section("")
                 .add(
@@ -567,6 +630,10 @@ impl App {
                             |index| Message::DefaultBoldFontWeight(index),
                         ),
                     ),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("use-bright-bold"))
+                        .toggler(self.config.use_bright_bold, Message::UseBrightBold),
                 );
             let padding = Padding {
                 top: 0.0,
@@ -577,77 +644,28 @@ impl App {
             widget::container(section).padding(padding)
         };
 
-        let mut settings_view = widget::settings::view_section(fl!("appearance"))
-            .add(
-                widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
-                    &self.app_themes,
-                    Some(app_theme_selected),
-                    move |index| {
-                        Message::AppTheme(match index {
-                            1 => AppTheme::Dark,
-                            2 => AppTheme::Light,
-                            _ => AppTheme::System,
-                        })
-                    },
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
-                    &self.theme_names,
-                    dark_selected,
-                    move |index| Message::SyntaxTheme(index, true),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
-                    &self.theme_names,
-                    light_selected,
-                    move |index| Message::SyntaxTheme(index, false),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
-                    &self.font_names,
-                    font_selected,
-                    |index| Message::DefaultFont(index),
-                )),
-            )
-            .add(
-                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
-                    self.show_advanced_font_settings,
-                    Message::ShowAdvancedFontSettings,
-                ),
-            );
-
         if self.show_advanced_font_settings {
-            settings_view = settings_view.add(advanced_font_settings());
+            font_section = font_section.add(advanced_font_settings());
         }
 
-        let settings_view = settings_view
-            .add(
-                widget::settings::item::builder(fl!("use-bright-bold"))
-                    .toggler(self.config.use_bright_bold, Message::UseBrightBold),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-font-size")).control(
-                    widget::dropdown(&self.font_size_names, font_size_selected, |index| {
-                        Message::DefaultFontSize(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("default-zoom-step")).control(
-                    widget::dropdown(&self.zoom_step_names, zoom_step_selected, |index| {
-                        Message::DefaultZoomStep(index)
-                    }),
-                ),
-            )
-            .add(
-                widget::settings::item::builder(fl!("show-headerbar"))
-                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            );
+        let splits_section = widget::settings::view_section(fl!("splits")).add(
+            widget::settings::item::builder(fl!("focus-follow-mouse"))
+                .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
+        );
 
-        widget::settings::view_column(vec![settings_view.into()]).into()
+        let advanced_section = widget::settings::view_section(fl!("advanced")).add(
+            widget::settings::item::builder(fl!("show-headerbar"))
+                .description(fl!("show-header-description"))
+                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+        );
+
+        widget::settings::view_column(vec![
+            appearance_section.into(),
+            font_section.into(),
+            splits_section.into(),
+            advanced_section.into(),
+        ])
+        .into()
     }
 
     fn create_and_focus_new_terminal(&mut self, pane: pane_grid::Pane) {
@@ -719,8 +737,7 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        //TODO: fix window resizing interfering with scrolling when not using content container
-        //core.window.content_container = false;
+        core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
         // Update font name from config
@@ -1079,6 +1096,10 @@ impl Application for App {
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
+            Message::MouseEnter(pane) => {
+                self.pane_model.focus = pane;
+                return self.update_focus();
+            }
             Message::PaneClicked(pane) => {
                 self.pane_model.focus = pane;
                 return self.update_title(Some(pane));
@@ -1163,7 +1184,13 @@ impl Application for App {
                     return self.save_config();
                 }
             }
-            Message::SystemThemeModeChange(_theme_mode) => {
+            Message::FocusFollowMouse(focus_follow_mouse) => {
+                if focus_follow_mouse != self.config.focus_follow_mouse {
+                    self.config.focus_follow_mouse = focus_follow_mouse;
+                    return self.save_config();
+                }
+            }
+            Message::SystemThemeChange => {
                 return self.update_config();
             }
             Message::SyntaxTheme(index, dark) => match self.theme_names.get(index) {
@@ -1413,9 +1440,28 @@ impl Application for App {
         vec![menu_bar(&self.key_binds).into()]
     }
 
+    fn header_end(&self) -> Vec<Element<Self::Message>> {
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        vec![widget::button(widget::icon::from_name("list-add-symbolic"))
+            .on_press(Message::TabNew)
+            .padding(space_xxs)
+            .style(style::Button::Icon)
+            .into()]
+    }
+
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let cosmic_theme = self.core().system_theme().cosmic();
+        let cosmic_theme::Spacing { space_xxs, .. } = cosmic_theme.spacing;
+        {
+            let color = Color::from(cosmic_theme.bg_color());
+            let bytes = color.into_rgba8();
+            let data = (bytes[2] as u32)
+                | ((bytes[1] as u32) << 8)
+                | ((bytes[0] as u32) << 16)
+                | 0xFF000000;
+            terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
+        }
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
@@ -1442,7 +1488,7 @@ impl Application for App {
                 .unwrap_or_else(widget::Id::unique);
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
-                    let terminal_box = terminal_box(terminal)
+                    let mut terminal_box = terminal_box(terminal)
                         .id(terminal_id)
                         .on_context_menu(move |position_opt| {
                             Message::TabContextMenu(entity, position_opt)
@@ -1450,6 +1496,11 @@ impl Application for App {
                         .on_middle_click(move || {
                             Message::MiddleClick(pane, Some(entity_middle_click))
                         });
+
+                    if self.config.focus_follow_mouse {
+                        terminal_box =
+                            terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
+                    }
 
                     let context_menu = {
                         let terminal = terminal.lock().unwrap();
@@ -1543,6 +1594,7 @@ impl Application for App {
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(space_xxs)
+            .style(style::Container::Background)
             .into()
     }
 
@@ -1550,6 +1602,7 @@ impl Application for App {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
         struct ThemeSubscription;
+        struct ThemeModeSubscription;
 
         Subscription::batch([
             event::listen_with(|event, _status| match event {
@@ -1603,21 +1656,23 @@ impl Application for App {
                 }
                 Message::Config(update.config)
             }),
-            cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
+            cosmic_config::config_subscription::<_, cosmic_theme::Theme>(
                 TypeId::of::<ThemeSubscription>(),
+                if self.core.system_theme_mode().is_dark {
+                    cosmic_theme::DARK_THEME_ID
+                } else {
+                    cosmic_theme::LIGHT_THEME_ID
+                }
+                .into(),
+                cosmic_theme::Theme::version(),
+            )
+            .map(|_update| Message::SystemThemeChange),
+            cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
+                TypeId::of::<ThemeModeSubscription>(),
                 cosmic_theme::THEME_MODE_ID.into(),
                 cosmic_theme::ThemeMode::version(),
             )
-            .map(|update| {
-                if !update.errors.is_empty() {
-                    log::debug!(
-                        "errors loading theme mode {:?}: {:?}",
-                        update.keys,
-                        update.errors
-                    );
-                }
-                Message::SystemThemeModeChange(update.config)
-            }),
+            .map(|_update| Message::SystemThemeChange),
         ])
     }
 }

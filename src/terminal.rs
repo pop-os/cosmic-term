@@ -17,6 +17,7 @@ use alacritty_terminal::{
 };
 use cosmic::{
     iced::advanced::graphics::text::font_system,
+    iced::mouse::ScrollDelta,
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
@@ -27,14 +28,17 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     mem,
-    sync::{Arc, Weak},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Weak,
+    },
     time::Instant,
 };
 use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
-use crate::config::Config as AppConfig;
+use crate::{config::Config as AppConfig, mouse_reporter::MouseReporter};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -97,14 +101,22 @@ fn as_dim(mut color: Color) -> Color {
     color
 }
 
+pub static WINDOW_BG_COLOR: AtomicU32 = AtomicU32::new(0xFF000000);
+
 fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
             Some(rgb) => rgb,
-            None => {
-                log::warn!("missing named color {:?}", named_color);
-                Rgb::default()
-            }
+            None => match named_color {
+                NamedColor::Background => {
+                    // Allow using an unset background
+                    return cosmic_text::Color(WINDOW_BG_COLOR.load(Ordering::SeqCst));
+                }
+                _ => {
+                    log::warn!("missing named color {:?}", named_color);
+                    Rgb::default()
+                }
+            },
         },
         Color::Spec(rgb) => rgb,
         Color::Indexed(index) => match colors[index as usize] {
@@ -189,6 +201,7 @@ pub struct Terminal {
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
     pub metadata_set: IndexSet<Metadata>,
+    mouse_reporter: MouseReporter,
 }
 
 impl Terminal {
@@ -275,6 +288,7 @@ impl Terminal {
             search_regex_opt: None,
             search_value: String::new(),
             metadata_set,
+            mouse_reporter: Default::default(),
         }
     }
 
@@ -633,7 +647,10 @@ impl Terminal {
                             buffer.set_redraw(true);
                         }
 
-                        if buffer.lines[line_i].set_text(text.clone(), attrs_list.clone()) {
+                        // Tab skip/stop is handled by alacritty_terminal
+                        if buffer.lines[line_i]
+                            .set_text(text.replace('\t', " "), attrs_list.clone())
+                        {
                             buffer.set_redraw(true);
                         }
                         line_i += 1;
@@ -772,6 +789,60 @@ impl Terminal {
     pub fn viewport_to_point(&self, point: Point<usize>) -> Point {
         let term = self.term.lock();
         viewport_to_point(term.grid().display_offset(), point)
+    }
+
+    pub fn report_mouse(
+        &mut self,
+        event: cosmic::iced::Event,
+        modifiers: &cosmic::iced::keyboard::Modifiers,
+        x: u32,
+        y: u32,
+    ) {
+        let term_lock = self.term.lock();
+        let mode = term_lock.mode();
+        if mode.contains(TermMode::SGR_MOUSE) {
+            if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
+                self.input_no_scroll(code)
+            }
+        } else {
+            if let Some(code) = self.mouse_reporter.normal_mouse_code(
+                event,
+                modifiers,
+                mode.contains(TermMode::UTF8_MOUSE),
+                x,
+                y,
+            ) {
+                self.input_no_scroll(code)
+            }
+        }
+    }
+    pub fn scroll_mouse(
+        &mut self,
+        delta: ScrollDelta,
+        modifiers: &cosmic::iced::keyboard::Modifiers,
+        x: u32,
+        y: u32,
+    ) {
+        let term_lock = self.term.lock();
+        let mode = term_lock.mode();
+        if mode.contains(TermMode::SGR_MOUSE) {
+            self.mouse_reporter.report_sgr_mouse_wheel_scroll(
+                self,
+                self.size().cell_width,
+                self.size().cell_height,
+                delta,
+                modifiers,
+                x,
+                y,
+            );
+        } else {
+            self.mouse_reporter.report_mouse_wheel_as_arrows(
+                self,
+                self.size().cell_width,
+                self.size().cell_height,
+                delta,
+            );
+        }
     }
 }
 
