@@ -954,7 +954,7 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.10.0"
-source = "git+https://github.com/pop-os/cosmic-text.git#1b025ae56e0122cff5798b9f54fc56d47a182d2b"
+source = "git+https://github.com/pop-os/cosmic-text.git#be471833c9ee563866f07593354a41dd40761a18"
 dependencies = [
  "bitflags 2.4.2",
  "fontdb",
@@ -2932,9 +2932,8 @@ checksum = "16cf681a23b4d0a43fc35024c176437f9dcd818db34e0f42ab456a0ee5ad497b"
 
 [[package]]
 name = "naga"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae585df4b6514cf8842ac0f1ab4992edc975892704835b549cf818dc0191249e"
+version = "0.14.1"
+source = "git+https://github.com/pop-os/wgpu?branch=v0.18#868033d6754253bc51aa886f7308ac6f0fa080d7"
 dependencies = [
  "bit-set",
  "bitflags 2.4.2",
@@ -5200,8 +5199,7 @@ checksum = "53a85b86a771b1c87058196170769dd264f66c0782acf1ae6cc51bfd64b39082"
 [[package]]
 name = "wgpu"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30e7d227c9f961f2061c26f4cb0fbd4df0ef37e056edd0931783599d6c94ef24"
+source = "git+https://github.com/pop-os/wgpu?branch=v0.18#868033d6754253bc51aa886f7308ac6f0fa080d7"
 dependencies = [
  "arrayvec",
  "cfg-if",
@@ -5225,8 +5223,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef91c1d62d1e9e81c79e600131a258edf75c9531cbdbde09c44a011a47312726"
+source = "git+https://github.com/pop-os/wgpu?branch=v0.18#868033d6754253bc51aa886f7308ac6f0fa080d7"
 dependencies = [
  "arrayvec",
  "bit-vec",
@@ -5247,9 +5244,8 @@ dependencies = [
 
 [[package]]
 name = "wgpu-hal"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b84ecc802da3eb67b4cf3dd9ea6fe45bbb47ef13e6c49c5c3240868a9cc6cdd9"
+version = "0.18.0"
+source = "git+https://github.com/pop-os/wgpu?branch=v0.18#868033d6754253bc51aa886f7308ac6f0fa080d7"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -5291,8 +5287,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d5ed5f0edf0de351fe311c53304986315ce866f394a2e6df0c4b3c70774bcdd"
+source = "git+https://github.com/pop-os/wgpu?branch=v0.18#868033d6754253bc51aa886f7308ac6f0fa080d7"
 dependencies = [
  "bitflags 2.4.2",
  "js-sys",
@@ -5645,9 +5640,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.5.36"
+version = "0.5.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "818ce546a11a9986bc24f93d0cdf38a8a1a400f1473ea8c82e59f6e0ffab9249"
+checksum = "a7cad8365489051ae9f054164e459304af2e7e9bb407c958076c8bf4aef52da5"
 dependencies = [
  "memchr",
 ]

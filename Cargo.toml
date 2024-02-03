@@ -37,6 +37,8 @@ wgpu = ["libcosmic/wgpu"]
 # https://github.com/rust-lang/libc/pull/3512
 libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox_0.2.151" }
 smithay-client-toolkit = { git = "https://github.com/pop-os/client-toolkit", branch = "wayland-resize" }
+# https://github.com/gfx-rs/wgpu/pull/4959
+wgpu = { git = "https://github.com/pop-os/wgpu", branch = "v0.18" }
 
 [profile.release-with-debug]
 inherits = "release"
