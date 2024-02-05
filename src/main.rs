@@ -1139,6 +1139,7 @@ impl Application for App {
                         terminal.paste(value);
                     }
                 }
+                return self.update_focus();
             }
             Message::SelectAll(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
