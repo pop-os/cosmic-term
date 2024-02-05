@@ -102,7 +102,7 @@ where
     }
 }
 
-pub fn terminal_box<'a, Message>(terminal: &'a Mutex<Terminal>) -> TerminalBox<'a, Message>
+pub fn terminal_box<Message>(terminal: &Mutex<Terminal>) -> TerminalBox<'_, Message>
 where
     Message: Clone,
 {
@@ -192,9 +192,8 @@ where
     ) -> mouse::Interaction {
         let state = tree.state.downcast_ref::<State>();
 
-        match &state.dragging {
-            Some(Dragging::Scrollbar { .. }) => return mouse::Interaction::Idle,
-            _ => {}
+        if let Some(Dragging::Scrollbar { .. }) = &state.dragging {
+            return mouse::Interaction::Idle;
         }
 
         if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -228,8 +227,7 @@ where
         let cosmic_theme = theme.cosmic();
         let scrollbar_w = cosmic_theme.spacing.space_xxs as f32;
 
-        let view_position =
-            layout.position() + [self.padding.left as f32, self.padding.top as f32].into();
+        let view_position = layout.position() + [self.padding.left, self.padding.top].into();
         let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
             - self.padding.horizontal() as i32
             - scrollbar_w as i32;
@@ -455,7 +453,7 @@ where
                                     dot_width = dot_width.min(full_width - accu_width);
 
                                     let dot_bottom_offset = match accu_width as u32 % 8 {
-                                        3 | 4 | 5 => bottom_offset + style_line_height,
+                                        3..=5 => bottom_offset + style_line_height,
                                         2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
                                         1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
                                         _ => bottom_offset,
@@ -508,10 +506,7 @@ where
                 Size::new(scrollbar_w, scrollbar_h),
             );
 
-            let pressed = match &state.dragging {
-                Some(Dragging::Scrollbar { .. }) => true,
-                _ => false,
-            };
+            let pressed = matches!(&state.dragging, Some(Dragging::Scrollbar { .. }));
 
             let mut hover = false;
             if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -1022,6 +1017,7 @@ where
                         state.is_focused = true;
 
                         // Handle left click drag
+                        #[allow(clippy::collapsible_if)]
                         if let Button::Left = button {
                             let x = p.x - self.padding.left;
                             let y = p.y - self.padding.top;

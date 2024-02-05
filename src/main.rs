@@ -118,8 +118,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let startup_options = if let Some(shell_program) = shell_program_opt {
-        let mut options = tty::Options::default();
-        options.shell = Some(tty::Shell::new(shell_program, shell_args));
+        let options = tty::Options { 
+            shell: Some(tty::Shell::new(shell_program, shell_args)),
+            ..tty::Options::default()
+        };
         Some(options)
     } else {
         None
@@ -354,14 +356,13 @@ impl App {
     }
 
     fn save_config(&mut self) -> Command<Message> {
-        match self.config_handler {
-            Some(ref config_handler) => match self.config.write_entry(&config_handler) {
+        if let Some(ref config_handler) = self.config_handler {
+            match self.config.write_entry(config_handler) {
                 Ok(()) => {}
                 Err(err) => {
                     log::error!("failed to save config: {}", err);
                 }
-            },
-            None => {}
+            }
         }
         self.update_config()
     }
@@ -565,7 +566,7 @@ impl App {
                 widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
                     &self.font_names,
                     font_selected,
-                    |index| Message::DefaultFont(index),
+                    Message::DefaultFont,
                 )),
             )
             .add(
@@ -589,7 +590,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_stretch_names,
                             font_stretch_selected,
-                            |index| Message::DefaultFontStretch(index),
+                            Message::DefaultFontStretch,
                         ),
                     ),
                 )
@@ -598,7 +599,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_weight_names,
                             font_weight_selected,
-                            |index| Message::DefaultFontWeight(index),
+                            Message::DefaultFontWeight,
                         ),
                     ),
                 )
@@ -607,7 +608,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_weight_names,
                             dim_font_weight_selected,
-                            |index| Message::DefaultDimFontWeight(index),
+                            Message::DefaultDimFontWeight,
                         ),
                     ),
                 )
@@ -616,7 +617,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_weight_names,
                             bold_font_weight_selected,
-                            |index| Message::DefaultBoldFontWeight(index),
+                            Message::DefaultBoldFontWeight,
                         ),
                     ),
                 )
@@ -751,7 +752,7 @@ impl Application for App {
                     //TODO: get localized name if possible
                     let font_name = face
                         .families
-                        .get(0)
+                        .first()
                         .map_or_else(|| face.post_script_name.to_string(), |x| x.0.to_string());
                     font_name_faces_map
                         .entry(font_name)
@@ -827,7 +828,7 @@ impl Application for App {
         }
 
         let themes = terminal_theme::terminal_themes();
-        let mut theme_names: Vec<_> = themes.keys().map(|x| x.clone()).collect();
+        let mut theme_names: Vec<_> = themes.keys().cloned().collect();
         theme_names.sort();
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
@@ -1239,17 +1240,14 @@ impl Application for App {
             }
             Message::TabContextAction(entity, action) => {
                 if let Some(tab_model) = self.pane_model.active() {
-                    match tab_model.data::<Mutex<Terminal>>(entity) {
-                        Some(terminal) => {
-                            // Close context menu
-                            {
-                                let mut terminal = terminal.lock().unwrap();
-                                terminal.context_menu = None;
-                            }
-                            // Run action's message
-                            return self.update(action.message(Some(entity)));
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Close context menu
+                        {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = None;
                         }
-                        _ => {}
+                        // Run action's message
+                        return self.update(action.message(Some(entity)));
                     }
                 }
             }
@@ -1258,25 +1256,19 @@ impl Application for App {
                 let panes: Vec<_> = self.pane_model.panes.iter().collect();
                 for (_pane, tab_model) in panes {
                     let entity = tab_model.active();
-                    match tab_model.data::<Mutex<Terminal>>(entity) {
-                        Some(terminal) => {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = None;
-                        }
-                        _ => {}
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.context_menu = None;
                     }
                 }
 
                 // Show the context menu on the correct pane / terminal
                 if let Some(tab_model) = self.pane_model.panes.get(pane) {
                     let entity = tab_model.active();
-                    match tab_model.data::<Mutex<Terminal>>(entity) {
-                        Some(terminal) => {
-                            // Update context menu position
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = position_opt;
-                        }
-                        _ => {}
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Update context menu position
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.context_menu = position_opt;
                     }
                 }
 
@@ -1459,7 +1451,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.key_binds).into()]
+        vec![menu_bar(&self.key_binds)]
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
