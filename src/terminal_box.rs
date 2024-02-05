@@ -10,12 +10,13 @@ use cosmic::{
     iced::{
         advanced::graphics::text::Raw,
         event::{Event, Status},
-        keyboard::{Event as KeyEvent, KeyCode, Modifiers},
+        keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{self, Button, Event as MouseEvent, ScrollDelta},
         Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
     },
     iced_core::{
         clipboard::Clipboard,
+        keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
         text::Renderer as _,
@@ -24,7 +25,7 @@ use cosmic::{
             operation::{self, Operation, OperationOutputWrapper},
             tree, Id, Widget,
         },
-        Shell,
+        Border, Shell,
     },
     theme::Theme,
     Renderer,
@@ -109,7 +110,7 @@ where
     TerminalBox::new(terminal)
 }
 
-impl<'a, Message> Widget<Message, Renderer> for TerminalBox<'a, Message>
+impl<'a, Message> Widget<Message, cosmic::Theme, Renderer> for TerminalBox<'a, Message>
 where
     Message: Clone,
 {
@@ -121,12 +122,8 @@ where
         tree::State::new(State::new())
     }
 
-    fn width(&self) -> Length {
-        Length::Fill
-    }
-
-    fn height(&self) -> Length {
-        Length::Fill
+    fn size(&self) -> Size<Length> {
+        Size::new(Length::Fill, Length::Fill)
     }
 
     fn layout(
@@ -160,7 +157,7 @@ where
             let height = layout_lines as f32 * buffer.metrics().line_height;
             let size = Size::new(limits.max().width, height);
 
-            layout::Node::new(limits.resolve(size))
+            layout::Node::new(limits.resolve(Length::Fill, Length::Fill, size))
         })
     }
 
@@ -255,9 +252,7 @@ where
                         view_position,
                         Size::new(view_w as f32 + scrollbar_w, view_h as f32),
                     ),
-                    border_radius: 0.0.into(),
-                    border_width: 0.0,
-                    border_color: Color::TRANSPARENT,
+                    ..Default::default()
                 },
                 Color::new(
                     background_color.r() as f32 / 255.0,
@@ -335,9 +330,7 @@ where
                                         self.view_position + $pos_offset,
                                         Size::new($width, $style_line_height),
                                     ),
-                                    border_radius: 0.0.into(),
-                                    border_width: 0.0,
-                                    border_color: Color::TRANSPARENT,
+                                    ..Default::default()
                                 }
                             };
                             ($pos_offset:expr, $style_line_height:expr) => {
@@ -544,9 +537,12 @@ where
             renderer.fill_quad(
                 Quad {
                     bounds: scrollbar_draw,
-                    border_radius: (scrollbar_draw.width / 2.0).into(),
-                    border_width: 0.0,
-                    border_color: Color::TRANSPARENT,
+                    border: Border {
+                        radius: (scrollbar_draw.width / 2.0).into(),
+                        width: 0.0,
+                        color: Color::TRANSPARENT,
+                    },
+                    ..Default::default()
                 },
                 scrollbar_color,
             );
@@ -582,69 +578,70 @@ where
         let mut status = Status::Ignored;
         match event {
             Event::Keyboard(KeyEvent::KeyPressed {
-                key_code,
+                key: Key::Named(named),
                 modifiers,
+                ..
             }) if state.is_focused => {
                 let mod_no = calculate_modifier_number(state);
-                let escape_code = match key_code {
-                    KeyCode::Insert => csi("2", "~", mod_no),
-                    KeyCode::Delete => csi("3", "~", mod_no),
-                    KeyCode::PageUp => csi("5", "~", mod_no),
-                    KeyCode::PageDown => csi("6", "~", mod_no),
-                    KeyCode::Up => {
+                let escape_code = match named {
+                    Named::Insert => csi("2", "~", mod_no),
+                    Named::Delete => csi("3", "~", mod_no),
+                    Named::PageUp => csi("5", "~", mod_no),
+                    Named::PageDown => csi("6", "~", mod_no),
+                    Named::ArrowUp => {
                         if is_app_cursor {
                             ss3("A", mod_no)
                         } else {
                             csi("A", "", mod_no)
                         }
                     }
-                    KeyCode::Down => {
+                    Named::ArrowDown => {
                         if is_app_cursor {
                             ss3("B", mod_no)
                         } else {
                             csi("B", "", mod_no)
                         }
                     }
-                    KeyCode::Right => {
+                    Named::ArrowRight => {
                         if is_app_cursor {
                             ss3("C", mod_no)
                         } else {
                             csi("C", "", mod_no)
                         }
                     }
-                    KeyCode::Left => {
+                    Named::ArrowLeft => {
                         if is_app_cursor {
                             ss3("D", mod_no)
                         } else {
                             csi("D", "", mod_no)
                         }
                     }
-                    KeyCode::Home => {
+                    Named::End => {
                         if is_app_cursor {
                             ss3("H", mod_no)
                         } else {
                             csi("H", "", mod_no)
                         }
                     }
-                    KeyCode::End => {
+                    Named::Home => {
                         if is_app_cursor {
                             ss3("F", mod_no)
                         } else {
                             csi("F", "", mod_no)
                         }
                     }
-                    KeyCode::F1 => ss3("P", mod_no),
-                    KeyCode::F2 => ss3("Q", mod_no),
-                    KeyCode::F3 => ss3("R", mod_no),
-                    KeyCode::F4 => ss3("S", mod_no),
-                    KeyCode::F5 => csi("15", "~", mod_no),
-                    KeyCode::F6 => csi("17", "~", mod_no),
-                    KeyCode::F7 => csi("18", "~", mod_no),
-                    KeyCode::F8 => csi("19", "~", mod_no),
-                    KeyCode::F9 => csi("20", "~", mod_no),
-                    KeyCode::F10 => csi("21", "~", mod_no),
-                    KeyCode::F11 => csi("23", "~", mod_no),
-                    KeyCode::F12 => csi("24", "~", mod_no),
+                    Named::F1 => ss3("P", mod_no),
+                    Named::F2 => ss3("Q", mod_no),
+                    Named::F3 => ss3("R", mod_no),
+                    Named::F4 => ss3("S", mod_no),
+                    Named::F5 => csi("15", "~", mod_no),
+                    Named::F6 => csi("17", "~", mod_no),
+                    Named::F7 => csi("18", "~", mod_no),
+                    Named::F8 => csi("19", "~", mod_no),
+                    Named::F9 => csi("20", "~", mod_no),
+                    Named::F10 => csi("21", "~", mod_no),
+                    Named::F11 => csi("23", "~", mod_no),
+                    Named::F12 => csi("24", "~", mod_no),
                     _ => None,
                 };
                 if let Some(escape_code) = escape_code {
@@ -657,13 +654,13 @@ where
                 //Also special handle Ctrl-_ to behave like xterm
                 //Let CharacterRecieved event handle Ctrl keys if possible
                 let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
-                match key_code {
-                    KeyCode::Enter if !modifiers.control() => {
+                match named {
+                    Named::Enter if !modifiers.control() => {
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Escape if !modifiers.control() => {
+                    Named::Escape if !modifiers.control() => {
                         //Escape with any modifier will cancel selection
                         let had_selection = {
                             let mut term = terminal.term.lock();
@@ -678,20 +675,16 @@ where
                         }
                         status = Status::Captured;
                     }
-                    KeyCode::Backspace if !modifiers.control() => {
+                    Named::Backspace if !modifiers.control() => {
                         let code = "\x7f";
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Tab => {
+                    Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Underline if modifiers.control() => {
-                        terminal.input_scroll(b"\x1F".as_slice());
                         status = Status::Captured;
                     }
                     _ => {}
@@ -700,17 +693,22 @@ where
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
             }
-            Event::Keyboard(KeyEvent::CharacterReceived(character)) if state.is_focused => {
+            Event::Keyboard(KeyEvent::KeyPressed {
+                text,
+                modifiers,
+                key,
+                ..
+            }) if state.is_focused => {
                 //Tab and Delete is handled by the KeyPress event
+                let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
                 if character as u32 == 9 || character as u32 == 127 {
                     return status;
                 }
-
                 match (
-                    state.modifiers.logo(),
-                    state.modifiers.control(),
-                    state.modifiers.alt(),
-                    state.modifiers.shift(),
+                    modifiers.logo(),
+                    modifiers.control(),
+                    modifiers.alt(),
+                    modifiers.shift(),
                 ) {
                     (true, _, _, _) => {
                         // Ignore super
@@ -739,7 +737,14 @@ where
                         }
                     }
                     (false, true, _, true) => {
-                        // Ignore ctrl+shift
+                        //This is normally Ctrl+Minus, but since that
+                        //is taken by zoom, we send that code for
+                        //Ctrl+Underline instead, like xterm and
+                        //gnome-terminal
+                        if key == Key::Character("_".into()) {
+                            terminal.input_scroll(b"\x1F".as_slice());
+                            status = Status::Captured;
+                        }
                     }
                     (false, false, true, _) => {
                         if !character.is_control() {
@@ -1010,7 +1015,7 @@ fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
     }
 }
 
-impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, Renderer>
+impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, cosmic::Theme, Renderer>
 where
     Message: Clone + 'a,
 {
