@@ -242,12 +242,12 @@ impl Terminal {
 
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
-            let mut font_system = font_system.raw();
-            buffer.set_wrap(&mut font_system, Wrap::None);
+            let font_system = font_system.raw();
+            buffer.set_wrap(font_system, Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(&mut font_system, " ", default_attrs, Shaping::Advanced);
-            let layout = buffer.line_layout(&mut font_system, 0).unwrap();
+            buffer.set_text(font_system, " ", default_attrs, Shaping::Advanced);
+            let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
             buffer.set_monospace_width(font_system, Some(w));
             (w, metrics.line_height)
@@ -459,7 +459,7 @@ impl Terminal {
             };
 
             // Find next search match
-            match term.search_next(
+            if let Some(search_match) = term.search_next(
                 search_regex,
                 search_origin,
                 if forwards {
@@ -471,21 +471,18 @@ impl Terminal {
                 if forwards { Side::Left } else { Side::Right },
                 None,
             ) {
-                Some(search_match) => {
-                    // Scroll to match
-                    if forwards {
-                        term.scroll_to_point(*search_match.end());
-                    } else {
-                        term.scroll_to_point(*search_match.start());
-                    }
-
-                    // Set selection to match
-                    let mut selection =
-                        Selection::new(SelectionType::Simple, *search_match.start(), Side::Left);
-                    selection.update(*search_match.end(), Side::Right);
-                    term.selection = Some(selection);
+                // Scroll to match
+                if forwards {
+                    term.scroll_to_point(*search_match.end());
+                } else {
+                    term.scroll_to_point(*search_match.start());
                 }
-                None => {}
+
+                // Set selection to match
+                let mut selection =
+                    Selection::new(SelectionType::Simple, *search_match.start(), Side::Left);
+                selection.update(*search_match.end(), Side::Right);
+                term.selection = Some(selection);
             }
         }
 
@@ -561,8 +558,8 @@ impl Terminal {
             }
             if changed {
                 self.metadata_set.clear();
-                let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
-                let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
+                let default_bg = convert_color(colors, Color::Named(NamedColor::Background));
+                let default_fg = convert_color(colors, Color::Named(NamedColor::Foreground));
 
                 let default_metadata = Metadata::new(default_bg, default_fg);
                 let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
@@ -800,6 +797,7 @@ impl Terminal {
     ) {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
+        #[allow(clippy::collapsible_else_if)]
         if mode.contains(TermMode::SGR_MOUSE) {
             if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
                 self.input_no_scroll(code)
@@ -849,6 +847,6 @@ impl Terminal {
 impl Drop for Terminal {
     fn drop(&mut self) {
         // Ensure shutdown on terminal drop
-        let _ = self.notifier.0.send(Msg::Shutdown);
+        self.notifier.0.send(Msg::Shutdown);
     }
 }
