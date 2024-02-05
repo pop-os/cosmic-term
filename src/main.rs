@@ -919,12 +919,13 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
-                            return clipboard::write(text);
+                            return Command::batch([clipboard::write(text), self.update_focus()]);
                         }
                     }
                 } else {
                     log::warn!("Failed to get focused pane");
                 }
+                return self.update_focus();
             }
             Message::DefaultFont(index) => {
                 match self.font_names.get(index) {
@@ -1149,6 +1150,7 @@ impl Application for App {
                         terminal.select_all();
                     }
                 }
+                return self.update_focus();
             }
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {
