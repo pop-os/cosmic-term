@@ -699,6 +699,14 @@ where
                         terminal.input_scroll(b"\x1B[24;5~".as_slice());
                         status = Status::Captured;
                     }
+                    //This is normally Ctrl+Minus, but since that
+                    //is taken by zoom, we send that code for 
+                    //Ctrl+Underline instead, like xterm and 
+                    //gnome-terminal
+                    KeyCode::Underline => {
+                        terminal.input_scroll(b"\x1F".as_slice());
+                        status = Status::Captured;
+                    }
                     _ => (),
                 },
                 // Handle alt keys
