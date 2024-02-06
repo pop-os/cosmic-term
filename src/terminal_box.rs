@@ -1077,49 +1077,35 @@ impl operation::Focusable for State {
 }
 
 /*
-    2     | Shift
-    3     | Alt
-    4     | Shift + Alt
-    5     | Control
-    6     | Shift + Control
-    7     | Alt + Control
-    8     | Shift + Alt + Control
-    9     | Meta
-    10    | Meta + Shift
-    11    | Meta + Alt
-    12    | Meta + Alt + Shift
-    13    | Meta + Ctrl
-    14    | Meta + Ctrl + Shift
-    15    | Meta + Ctrl + Alt
-    16    | Meta + Ctrl + Alt + Shift
+ shift     0b1         (1)
+alt       0b10        (2)
+ctrl      0b100       (4)
+super     0b1000      (8)
+hyper     0b10000     (16)
+meta      0b100000    (32)
+caps_lock 0b1000000   (64)
+num_lock  0b10000000  (128)
 */
 fn calculate_modifier_number(state: &mut State) -> u8 {
-    match (
-        state.modifiers.control(),
-        state.modifiers.alt(),
-        state.modifiers.shift(),
-    ) {
-        // 8     | Shift + Alt + Control
-        (true, true, true) => 8,
-        // 7     | Alt + Control
-        (true, true, false) => 7,
-        // 6     | Shift + Control
-        (true, false, true) => 6,
-        // 5     | Control
-        (true, false, false) => 5,
-        // 4     | Shift + Alt
-        (false, true, true) => 4,
-        // 3     | Alt
-        (false, true, false) => 3,
-        (false, false, true) => 2,
-        // 2     | Shift
-        (false, false, false) => 0,
+    let mut mod_no = 0;
+    if state.modifiers.shift() {
+        mod_no |= 1;
     }
+    if state.modifiers.alt() {
+        mod_no |= 2;
+    }
+    if state.modifiers.control() {
+        mod_no |= 4;
+    }
+    if state.modifiers.logo() {
+        mod_no |= 8;
+    }
+    mod_no + 1
 }
 
 #[inline(always)]
 fn csi(code: &str, modifiers: u8) -> Option<Vec<u8>> {
-    if modifiers == 0 {
+    if modifiers == 1 {
         Some(format!("\x1B[{}~", code).as_bytes().to_vec())
     } else {
         Some(format!("\x1B[{};{}~", code, modifiers).as_bytes().to_vec())
@@ -1128,7 +1114,7 @@ fn csi(code: &str, modifiers: u8) -> Option<Vec<u8>> {
 
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
-    if modifiers == 0 {
+    if modifiers == 1 {
         Some(format!("\x1B\x4F{}", code).as_bytes().to_vec())
     } else {
         Some(format!("\x1B[1;{}{}", modifiers, code).as_bytes().to_vec())
