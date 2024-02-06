@@ -9,7 +9,7 @@ use alacritty_terminal::{
         cell::Flags,
         color::{self, Colors},
         search::RegexSearch,
-        viewport_to_point, Config, TermMode,
+        viewport_to_point, Config, TermDamage, TermMode,
     },
     tty::{self, Options},
     vte::ansi::{Color, NamedColor, Rgb},
@@ -631,7 +631,14 @@ impl Terminal {
             let mut text = String::from(LRI);
             let mut attrs_list = AttrsList::new(self.default_attrs);
             {
-                let term = self.term.lock();
+                let mut term = self.term.lock();
+                //TODO: use damage?
+                match term.damage() {
+                    TermDamage::Full => {}
+                    TermDamage::Partial(_damage_lines) => {}
+                }
+                term.reset_damage();
+
                 let grid = term.grid();
                 for indexed in grid.display_iter() {
                     if indexed.point.line != last_point.unwrap_or(indexed.point).line {
@@ -644,10 +651,7 @@ impl Terminal {
                             buffer.set_redraw(true);
                         }
 
-                        // Tab skip/stop is handled by alacritty_terminal
-                        if buffer.lines[line_i]
-                            .set_text(text.replace('\t', " "), attrs_list.clone())
-                        {
+                        if buffer.lines[line_i].set_text(text.clone(), attrs_list.clone()) {
                             buffer.set_redraw(true);
                         }
                         line_i += 1;
@@ -665,7 +669,11 @@ impl Terminal {
                     }
 
                     let start = text.len();
-                    text.push(indexed.cell.c);
+                    // Tab skip/stop is handled by alacritty_terminal
+                    text.push(match indexed.cell.c {
+                        '\t' => ' ',
+                        c => c,
+                    });
                     if let Some(zerowidth) = indexed.cell.zerowidth() {
                         for &c in zerowidth {
                             text.push(c);
