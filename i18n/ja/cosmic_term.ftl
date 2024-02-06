@@ -6,20 +6,20 @@ settings = 設定
 ### Appearance
 appearance = 外観
 theme = テーマ
-match-desktop = デスクトップに合わす
-dark = 暗い
-light = 明かり
-syntax-dark = 暗いシンタックス
-syntax-light = 明かりシンタックス
+match-desktop = システム設定に従う
+dark = ダーク
+light = ライト
+syntax-dark = ダークテーマのシンタックス
+syntax-light = ライトテーマのシンタックス
 advanced-font-settings = 詳細なフォント設定
-default-font = デフォルトフォント
+default-font = デフォルトのフォント
 default-font-stretch = デフォルトのフォント幅
 default-font-weight = デフォルトのフォントの太さ
 default-dim-font-weight = デフォルトの暗いフォントの太さ
 default-bold-font-weight = デフォルトの太字の太さ
 use-bright-bold = 太字を明るい色で表示する
 default-font-size = デフォルトのフォントサイズ
-default-zoom-step =ズームの間隔
+default-zoom-step = ズームの間隔
 
 # Find
 find-placeholder = 検索...
@@ -47,4 +47,4 @@ view = 表示
 menu-settings = 設定...
 
 # Context menu
-show-headerbar = ヘッダーバーを表す
+show-headerbar = ヘッダーバーを表示
