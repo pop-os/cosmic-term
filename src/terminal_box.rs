@@ -599,64 +599,64 @@ where
             }) if state.is_focused => {
                 let mod_no = calculate_modifier_number(state);
                 let escape_code = match key_code {
-                    KeyCode::Insert => csi("2", mod_no),
-                    KeyCode::Delete => csi("3", mod_no),
-                    KeyCode::PageUp => csi("5", mod_no),
-                    KeyCode::PageDown => csi("6", mod_no),
+                    KeyCode::Insert => csi("2", "~", mod_no),
+                    KeyCode::Delete => csi("3", "~", mod_no),
+                    KeyCode::PageUp => csi("5", "~", mod_no),
+                    KeyCode::PageDown => csi("6", "~", mod_no),
                     KeyCode::Up => {
                         if is_app_cursor {
                             ss3("A", mod_no)
                         } else {
-                            csi("A", mod_no)
+                            csi("A", "", mod_no)
                         }
                     }
                     KeyCode::Down => {
                         if is_app_cursor {
                             ss3("B", mod_no)
                         } else {
-                            csi("B", mod_no)
+                            csi("B", "", mod_no)
                         }
                     }
                     KeyCode::Right => {
                         if is_app_cursor {
                             ss3("C", mod_no)
                         } else {
-                            csi("C", mod_no)
+                            csi("C", "", mod_no)
                         }
                     }
                     KeyCode::Left => {
                         if is_app_cursor {
                             ss3("D", mod_no)
                         } else {
-                            csi("D", mod_no)
+                            csi("D", "", mod_no)
                         }
                     }
                     KeyCode::Home => {
                         if is_app_cursor {
                             ss3("H", mod_no)
                         } else {
-                            csi("H", mod_no)
+                            csi("H", "", mod_no)
                         }
                     }
                     KeyCode::End => {
                         if is_app_cursor {
                             ss3("F", mod_no)
                         } else {
-                            csi("F", mod_no)
+                            csi("F", "", mod_no)
                         }
                     }
                     KeyCode::F1 => ss3("P", mod_no),
                     KeyCode::F2 => ss3("Q", mod_no),
                     KeyCode::F3 => ss3("R", mod_no),
                     KeyCode::F4 => ss3("S", mod_no),
-                    KeyCode::F5 => csi("15", mod_no),
-                    KeyCode::F6 => csi("17", mod_no),
-                    KeyCode::F7 => csi("18", mod_no),
-                    KeyCode::F8 => csi("19", mod_no),
-                    KeyCode::F9 => csi("20", mod_no),
-                    KeyCode::F10 => csi("21", mod_no),
-                    KeyCode::F11 => csi("23", mod_no),
-                    KeyCode::F12 => csi("24", mod_no),
+                    KeyCode::F5 => csi("15", "~", mod_no),
+                    KeyCode::F6 => csi("17", "~", mod_no),
+                    KeyCode::F7 => csi("18", "~", mod_no),
+                    KeyCode::F8 => csi("19", "~", mod_no),
+                    KeyCode::F9 => csi("20", "~", mod_no),
+                    KeyCode::F10 => csi("21", "~", mod_no),
+                    KeyCode::F11 => csi("23", "~", mod_no),
+                    KeyCode::F12 => csi("24", "~", mod_no),
                     _ => None,
                 };
                 if let Some(escape_code) = escape_code {
@@ -1104,11 +1104,15 @@ fn calculate_modifier_number(state: &mut State) -> u8 {
 }
 
 #[inline(always)]
-fn csi(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B[{}~", code).as_bytes().to_vec())
+        Some(format!("\x1B[{}{}", code, suffix).as_bytes().to_vec())
     } else {
-        Some(format!("\x1B[{};{}~", code, modifiers).as_bytes().to_vec())
+        Some(
+            format!("\x1B[{};{}{}", code, modifiers, suffix)
+                .as_bytes()
+                .to_vec(),
+        )
     }
 }
 
