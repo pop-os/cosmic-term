@@ -596,244 +596,86 @@ where
             Event::Keyboard(KeyEvent::KeyPressed {
                 key_code,
                 modifiers,
-            }) if state.is_focused => match (
-                modifiers.logo(),
-                modifiers.control(),
-                modifiers.alt(),
-                modifiers.shift(),
-            ) {
-                (true, _, _, _) => {
-                    // Ignore super keys
+            }) if state.is_focused => {
+                let mod_no = calculate_modifier_number(state);
+                let escape_code = match key_code {
+                    KeyCode::Insert => csi("2", mod_no),
+                    KeyCode::Delete => csi("3", mod_no),
+                    KeyCode::PageUp => csi("5", mod_no),
+                    KeyCode::PageDown => csi("6", mod_no),
+                    KeyCode::Up => {
+                        if is_app_cursor {
+                            ss3("A", mod_no)
+                        } else {
+                            csi("A", mod_no)
+                        }
+                    }
+                    KeyCode::Down => {
+                        if is_app_cursor {
+                            ss3("B", mod_no)
+                        } else {
+                            csi("B", mod_no)
+                        }
+                    }
+                    KeyCode::Right => {
+                        if is_app_cursor {
+                            ss3("C", mod_no)
+                        } else {
+                            csi("C", mod_no)
+                        }
+                    }
+                    KeyCode::Left => {
+                        if is_app_cursor {
+                            ss3("D", mod_no)
+                        } else {
+                            csi("D", mod_no)
+                        }
+                    }
+                    KeyCode::Home => {
+                        if is_app_cursor {
+                            ss3("H", mod_no)
+                        } else {
+                            csi("H", mod_no)
+                        }
+                    }
+                    KeyCode::End => {
+                        if is_app_cursor {
+                            ss3("F", mod_no)
+                        } else {
+                            csi("F", mod_no)
+                        }
+                    }
+                    KeyCode::F1 => ss3("P", mod_no),
+                    KeyCode::F2 => ss3("Q", mod_no),
+                    KeyCode::F3 => ss3("R", mod_no),
+                    KeyCode::F4 => ss3("S", mod_no),
+                    KeyCode::F5 => csi("15", mod_no),
+                    KeyCode::F6 => csi("17", mod_no),
+                    KeyCode::F7 => csi("18", mod_no),
+                    KeyCode::F8 => csi("19", mod_no),
+                    KeyCode::F9 => csi("20", mod_no),
+                    KeyCode::F10 => csi("21", mod_no),
+                    KeyCode::F11 => csi("23", mod_no),
+                    KeyCode::F12 => csi("24", mod_no),
+                    _ => None,
+                };
+                if let Some(escape_code) = escape_code {
+                    terminal.input_scroll(escape_code);
+                    return Status::Captured;
                 }
-                (_, true, _, _) => match key_code {
-                    KeyCode::Up => {
-                        terminal.input_scroll(b"\x1B[1;5A".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Down => {
-                        terminal.input_scroll(b"\x1B[1;5B".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Right => {
-                        terminal.input_scroll(b"\x1B[1;5C".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Left => {
-                        terminal.input_scroll(b"\x1B[1;5D".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::End => {
-                        terminal.input_scroll(b"\x1B[1;5F".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Home => {
-                        terminal.input_scroll(b"\x1B[1;5H".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Insert => {
-                        terminal.input_scroll(b"\x1B[2;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Delete => {
-                        terminal.input_scroll(b"\x1B[3;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageUp => {
-                        terminal.input_scroll(b"\x1B[5;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageDown => {
-                        terminal.input_scroll(b"\x1B[6;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F1 => {
-                        terminal.input_scroll(b"\x1BO;5P".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F2 => {
-                        terminal.input_scroll(b"\x1BO;5Q".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F3 => {
-                        terminal.input_scroll(b"\x1BO;5R".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F4 => {
-                        terminal.input_scroll(b"\x1BO;5S".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F5 => {
-                        terminal.input_scroll(b"\x1B[15;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F6 => {
-                        terminal.input_scroll(b"\x1B[17;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F7 => {
-                        terminal.input_scroll(b"\x1B[18;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F8 => {
-                        terminal.input_scroll(b"\x1B[19;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F9 => {
-                        terminal.input_scroll(b"\x1B[20;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F10 => {
-                        terminal.input_scroll(b"\x1B[21;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F11 => {
-                        terminal.input_scroll(b"\x1B[23;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F12 => {
-                        terminal.input_scroll(b"\x1B[24;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    //This is normally Ctrl+Minus, but since that
-                    //is taken by zoom, we send that code for
-                    //Ctrl+Underline instead, like xterm and
-                    //gnome-terminal
-                    KeyCode::Underline => {
-                        terminal.input_scroll(b"\x1F".as_slice());
-                        status = Status::Captured;
-                    }
-                    _ => (),
-                },
-                // Handle alt keys
-                (_, _, true, _) => match key_code {
-                    KeyCode::Up => {
-                        terminal.input_scroll(b"\x1B[1;3A".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Down => {
-                        terminal.input_scroll(b"\x1B[1;3B".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Right => {
-                        terminal.input_scroll(b"\x1B[1;3C".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Left => {
-                        terminal.input_scroll(b"\x1B[1;3D".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::End => {
-                        terminal.input_scroll(b"\x1B[1;3F".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Home => {
-                        terminal.input_scroll(b"\x1B[1;3H".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Insert => {
-                        terminal.input_scroll(b"\x1B[2;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Delete => {
-                        terminal.input_scroll(b"\x1B[3;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageUp => {
-                        terminal.input_scroll(b"\x1B[5;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageDown => {
-                        terminal.input_scroll(b"\x1B[6;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F1 => {
-                        terminal.input_scroll(b"\x1B[1;3P".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F2 => {
-                        terminal.input_scroll(b"\x1B1;3Q".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F3 => {
-                        terminal.input_scroll(b"\x1B1;3R".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F4 => {
-                        terminal.input_scroll(b"\x1B1;3S".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F5 => {
-                        terminal.input_scroll(b"\x1B[15;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F6 => {
-                        terminal.input_scroll(b"\x1B[17;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F7 => {
-                        terminal.input_scroll(b"\x1B[18;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F8 => {
-                        terminal.input_scroll(b"\x1B[19;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F9 => {
-                        terminal.input_scroll(b"\x1B[20;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F10 => {
-                        terminal.input_scroll(b"\x1B[21;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F11 => {
-                        terminal.input_scroll(b"\x1B[23;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F12 => {
-                        terminal.input_scroll(b"\x1B[24;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Backspace => {
-                        terminal.input_scroll(b"\x1B\x7F".as_slice());
-                        status = Status::Captured;
-                    }
-                    _ => (),
-                },
-                // Handle shift keys
-                (_, _, _, true) => match key_code {
-                    KeyCode::End => {
-                        terminal.scroll(TerminalScroll::Bottom);
-                    }
-                    KeyCode::Home => {
-                        terminal.scroll(TerminalScroll::Top);
-                    }
-                    KeyCode::PageDown => {
-                        terminal.scroll(TerminalScroll::PageDown);
-                    }
-                    KeyCode::PageUp => {
-                        terminal.scroll(TerminalScroll::PageUp);
-                    }
-                    KeyCode::Tab => {
-                        terminal.input_scroll(b"\x1B[Z".as_slice());
-                    }
-                    _ => {}
-                },
-                // Handle keys with no modifiers
-                (_, _, _, false) => match key_code {
-                    KeyCode::Backspace => {
-                        terminal.input_scroll(b"\x7F".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Tab => {
-                        terminal.input_scroll(b"\t".as_slice());
-                        status = Status::Captured;
-                    }
+
+                //Special handle Enter, Escape, Backspace and Tab as described in
+                //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
+                //Also special handle Ctrl-_ to behave like xterm
+                let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
+                match key_code {
                     KeyCode::Enter => {
-                        terminal.input_scroll(b"\r".as_slice());
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     KeyCode::Escape => {
+                        //Escape with any modifier will cancel selection
                         let had_selection = {
                             let mut term = terminal.term.lock();
                             term.selection.take().is_some()
@@ -841,113 +683,31 @@ where
                         if had_selection {
                             terminal.update();
                         } else {
-                            terminal.input_scroll(b"\x1B".as_slice());
+                            terminal.input_scroll(
+                                format!("{}{}", alt_prefix, "\x1B").as_bytes().to_vec(),
+                            );
                         }
                         status = Status::Captured;
                     }
-                    KeyCode::Up => {
-                        let code = if is_app_cursor { b"\x1BOA" } else { b"\x1B[A" };
-
-                        terminal.input_scroll(code.as_slice());
+                    KeyCode::Backspace => {
+                        let code = if modifiers.control() { "\x08" } else { "\x7f" };
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Down => {
-                        let code = if is_app_cursor { b"\x1BOB" } else { b"\x1B[B" };
-
-                        terminal.input_scroll(code.as_slice());
+                    KeyCode::Tab => {
+                        let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Right => {
-                        let code = if is_app_cursor { b"\x1BOC" } else { b"\x1B[C" };
-
-                        terminal.input_scroll(code.as_slice());
+                    KeyCode::Underline if modifiers.control() => {
+                        terminal.input_scroll(b"\x1F".as_slice());
                         status = Status::Captured;
                     }
-                    KeyCode::Left => {
-                        let code = if is_app_cursor { b"\x1BOD" } else { b"\x1B[D" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::End => {
-                        let code = if is_app_cursor { b"\x1BOF" } else { b"\x1B[F" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Home => {
-                        let code = if is_app_cursor { b"\x1BOH" } else { b"\x1B[H" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Insert => {
-                        terminal.input_scroll(b"\x1B[2~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Delete => {
-                        terminal.input_scroll(b"\x1B[3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageUp => {
-                        terminal.input_scroll(b"\x1B[5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageDown => {
-                        terminal.input_scroll(b"\x1B[6~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F1 => {
-                        terminal.input_scroll(b"\x1BOP".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F2 => {
-                        terminal.input_scroll(b"\x1BOQ".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F3 => {
-                        terminal.input_scroll(b"\x1BOR".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F4 => {
-                        terminal.input_scroll(b"\x1BOS".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F5 => {
-                        terminal.input_scroll(b"\x1B[15~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F6 => {
-                        terminal.input_scroll(b"\x1B[17~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F7 => {
-                        terminal.input_scroll(b"\x1B[18~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F8 => {
-                        terminal.input_scroll(b"\x1B[19~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F9 => {
-                        terminal.input_scroll(b"\x1B[20~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F10 => {
-                        terminal.input_scroll(b"\x1B[21~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F11 => {
-                        terminal.input_scroll(b"\x1B[23~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F12 => {
-                        terminal.input_scroll(b"\x1B[24~".as_slice());
-                        status = Status::Captured;
-                    }
-                    _ => (),
-                },
-            },
+                    _ => {}
+                }
+            }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
             }
@@ -961,18 +721,17 @@ where
                     (true, _, _, _) => {
                         // Ignore super
                     }
-                    (false, true, true, false) => {
+                    (false, true, true, _) => {
                         // Handle ctrl-alt for non-control characters
-                        // Or should I try to minimize this to only
-                        // catch control sequences that conflicts with
-                        // keykodes for Split
-                        // if character != '\u{4}' && character != '\u{12}' {
-                        // is there any valid case for control characters with modifers
-                        // ctrl-alt?
-                        if !character.is_control() {
-                            let mut buf = [0, 0, 0, 0];
-                            let str = character.encode_utf8(&mut buf);
-                            terminal.input_scroll(str.as_bytes().to_vec());
+                        // and control characters 0-32
+                        if !character.is_control() || (character as u32) < 32 {
+                            // Handle alt for non-control characters
+                            let mut buf = [0x1B, 0, 0, 0, 0];
+                            let len = {
+                                let str = character.encode_utf8(&mut buf[1..]);
+                                str.len() + 1
+                            };
+                            terminal.input_scroll(buf[..len].to_vec());
                             status = Status::Captured;
                         }
                     }
@@ -1314,5 +1073,50 @@ impl operation::Focusable for State {
 
     fn unfocus(&mut self) {
         self.is_focused = false;
+    }
+}
+
+/*
+ shift     0b1         (1)
+alt       0b10        (2)
+ctrl      0b100       (4)
+super     0b1000      (8)
+hyper     0b10000     (16)
+meta      0b100000    (32)
+caps_lock 0b1000000   (64)
+num_lock  0b10000000  (128)
+*/
+fn calculate_modifier_number(state: &mut State) -> u8 {
+    let mut mod_no = 0;
+    if state.modifiers.shift() {
+        mod_no |= 1;
+    }
+    if state.modifiers.alt() {
+        mod_no |= 2;
+    }
+    if state.modifiers.control() {
+        mod_no |= 4;
+    }
+    if state.modifiers.logo() {
+        mod_no |= 8;
+    }
+    mod_no + 1
+}
+
+#[inline(always)]
+fn csi(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    if modifiers == 1 {
+        Some(format!("\x1B[{}~", code).as_bytes().to_vec())
+    } else {
+        Some(format!("\x1B[{};{}~", code, modifiers).as_bytes().to_vec())
+    }
+}
+
+#[inline(always)]
+fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    if modifiers == 1 {
+        Some(format!("\x1B\x4F{}", code).as_bytes().to_vec())
+    } else {
+        Some(format!("\x1B[1;{}{}", modifiers, code).as_bytes().to_vec())
     }
 }
