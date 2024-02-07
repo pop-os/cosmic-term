@@ -13,4 +13,5 @@ Homepage: https://github.com/pop-os/cosmic-term
 Package: cosmic-term
 Architecture: amd64 arm64
 Depends: ${misc:Depends}, ${shlibs:Depends}
+Provides: x-terminal-emulator
 Description: Cosmic Terminal
