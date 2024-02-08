@@ -559,19 +559,7 @@ impl Terminal {
                 }
             }
             if changed {
-                self.metadata_set.clear();
-                let default_bg = convert_color(colors, Color::Named(NamedColor::Background));
-                let default_fg = convert_color(colors, Color::Named(NamedColor::Foreground));
-
-                let default_metadata = Metadata::new(default_bg, default_fg);
-                let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
-
-                self.default_attrs = Attrs::new()
-                    .family(Family::Monospace)
-                    .weight(Weight(config.font_weight))
-                    .stretch(config.typed_font_stretch())
-                    .color(default_fg)
-                    .metadata(default_metadata_idx);
+                self.update_colors(config);
                 update = true;
             }
         }
@@ -581,6 +569,22 @@ impl Terminal {
         } else if update {
             self.update();
         }
+    }
+
+    pub fn update_colors(&mut self, config: &AppConfig) {
+        self.metadata_set.clear();
+        let default_bg = convert_color(&self.colors, Color::Named(NamedColor::Background));
+        let default_fg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
+
+        let default_metadata = Metadata::new(default_bg, default_fg);
+        let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
+
+        self.default_attrs = Attrs::new()
+            .family(Family::Monospace)
+            .weight(Weight(config.font_weight))
+            .stretch(config.typed_font_stretch())
+            .color(default_fg)
+            .metadata(default_metadata_idx);
     }
 
     pub fn update_cell_size(&mut self) {

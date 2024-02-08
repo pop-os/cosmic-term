@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let startup_options = if let Some(shell_program) = shell_program_opt {
-        let options = tty::Options { 
+        let options = tty::Options {
             shell: Some(tty::Shell::new(shell_program, shell_args)),
             ..tty::Options::default()
         };
@@ -1471,13 +1471,26 @@ impl Application for App {
         let cosmic_theme = self.core().system_theme().cosmic();
         let cosmic_theme::Spacing { space_xxs, .. } = cosmic_theme.spacing;
         {
+            // Update terminal window color
+            //TODO: do this only when theme changes?
             let color = Color::from(cosmic_theme.bg_color());
             let bytes = color.into_rgba8();
             let data = (bytes[2] as u32)
                 | ((bytes[1] as u32) << 8)
                 | ((bytes[0] as u32) << 16)
                 | 0xFF000000;
-            terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
+            if terminal::WINDOW_BG_COLOR.swap(data, Ordering::SeqCst) != data {
+                // If window bg color changed, update terminal colors
+                for (_pane, tab_model) in self.pane_model.panes.iter() {
+                    for entity in tab_model.iter() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.update_colors(&self.config);
+                            terminal.update();
+                        }
+                    }
+                }
+            }
         }
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
