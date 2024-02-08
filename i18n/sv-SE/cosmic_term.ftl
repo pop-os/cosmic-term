@@ -17,10 +17,10 @@ default-zoom-step = Zoom steg
 font = Teckensnitt
 advanced-font-settings = Avancerade teckensnittsinställningar
 default-font = Teckensnitt
-default-font-size = Teckensnitt storlek
-default-font-stretch = Teckensnitt stretch
+default-font-size = Teckenstorlek
+default-font-stretch = Teckenstretch
 default-font-weight = Normal teckensnittsvikt
-default-dim-font-weight = Dim teckensnittsvikt
+default-dim-font-weight = Dämpad teckensnittsvikt
 default-bold-font-weight = Fet teckensnittsvikt
 use-bright-bold = Gör fet text ljusare
 
@@ -30,11 +30,11 @@ focus-follow-mouse = Skrivfokus följer mus
 
 ### Avancerat
 advanced = Avancerat
-show-headerbar = Visa rubrik
-show-header-description = Visa rubriken från högerklicksmenyn.
+show-headerbar = Visa rubrikrad
+show-header-description = Visa rubrikrad från högerklicksmenyn.
 
 # Sök
-find-placeholder = Sök...
+find-placeholder = Sök…
 find-previous = Hitta föregående
 find-next = Hitta nästa
 
@@ -56,9 +56,9 @@ find = Sök
 
 ## Visa
 view = Visa
-zoom-in = Större text
-zoom-reset = Standard textstorlek
-zoom-out = Mindre text
+zoom-in = Zooma in
+zoom-reset = Återställ zoom
+zoom-out = Zooma ut
 next-tab = Nästa flik
 previous-tab = Föregående flik
 split-horizontal = Dela horisontellt
