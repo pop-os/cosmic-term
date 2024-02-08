@@ -667,14 +667,15 @@ where
                 //Special handle Enter, Escape, Backspace and Tab as described in
                 //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
                 //Also special handle Ctrl-_ to behave like xterm
+                //Let CharacterRecieved event handle Ctrl keys if possible
                 let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
                 match key_code {
-                    KeyCode::Enter => {
+                    KeyCode::Enter if !modifiers.control() => {
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Escape => {
+                    KeyCode::Escape if !modifiers.control() => {
                         //Escape with any modifier will cancel selection
                         let had_selection = {
                             let mut term = terminal.term.lock();
@@ -689,8 +690,8 @@ where
                         }
                         status = Status::Captured;
                     }
-                    KeyCode::Backspace => {
-                        let code = if modifiers.control() { "\x08" } else { "\x7f" };
+                    KeyCode::Backspace if !modifiers.control() => {
+                        let code = "\x7f";
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
@@ -712,6 +713,11 @@ where
                 state.modifiers = modifiers;
             }
             Event::Keyboard(KeyEvent::CharacterReceived(character)) if state.is_focused => {
+                //Tab and Delete is handled by the KeyPress event
+                if character as u32 == 9 || character as u32 == 127 {
+                    return status;
+                }
+
                 match (
                     state.modifiers.logo(),
                     state.modifiers.control(),
