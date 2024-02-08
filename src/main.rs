@@ -1019,7 +1019,7 @@ impl Application for App {
             },
             Message::Key(modifiers, key) => {
                 for (key_bind, action) in self.key_binds.iter() {
-                    if key_bind.matches(modifiers, key.clone()) {
+                    if key_bind.matches(modifiers, &key) {
                         return self.update(action.message(None));
                     }
                 }

@@ -682,8 +682,7 @@ where
                         status = Status::Captured;
                     }
                     Named::Space if !modifiers.control() => {
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     Named::Tab => {

@@ -22,8 +22,8 @@ pub struct KeyBind {
 }
 
 impl KeyBind {
-    pub fn matches(&self, modifiers: Modifiers, key: Key) -> bool {
-        self.key == key
+    pub fn matches(&self, modifiers: Modifiers, key: &Key) -> bool {
+        key == &self.key
             && modifiers.logo() == self.modifiers.contains(&Modifier::Super)
             && modifiers.control() == self.modifiers.contains(&Modifier::Ctrl)
             && modifiers.alt() == self.modifiers.contains(&Modifier::Alt)
