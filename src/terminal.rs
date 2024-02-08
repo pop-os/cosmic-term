@@ -371,6 +371,8 @@ impl Terminal {
                 buffer.set_size(font_system.raw(), width as f32, height as f32);
             });
 
+            self.needs_update = true;
+
             log::debug!("resize {:?}", instant.elapsed());
         }
     }
@@ -780,9 +782,11 @@ impl Terminal {
                 buffer.set_redraw(true);
             }
 
+            // Shape and trim shape run cache
             {
                 let mut font_system = font_system().write().unwrap();
                 buffer.shape_until_scroll(font_system.raw(), true);
+                font_system.raw().shape_run_cache.trim(1024);
             }
         }
 

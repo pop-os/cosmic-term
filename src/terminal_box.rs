@@ -8,7 +8,7 @@ use alacritty_terminal::{
 use cosmic::{
     cosmic_theme::palette::{blend::Compose, WithAlpha},
     iced::{
-        advanced::graphics::text::{font_system, Raw},
+        advanced::graphics::text::Raw,
         event::{Event, Status},
         keyboard::{Event as KeyEvent, KeyCode, Modifiers},
         mouse::{self, Button, Event as MouseEvent, ScrollDelta},
@@ -147,12 +147,6 @@ where
             terminal.needs_update = false;
         }
 
-        // Ensure terminal is shaped
-        terminal.with_buffer_mut(|buffer| {
-            let mut font_system = font_system().write().unwrap();
-            buffer.shape_until_scroll(font_system.raw(), true);
-        });
-
         // Calculate layout lines
         terminal.with_buffer(|buffer| {
             let mut layout_lines = 0;
@@ -249,12 +243,6 @@ where
             terminal.update();
             terminal.needs_update = false;
         }
-
-        // Ensure terminal is shaped
-        terminal.with_buffer_mut(|buffer| {
-            let mut font_system = font_system().write().unwrap();
-            buffer.shape_until_scroll(font_system.raw(), true);
-        });
 
         // Render default background
         {
