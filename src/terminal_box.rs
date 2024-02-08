@@ -655,6 +655,12 @@ where
                 //Let CharacterRecieved event handle Ctrl keys if possible
                 let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
                 match named {
+                    Named::Backspace if !modifiers.control() => {
+                        let code = "\x7f";
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
+                        status = Status::Captured;
+                    }
                     Named::Enter if !modifiers.control() => {
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
@@ -675,10 +681,9 @@ where
                         }
                         status = Status::Captured;
                     }
-                    Named::Backspace if !modifiers.control() => {
-                        let code = "\x7f";
+                    Named::Space if !modifiers.control() => {
                         terminal
-                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
+                            .input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     Named::Tab => {
