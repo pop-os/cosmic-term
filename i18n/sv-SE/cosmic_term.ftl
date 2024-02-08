@@ -26,7 +26,7 @@ use-bright-bold = Gör fet text ljusare
 
 ### Delar
 splits = Delar
-focus-follow-mouse = Skriv fokus följer mus
+focus-follow-mouse = Skrivfokus följer mus
 
 ### Avancerat
 advanced = Avancerat
