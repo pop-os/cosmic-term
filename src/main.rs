@@ -12,7 +12,7 @@ use cosmic::{
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
-        keyboard::{Event as KeyEvent, KeyCode, Modifiers},
+        keyboard::{Event as KeyEvent, Key, Modifiers},
         subscription::{self, Subscription},
         window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
@@ -249,7 +249,7 @@ pub enum Message {
     DefaultDimFontWeight(usize),
     DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
-    Key(Modifiers, KeyCode),
+    Key(Modifiers, Key),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -1017,9 +1017,9 @@ impl Application for App {
                     log::warn!("failed to find zoom step with index {}", index);
                 }
             },
-            Message::Key(modifiers, key_code) => {
+            Message::Key(modifiers, key) => {
                 for (key_bind, action) in self.key_binds.iter() {
-                    if key_bind.matches(modifiers, key_code) {
+                    if key_bind.matches(modifiers, key.clone()) {
                         return self.update(action.message(None));
                     }
                 }
@@ -1631,10 +1631,9 @@ impl Application for App {
 
         Subscription::batch([
             event::listen_with(|event, _status| match event {
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code,
-                    modifiers,
-                }) => Some(Message::Key(modifiers, key_code)),
+                Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
+                    Some(Message::Key(modifiers, key))
+                }
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
                 }
