@@ -661,6 +661,7 @@ where
                 };
                 if let Some(escape_code) = escape_code {
                     terminal.input_scroll(escape_code);
+                    state.handled_by_key_press_event = true;
                     return Status::Captured;
                 }
 
@@ -707,11 +708,21 @@ where
                     }
                     _ => {}
                 }
+                state.handled_by_key_press_event = status == Status::Captured;
+            }
+            Event::Keyboard(KeyEvent::KeyReleased {
+                key_code: _,
+                modifiers: _,
+            }) if state.is_focused => {
+                state.handled_by_key_press_event = false;
             }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
             }
             Event::Keyboard(KeyEvent::CharacterReceived(character)) if state.is_focused => {
+                if state.handled_by_key_press_event {
+                    return status;
+                }
                 match (
                     state.modifiers.logo(),
                     state.modifiers.control(),
@@ -1046,6 +1057,7 @@ pub struct State {
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
+    handled_by_key_press_event: bool,
 }
 
 impl State {
@@ -1058,6 +1070,7 @@ impl State {
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
+            handled_by_key_press_event: false,
         }
     }
 }
