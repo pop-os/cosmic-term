@@ -618,16 +618,16 @@ where
                     }
                     Named::End => {
                         if is_app_cursor {
-                            ss3("H", mod_no)
+                            ss3("F", mod_no)
                         } else {
-                            csi("H", "", mod_no)
+                            csi("F", "", mod_no)
                         }
                     }
                     Named::Home => {
                         if is_app_cursor {
-                            ss3("F", mod_no)
+                            ss3("H", mod_no)
                         } else {
-                            csi("F", "", mod_no)
+                            csi("H", "", mod_no)
                         }
                     }
                     Named::F1 => ss3("P", mod_no),
