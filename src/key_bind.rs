@@ -36,7 +36,11 @@ impl fmt::Display for KeyBind {
         for modifier in self.modifiers.iter() {
             write!(f, "{:?} + ", modifier)?;
         }
-        write!(f, "{:?}", self.key)
+        match &self.key {
+            Key::Character(c) => write!(f, "{}", c.to_uppercase()),
+            Key::Named(named) => write!(f, "{:?}", named),
+            other => write!(f, "{:?}", other),
+        }
     }
 }
 
