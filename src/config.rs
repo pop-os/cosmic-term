@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+use crate::fl;
+
 pub const CONFIG_VERSION: u64 = 1;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -29,6 +31,35 @@ impl AppTheme {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[serde(transparent)]
+pub struct ProfileId(pub u64);
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Profile {
+    pub name: String,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub syntax_theme_dark: String,
+    #[serde(default)]
+    pub syntax_theme_light: String,
+    #[serde(default)]
+    pub tab_title: String,
+}
+
+impl Default for Profile {
+    fn default() -> Self {
+        Self {
+            name: fl!("new-profile"),
+            command: String::new(),
+            syntax_theme_dark: "COSMIC Dark".to_string(),
+            syntax_theme_light: "COSMIC Light".to_string(),
+            tab_title: String::new(),
+        }
+    }
+}
+
 #[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Config {
     pub app_theme: AppTheme,
@@ -39,6 +70,7 @@ pub struct Config {
     pub bold_font_weight: u16,
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
+    pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub use_bright_bold: bool,
     pub syntax_theme_dark: String,
@@ -50,18 +82,19 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             app_theme: AppTheme::System,
+            bold_font_weight: Weight::BOLD.0,
+            dim_font_weight: Weight::NORMAL.0,
+            focus_follow_mouse: false,
             font_name: "Fira Mono".to_string(),
             font_size: 14,
-            font_weight: Weight::NORMAL.0,
-            dim_font_weight: Weight::NORMAL.0,
-            bold_font_weight: Weight::BOLD.0,
-            font_stretch: Stretch::Normal.to_number(),
             font_size_zoom_step_mul_100: 100,
+            font_stretch: Stretch::Normal.to_number(),
+            font_weight: Weight::NORMAL.0,
+            profiles: BTreeMap::new(),
             show_headerbar: true,
-            use_bright_bold: false,
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
-            focus_follow_mouse: false,
+            use_bright_bold: false,
         }
     }
 }
@@ -81,13 +114,42 @@ impl Config {
         Metrics::new(font_size, line_height)
     }
 
+    // Get a sorted and adjusted for duplicates list of profiles names and ids
+    pub fn profile_names(&self) -> Vec<(String, ProfileId)> {
+        let mut profile_names = Vec::<(String, ProfileId)>::with_capacity(self.profiles.len());
+        for (profile_id, profile) in self.profiles.iter() {
+            let mut name = profile.name.clone();
+
+            let mut copies = 1;
+            while profile_names.iter().find(|x| x.0 == name).is_some() {
+                copies += 1;
+                name = format!("{} ({})", profile.name, copies);
+            }
+
+            profile_names.push((name, *profile_id));
+        }
+        profile_names.sort_by(|a, b| lexical_sort::natural_lexical_cmp(&a.0, &b.0));
+        profile_names
+    }
+
     // Get current syntax theme based on dark mode
-    pub fn syntax_theme(&self) -> &str {
+    pub fn syntax_theme(&self, profile_id_opt: Option<ProfileId>) -> &str {
         let dark = self.app_theme.theme().theme_type.is_dark();
-        if dark {
-            &self.syntax_theme_dark
-        } else {
-            &self.syntax_theme_light
+        match profile_id_opt.and_then(|profile_id| self.profiles.get(&profile_id)) {
+            Some(profile) => {
+                if dark {
+                    &profile.syntax_theme_dark
+                } else {
+                    &profile.syntax_theme_light
+                }
+            }
+            None => {
+                if dark {
+                    &self.syntax_theme_dark
+                } else {
+                    &self.syntax_theme_light
+                }
+            }
         }
     }
 

@@ -1,5 +1,15 @@
 # Context Pages
 
+## Profiles
+profiles = Profiles
+name = Name
+command-line = Command line
+command-line-description = Custom command line to run, if set
+tab-title = Tab title
+tab-title-description = Override the default tab title
+add-profile = Add profile
+new-profile = New profile
+
 ## Settings
 settings = Settings
 
@@ -44,6 +54,8 @@ find-next = Find next
 file = File
 new-tab = New tab
 new-window = New window
+profile = Profile
+menu-profiles = Profiles...
 close-tab = Close tab
 quit = Quit
 

@@ -108,13 +108,16 @@ pub fn context_menu<'a>(
     .into()
 }
 
-pub fn menu_bar<'a>(key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message> {
+pub fn menu_bar<'a>(config: &Config, key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message> {
     //TODO: port to libcosmic
     let menu_root = |label| {
         widget::button(widget::text(label))
             .padding([4, 12])
             .style(theme::Button::MenuRoot)
     };
+
+    let menu_folder =
+        |label| menu_button!(widget::text(label), horizontal_space(Length::Fill), ">");
 
     let find_key = |action: &Action| -> String {
         for (key_bind, key_action) in key_binds.iter() {
@@ -137,12 +140,21 @@ pub fn menu_bar<'a>(key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message
         )
     };
 
+    let mut profile_items = Vec::with_capacity(config.profiles.len());
+    for (name, id) in config.profile_names() {
+        profile_items.push(menu_item(name, Action::ProfileOpen(id)));
+    }
+    //TODO: what to do if there are no profiles?
+
     MenuBar::new(vec![
         MenuTree::with_children(
             menu_root(fl!("file")),
             vec![
                 menu_item(fl!("new-tab"), Action::TabNew),
                 menu_item(fl!("new-window"), Action::WindowNew),
+                MenuTree::new(horizontal_rule(1)),
+                MenuTree::with_children(menu_folder(fl!("profile")), profile_items),
+                menu_item(fl!("menu-profiles"), Action::Profiles),
                 MenuTree::new(horizontal_rule(1)),
                 menu_item(fl!("close-tab"), Action::TabClose),
                 MenuTree::new(horizontal_rule(1)),

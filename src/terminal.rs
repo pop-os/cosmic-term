@@ -27,7 +27,7 @@ use indexmap::IndexSet;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    mem,
+    io, mem,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Weak,
@@ -38,7 +38,10 @@ use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
-use crate::{config::Config as AppConfig, mouse_reporter::MouseReporter};
+use crate::{
+    config::{Config as AppConfig, ProfileId},
+    mouse_reporter::MouseReporter,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -187,21 +190,22 @@ impl Metadata {
 }
 
 pub struct Terminal {
-    default_attrs: Attrs<'static>,
-    buffer: Arc<Buffer>,
-    size: Size,
-    pub term: Arc<FairMutex<Term<EventProxy>>>,
-    colors: Colors,
-    dim_font_weight: Weight,
-    bold_font_weight: Weight,
-    use_bright_bold: bool,
-    notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
+    pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
+    pub profile_id_opt: Option<ProfileId>,
+    pub term: Arc<FairMutex<Term<EventProxy>>>,
+    bold_font_weight: Weight,
+    buffer: Arc<Buffer>,
+    colors: Colors,
+    default_attrs: Attrs<'static>,
+    dim_font_weight: Weight,
+    mouse_reporter: MouseReporter,
+    notifier: Notifier,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
-    pub metadata_set: IndexSet<Metadata>,
-    mouse_reporter: MouseReporter,
+    size: Size,
+    use_bright_bold: bool,
 }
 
 impl Terminal {
@@ -214,7 +218,8 @@ impl Terminal {
         options: Options,
         app_config: &AppConfig,
         colors: Colors,
-    ) -> Self {
+        profile_id_opt: Option<ProfileId>,
+    ) -> Result<Self, io::Error> {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
         let dim_font_weight = app_config.dim_font_weight;
@@ -267,29 +272,30 @@ impl Terminal {
         )));
 
         let window_id = 0;
-        let pty = tty::new(&options, size.into(), window_id).unwrap();
+        let pty = tty::new(&options, size.into(), window_id)?;
 
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 
-        Self {
-            colors,
-            dim_font_weight: Weight(dim_font_weight),
+        Ok(Self {
             bold_font_weight: Weight(bold_font_weight),
-            use_bright_bold,
-            default_attrs,
             buffer: Arc::new(buffer),
-            size,
-            term,
-            notifier,
+            colors,
             context_menu: None,
-            needs_update: true,
-            search_regex_opt: None,
-            search_value: String::new(),
+            default_attrs,
+            dim_font_weight: Weight(dim_font_weight),
             metadata_set,
             mouse_reporter: Default::default(),
-        }
+            needs_update: true,
+            notifier,
+            profile_id_opt,
+            search_regex_opt: None,
+            search_value: String::new(),
+            size,
+            term,
+            use_bright_bold,
+        })
     }
 
     pub fn buffer_weak(&self) -> Weak<Buffer> {
@@ -550,7 +556,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(config.syntax_theme()) {
+        if let Some(colors) = themes.get(config.syntax_theme(self.profile_id_opt)) {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {
