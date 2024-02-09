@@ -45,6 +45,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
         Key::Character("X".into()),
         PaneToggleMaximized
     );
+    bind!([Ctrl, Alt], Key::Character("p".into()), PasswordManager);
 
     // Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs
     // Ctrl+Tab is not a special key for terminals and is free to use
