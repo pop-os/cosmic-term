@@ -65,6 +65,8 @@ use terminal_box::terminal_box;
 use crate::dnd::DndDrop;
 mod terminal_box;
 
+#[cfg(feature = "password_manager")]
+mod password_manager;
 mod terminal_theme;
 
 mod dnd;
@@ -236,6 +238,8 @@ pub enum Action {
     Profiles,
     SelectAll,
     Settings,
+    #[cfg(feature = "password_manager")]
+    PasswordManager,
     ShowHeaderBar(bool),
     TabActivate0,
     TabActivate1,
@@ -278,6 +282,8 @@ impl Action {
             Self::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
             Self::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Self::PaneToggleMaximized => Message::PaneToggleMaximized,
+            #[cfg(feature = "password_manager")]
+            Self::PasswordManager => Message::ToggleContextPage(ContextPage::PasswordManager),
             Self::Paste => Message::Paste(entity_opt),
             Self::PastePrimary => Message::PastePrimary(entity_opt),
             Self::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
@@ -362,6 +368,10 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     PaneSplit(pane_grid::Axis),
     PaneToggleMaximized,
+    #[cfg(feature = "password_manager")]
+    PasswordManager(password_manager::PasswordManagerMessage),
+    #[cfg(feature = "password_manager")]
+    PasswordPaste(secstr::SecUtf8, pane_grid::Pane),
     Paste(Option<segmented_button::Entity>),
     PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
@@ -412,6 +422,8 @@ pub enum ContextPage {
     ColorSchemes(ColorSchemeKind),
     Profiles,
     Settings,
+    #[cfg(feature = "password_manager")]
+    PasswordManager,
 }
 
 /// The [`App`] stores application-specific state.
@@ -456,6 +468,8 @@ pub struct App {
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
+    #[cfg(feature = "password_manager")]
+    password_mgr: password_manager::PasswordManager,
 }
 
 impl App {
@@ -1569,6 +1583,8 @@ impl Application for App {
             profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
+            #[cfg(feature = "password_manager")]
+            password_mgr: Default::default(),
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -1582,6 +1598,10 @@ impl Application for App {
         if self.core.window.show_context {
             // Close context drawer if open
             self.core.window.show_context = false;
+            #[cfg(feature = "password_manager")]
+            if self.context_page == ContextPage::PasswordManager {
+                self.password_mgr.clear();
+            }
         } else if self.find {
             // Close find if open
             self.find = false;
@@ -1596,6 +1616,10 @@ impl Application for App {
         if self.core.window.show_context {
             Task::none()
         } else {
+            #[cfg(feature = "password_manager")]
+            if self.context_page == ContextPage::PasswordManager {
+                self.password_mgr.clear();
+            }
             self.update_focus()
         }
     }
@@ -2147,6 +2171,23 @@ impl Application for App {
                 self.pane_model.panes.drop(pane, target);
             }
             Message::PaneDragged(_) => {}
+            #[cfg(feature = "password_manager")]
+            Message::PasswordManager(msg) => {
+                return self.password_mgr.update(msg);
+            }
+            #[cfg(feature = "password_manager")]
+            Message::PasswordPaste(password, pane) => {
+                if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        terminal.paste(password.into_unsecure());
+                        terminal.input_scroll(b"\n".as_slice());
+                        self.core.window.show_context = false;
+                        self.password_mgr.clear();
+                    }
+                }
+            }
             Message::Paste(entity_opt) => {
                 return clipboard::read().map(move |value_opt| match value_opt {
                     Some(value) => action::app(Message::PasteValue(entity_opt, value)),
@@ -2612,6 +2653,16 @@ impl Application for App {
                             ColorSchemeKind::Light => light_entity,
                         });
                 }
+
+                #[cfg(feature = "password_manager")]
+                if ContextPage::PasswordManager == context_page {
+                    if self.core.window.show_context {
+                        self.password_mgr.pane = Some(self.pane_model.focused());
+                        return self.password_mgr.refresh_password_list();
+                    } else {
+                        self.password_mgr.clear();
+                    }
+                }
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
                 config_set!(default_profile, default.then_some(profile_id));
@@ -2685,6 +2736,12 @@ impl Application for App {
                 Message::ToggleContextPage(ContextPage::Settings),
             )
             .title(fl!("settings")),
+            #[cfg(feature = "password_manager")]
+            ContextPage::PasswordManager => context_drawer::context_drawer(
+                self.password_mgr.context_page(self.core.system_theme()),
+                Message::ToggleContextPage(ContextPage::PasswordManager),
+            )
+            .title(fl!("passwords-title")),
         })
     }
 
