@@ -816,7 +816,11 @@ impl App {
         .into()
     }
 
-    fn create_and_focus_new_terminal(&mut self, pane: pane_grid::Pane) {
+    fn create_and_focus_new_terminal(
+        &mut self,
+        pane: pane_grid::Pane,
+        profile_id_opt: Option<ProfileId>,
+    ) -> Command<Message> {
         self.pane_model.focus = pane;
         match &self.term_event_tx_opt {
             Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
@@ -829,8 +833,26 @@ impl App {
                             .closable()
                             .activate()
                             .id();
-                        // Use the startup options, or defaults
-                        let options = self.startup_options.take().unwrap_or_default();
+                        // Use the profile options, startup options, or defaults
+                        let options = match profile_id_opt
+                            .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                        {
+                            Some(profile) => tty::Options {
+                                shell: if !profile.command.is_empty() {
+                                    Some(tty::Shell::new(
+                                        profile.command.clone(),
+                                        /*TODO: break into arguments */ Vec::new(),
+                                    ))
+                                } else {
+                                    None
+                                },
+                                //TODO: configurable working directory?
+                                working_directory: None,
+                                //TODO: configurable hold (keep open when child exits)?
+                                hold: false,
+                            },
+                            None => self.startup_options.take().unwrap_or_default(),
+                        };
                         let mut terminal = Terminal::new(
                             current_pane,
                             entity,
@@ -858,6 +880,7 @@ impl App {
                 log::warn!("tried to create new tab before having event channel");
             }
         }
+        return self.update_title(Some(pane));
     }
 }
 
@@ -1255,9 +1278,9 @@ impl Application for App {
                 );
                 if let Some((pane, _)) = result {
                     self.terminal_ids.insert(pane, widget::Id::unique());
-                    self.create_and_focus_new_terminal(pane);
+                    let command = self.create_and_focus_new_terminal(pane, None);
                     self.pane_model.panes_created += 1;
-                    return self.update_title(Some(pane));
+                    return command;
                 }
             }
             Message::PaneToggleMaximized => {
@@ -1332,9 +1355,7 @@ impl Application for App {
                 return self.save_profiles();
             }
             Message::ProfileOpen(profile_id) => {
-                if let Some(profile) = self.config.profiles.get(&profile_id) {
-                    log::info!("TODO: open with profile {:?}", profile);
-                }
+                return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
             }
             Message::ProfileSyntaxTheme(profile_id, theme_i, dark) => {
                 match self.theme_names.get(theme_i) {
@@ -1497,7 +1518,9 @@ impl Application for App {
                 self.pane_model.focus = pane;
                 return self.update_title(Some(pane));
             }
-            Message::TabNew => self.create_and_focus_new_terminal(self.pane_model.focus),
+            Message::TabNew => {
+                return self.create_and_focus_new_terminal(self.pane_model.focus, None)
+            }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let len = tab_model.iter().count();
