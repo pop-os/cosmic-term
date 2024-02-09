@@ -6,7 +6,7 @@ use alacritty_terminal::{
 };
 use cosmic::{
     app::{message, Command, Core, Settings},
-    cosmic_config::{self, CosmicConfigEntry},
+    cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
         advanced::graphics::text::font_system,
@@ -29,7 +29,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use config::{AppTheme, Config, CONFIG_VERSION};
+use config::{AppTheme, Config, Profile, ProfileId, CONFIG_VERSION};
 mod config;
 mod mouse_reporter;
 
@@ -175,6 +175,8 @@ pub enum Action {
     PaneSplitVertical,
     PaneToggleMaximized,
     Paste,
+    ProfileOpen(ProfileId),
+    Profiles,
     SelectAll,
     Settings,
     ShowHeaderBar(bool),
@@ -211,6 +213,8 @@ impl Action {
             Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
+            Action::ProfileOpen(profile_id) => Message::ProfileOpen(profile_id),
+            Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
@@ -264,6 +268,14 @@ pub enum Message {
     MouseEnter(pane_grid::Pane),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
+    ProfileCollapse(ProfileId),
+    ProfileCommand(ProfileId, String),
+    ProfileExpand(ProfileId),
+    ProfileName(ProfileId, String),
+    ProfileNew,
+    ProfileOpen(ProfileId),
+    ProfileSyntaxTheme(ProfileId, usize, bool),
+    ProfileTabTitle(ProfileId, String),
     SelectAll(Option<segmented_button::Entity>),
     UseBrightBold(bool),
     ShowHeaderBar(bool),
@@ -291,12 +303,14 @@ pub enum Message {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContextPage {
+    Profiles,
     Settings,
 }
 
 impl ContextPage {
     fn title(&self) -> String {
         match self {
+            Self::Profiles => fl!("profiles"),
             Self::Settings => fl!("settings"),
         }
     }
@@ -333,6 +347,7 @@ pub struct App {
     term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: TermConfig,
+    profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
 }
@@ -365,6 +380,19 @@ impl App {
             }
         }
         self.update_config()
+    }
+
+    fn save_profiles(&mut self) -> Command<Message> {
+        // Optimized for just saving profiles
+        if let Some(ref config_handler) = self.config_handler {
+            match config_handler.set("profiles", &self.config.profiles) {
+                Ok(()) => {}
+                Err(err) => {
+                    log::error!("failed to save config: {}", err);
+                }
+            }
+        }
+        Command::none()
     }
 
     fn update_focus(&self) -> Command<Message> {
@@ -474,6 +502,136 @@ impl App {
         {
             self.config.bold_font_weight = Weight::BOLD.0;
         }
+    }
+
+    fn profiles(&self) -> Element<Message> {
+        let cosmic_theme::Spacing {
+            space_s,
+            space_xs,
+            space_xxxs,
+            ..
+        } = self.core().system_theme().cosmic().spacing;
+
+        let mut sections = Vec::with_capacity(2);
+
+        if !self.config.profiles.is_empty() {
+            let mut profiles_section = widget::settings::view_section("");
+            for (profile_name, profile_id) in self.config.profile_names() {
+                let profile = match self.config.profiles.get(&profile_id) {
+                    Some(some) => some,
+                    None => continue,
+                };
+
+                let expanded = self.profile_expanded == Some(profile_id);
+
+                profiles_section = profiles_section.add(
+                    widget::settings::item::builder(profile_name).control(if expanded {
+                        widget::button(icon_cache_get("go-up-symbolic", 16))
+                            .on_press(Message::ProfileCollapse(profile_id))
+                            .style(style::Button::Icon)
+                    } else {
+                        widget::button(icon_cache_get("go-down-symbolic", 16))
+                            .on_press(Message::ProfileExpand(profile_id))
+                            .style(style::Button::Icon)
+                    }),
+                );
+
+                if expanded {
+                    let dark_selected = self
+                        .theme_names
+                        .iter()
+                        .position(|theme_name| theme_name == &profile.syntax_theme_dark);
+                    let light_selected = self
+                        .theme_names
+                        .iter()
+                        .position(|theme_name| theme_name == &profile.syntax_theme_light);
+
+                    let expanded_section = widget::settings::view_section("")
+                        .add(
+                            widget::column::with_children(vec![
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("name")).into(),
+                                    widget::text_input("", &profile.name)
+                                        .on_input(move |text| {
+                                            Message::ProfileName(profile_id, text)
+                                        })
+                                        .into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("command-line")).into(),
+                                    widget::text_input("", &profile.command)
+                                        .on_input(move |text| {
+                                            Message::ProfileCommand(profile_id, text)
+                                        })
+                                        .into(),
+                                    widget::text::caption(fl!("command-line-description")).into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("tab-title")).into(),
+                                    widget::text_input("", &profile.tab_title)
+                                        .on_input(move |text| {
+                                            Message::ProfileTabTitle(profile_id, text)
+                                        })
+                                        .into(),
+                                    widget::text::caption(fl!("tab-title-description")).into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                            ])
+                            .padding([0, space_s])
+                            .spacing(space_xs),
+                        )
+                        .add(
+                            //TODO: rename to color-scheme-dark?
+                            widget::settings::item::builder(fl!("syntax-dark")).control(
+                                widget::dropdown(
+                                    &self.theme_names,
+                                    dark_selected,
+                                    move |theme_i| {
+                                        Message::ProfileSyntaxTheme(profile_id, theme_i, true)
+                                    },
+                                ),
+                            ),
+                        )
+                        .add(
+                            //TODO: rename to color-scheme-light?
+                            widget::settings::item::builder(fl!("syntax-light")).control(
+                                widget::dropdown(
+                                    &self.theme_names,
+                                    light_selected,
+                                    move |theme_i| {
+                                        Message::ProfileSyntaxTheme(profile_id, theme_i, false)
+                                    },
+                                ),
+                            ),
+                        );
+
+                    let padding = Padding {
+                        top: 0.0,
+                        bottom: 0.0,
+                        left: space_s as f32,
+                        right: space_s as f32,
+                    };
+                    profiles_section =
+                        profiles_section.add(widget::container(expanded_section).padding(padding))
+                }
+            }
+            sections.push(profiles_section.into());
+        }
+
+        let add_profile = widget::row::with_children(vec![
+            widget::horizontal_space(Length::Fill).into(),
+            widget::button(widget::text(fl!("add-profile")))
+                .on_press(Message::ProfileNew)
+                .into(),
+        ]);
+        sections.push(add_profile.into());
+
+        widget::settings::view_column(sections).into()
     }
 
     fn settings(&self) -> Element<Message> {
@@ -864,6 +1022,7 @@ impl Application for App {
             startup_options: flags.startup_options,
             term_config: flags.term_config,
             term_event_tx_opt: None,
+            profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
         };
@@ -1141,6 +1300,64 @@ impl Application for App {
                     }
                 }
                 return self.update_focus();
+            }
+            Message::ProfileCollapse(_profile_id) => {
+                self.profile_expanded = None;
+            }
+            Message::ProfileCommand(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.command = text;
+                    return self.save_profiles();
+                }
+            }
+            Message::ProfileExpand(profile_id) => {
+                self.profile_expanded = Some(profile_id);
+            }
+            Message::ProfileName(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.name = text;
+                    return self.save_profiles();
+                }
+            }
+            Message::ProfileNew => {
+                // Get next profile ID
+                let profile_id = self
+                    .config
+                    .profiles
+                    .last_key_value()
+                    .map(|(id, _)| ProfileId(id.0 + 1))
+                    .unwrap_or_default();
+                self.config.profiles.insert(profile_id, Profile::default());
+                self.profile_expanded = Some(profile_id);
+                return self.save_profiles();
+            }
+            Message::ProfileOpen(profile_id) => {
+                if let Some(profile) = self.config.profiles.get(&profile_id) {
+                    log::info!("TODO: open with profile {:?}", profile);
+                }
+            }
+            Message::ProfileSyntaxTheme(profile_id, theme_i, dark) => {
+                match self.theme_names.get(theme_i) {
+                    Some(theme_name) => {
+                        if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                            if dark {
+                                profile.syntax_theme_dark = theme_name.to_string();
+                            } else {
+                                profile.syntax_theme_light = theme_name.to_string();
+                            }
+                            return self.save_profiles();
+                        }
+                    }
+                    None => {
+                        log::warn!("failed to find syntax theme with index {}", theme_i);
+                    }
+                }
+            }
+            Message::ProfileTabTitle(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.tab_title = text;
+                    return self.save_profiles();
+                }
             }
             Message::SelectAll(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -1449,17 +1666,18 @@ impl Application for App {
         }
 
         Some(match self.context_page {
+            ContextPage::Profiles => self.profiles(),
             ContextPage::Settings => self.settings(),
         })
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.key_binds)]
+        vec![menu_bar(&self.config, &self.key_binds)]
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-        vec![widget::button(widget::icon::from_name("list-add-symbolic"))
+        vec![widget::button(icon_cache_get("list-add-symbolic", 16))
             .on_press(Message::TabNew)
             .padding(space_xxs)
             .style(style::Button::Icon)
