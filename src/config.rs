@@ -133,12 +133,23 @@ impl Config {
     }
 
     // Get current syntax theme based on dark mode
-    pub fn syntax_theme(&self) -> &str {
+    pub fn syntax_theme(&self, profile_id_opt: Option<ProfileId>) -> &str {
         let dark = self.app_theme.theme().theme_type.is_dark();
-        if dark {
-            &self.syntax_theme_dark
-        } else {
-            &self.syntax_theme_light
+        match profile_id_opt.and_then(|profile_id| self.profiles.get(&profile_id)) {
+            Some(profile) => {
+                if dark {
+                    &profile.syntax_theme_dark
+                } else {
+                    &profile.syntax_theme_light
+                }
+            }
+            None => {
+                if dark {
+                    &self.syntax_theme_dark
+                } else {
+                    &self.syntax_theme_light
+                }
+            }
         }
     }
 

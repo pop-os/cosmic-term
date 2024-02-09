@@ -38,7 +38,10 @@ use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
-use crate::{config::Config as AppConfig, mouse_reporter::MouseReporter};
+use crate::{
+    config::{Config as AppConfig, ProfileId},
+    mouse_reporter::MouseReporter,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -187,21 +190,22 @@ impl Metadata {
 }
 
 pub struct Terminal {
-    default_attrs: Attrs<'static>,
-    buffer: Arc<Buffer>,
-    size: Size,
-    pub term: Arc<FairMutex<Term<EventProxy>>>,
-    colors: Colors,
-    dim_font_weight: Weight,
-    bold_font_weight: Weight,
-    use_bright_bold: bool,
-    notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
+    pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
+    pub term: Arc<FairMutex<Term<EventProxy>>>,
+    bold_font_weight: Weight,
+    buffer: Arc<Buffer>,
+    colors: Colors,
+    default_attrs: Attrs<'static>,
+    dim_font_weight: Weight,
+    mouse_reporter: MouseReporter,
+    notifier: Notifier,
+    profile_id_opt: Option<ProfileId>,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
-    pub metadata_set: IndexSet<Metadata>,
-    mouse_reporter: MouseReporter,
+    size: Size,
+    use_bright_bold: bool,
 }
 
 impl Terminal {
@@ -214,6 +218,7 @@ impl Terminal {
         options: Options,
         app_config: &AppConfig,
         colors: Colors,
+        profile_id_opt: Option<ProfileId>,
     ) -> Self {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
@@ -274,21 +279,22 @@ impl Terminal {
         let _pty_join_handle = pty_event_loop.spawn();
 
         Self {
-            colors,
-            dim_font_weight: Weight(dim_font_weight),
             bold_font_weight: Weight(bold_font_weight),
-            use_bright_bold,
-            default_attrs,
             buffer: Arc::new(buffer),
-            size,
-            term,
-            notifier,
+            colors,
             context_menu: None,
-            needs_update: true,
-            search_regex_opt: None,
-            search_value: String::new(),
+            default_attrs,
+            dim_font_weight: Weight(dim_font_weight),
             metadata_set,
             mouse_reporter: Default::default(),
+            needs_update: true,
+            notifier,
+            profile_id_opt,
+            search_regex_opt: None,
+            search_value: String::new(),
+            size,
+            term,
+            use_bright_bold,
         }
     }
 
@@ -550,7 +556,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(config.syntax_theme()) {
+        if let Some(colors) = themes.get(config.syntax_theme(self.profile_id_opt)) {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {

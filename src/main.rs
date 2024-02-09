@@ -823,59 +823,62 @@ impl App {
     ) -> Command<Message> {
         self.pane_model.focus = pane;
         match &self.term_event_tx_opt {
-            Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
-                Some(colors) => {
-                    let current_pane = self.pane_model.focus;
-                    if let Some(tab_model) = self.pane_model.active_mut() {
-                        let entity = tab_model
-                            .insert()
-                            .text("New Terminal")
-                            .closable()
-                            .activate()
-                            .id();
-                        // Use the profile options, startup options, or defaults
-                        let options = match profile_id_opt
-                            .and_then(|profile_id| self.config.profiles.get(&profile_id))
-                        {
-                            Some(profile) => tty::Options {
-                                shell: if !profile.command.is_empty() {
-                                    Some(tty::Shell::new(
-                                        profile.command.clone(),
-                                        /*TODO: break into arguments */ Vec::new(),
-                                    ))
-                                } else {
-                                    None
+            Some(term_event_tx) => {
+                match self.themes.get(self.config.syntax_theme(profile_id_opt)) {
+                    Some(colors) => {
+                        let current_pane = self.pane_model.focus;
+                        if let Some(tab_model) = self.pane_model.active_mut() {
+                            let entity = tab_model
+                                .insert()
+                                .text("New Terminal")
+                                .closable()
+                                .activate()
+                                .id();
+                            // Use the profile options, startup options, or defaults
+                            let options = match profile_id_opt
+                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                            {
+                                Some(profile) => tty::Options {
+                                    shell: if !profile.command.is_empty() {
+                                        Some(tty::Shell::new(
+                                            profile.command.clone(),
+                                            /*TODO: break into arguments */ Vec::new(),
+                                        ))
+                                    } else {
+                                        None
+                                    },
+                                    //TODO: configurable working directory?
+                                    working_directory: None,
+                                    //TODO: configurable hold (keep open when child exits)?
+                                    hold: false,
                                 },
-                                //TODO: configurable working directory?
-                                working_directory: None,
-                                //TODO: configurable hold (keep open when child exits)?
-                                hold: false,
-                            },
-                            None => self.startup_options.take().unwrap_or_default(),
-                        };
-                        let mut terminal = Terminal::new(
-                            current_pane,
-                            entity,
-                            term_event_tx.clone(),
-                            self.term_config.clone(),
-                            options,
-                            &self.config,
-                            *colors,
+                                None => self.startup_options.take().unwrap_or_default(),
+                            };
+                            let mut terminal = Terminal::new(
+                                current_pane,
+                                entity,
+                                term_event_tx.clone(),
+                                self.term_config.clone(),
+                                options,
+                                &self.config,
+                                *colors,
+                                profile_id_opt,
+                            );
+                            terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                            tab_model.data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                        } else {
+                            log::error!("Found no active pane");
+                        }
+                    }
+                    None => {
+                        log::error!(
+                            "failed to find terminal theme {:?}",
+                            self.config.syntax_theme(profile_id_opt)
                         );
-                        terminal.set_config(&self.config, &self.themes, self.zoom_adj);
-                        tab_model.data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
-                    } else {
-                        log::error!("Found no active pane");
+                        //TODO: fall back to known good theme
                     }
                 }
-                None => {
-                    log::error!(
-                        "failed to find terminal theme {:?}",
-                        self.config.syntax_theme()
-                    );
-                    //TODO: fall back to known good theme
-                }
-            },
+            }
             None => {
                 log::warn!("tried to create new tab before having event channel");
             }
