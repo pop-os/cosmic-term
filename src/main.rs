@@ -850,20 +850,22 @@ impl App {
                             let options = match profile_id_opt
                                 .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
-                                Some(profile) => tty::Options {
-                                    shell: if !profile.command.is_empty() {
-                                        Some(tty::Shell::new(
-                                            profile.command.clone(),
-                                            /*TODO: break into arguments */ Vec::new(),
-                                        ))
-                                    } else {
-                                        None
-                                    },
-                                    //TODO: configurable working directory?
-                                    working_directory: None,
-                                    //TODO: configurable hold (keep open when child exits)?
-                                    hold: false,
-                                },
+                                Some(profile) => {
+                                    let mut shell = None;
+                                    if let Some(mut args) = shlex::split(&profile.command) {
+                                        if !args.is_empty() {
+                                            let command = args.remove(0);
+                                            shell = Some(tty::Shell::new(command, args));
+                                        }
+                                    }
+                                    tty::Options {
+                                        shell,
+                                        //TODO: configurable working directory?
+                                        working_directory: None,
+                                        //TODO: configurable hold (keep open when child exits)?
+                                        hold: false,
+                                    }
+                                }
                                 None => self.startup_options.take().unwrap_or_default(),
                             };
                             match Terminal::new(
