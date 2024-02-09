@@ -274,6 +274,7 @@ pub enum Message {
     ProfileName(ProfileId, String),
     ProfileNew,
     ProfileOpen(ProfileId),
+    ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, usize, bool),
     ProfileTabTitle(ProfileId, String),
     SelectAll(Option<segmented_button::Entity>),
@@ -508,6 +509,7 @@ impl App {
         let cosmic_theme::Spacing {
             space_s,
             space_xs,
+            space_xxs,
             space_xxxs,
             ..
         } = self.core().system_theme().cosmic().spacing;
@@ -525,15 +527,25 @@ impl App {
                 let expanded = self.profile_expanded == Some(profile_id);
 
                 profiles_section = profiles_section.add(
-                    widget::settings::item::builder(profile_name).control(if expanded {
-                        widget::button(icon_cache_get("go-up-symbolic", 16))
-                            .on_press(Message::ProfileCollapse(profile_id))
+                    widget::settings::item::builder(profile_name).control(
+                        widget::row::with_children(vec![
+                            widget::button(icon_cache_get("edit-delete-symbolic", 16))
+                                .on_press(Message::ProfileRemove(profile_id))
+                                .style(style::Button::Icon)
+                                .into(),
+                            if expanded {
+                                widget::button(icon_cache_get("go-up-symbolic", 16))
+                                    .on_press(Message::ProfileCollapse(profile_id))
+                            } else {
+                                widget::button(icon_cache_get("go-down-symbolic", 16))
+                                    .on_press(Message::ProfileExpand(profile_id))
+                            }
                             .style(style::Button::Icon)
-                    } else {
-                        widget::button(icon_cache_get("go-down-symbolic", 16))
-                            .on_press(Message::ProfileExpand(profile_id))
-                            .style(style::Button::Icon)
-                    }),
+                            .into(),
+                        ])
+                        .align_items(Alignment::Center)
+                        .spacing(space_xxs),
+                    ),
                 );
 
                 if expanded {
@@ -854,7 +866,7 @@ impl App {
                                 },
                                 None => self.startup_options.take().unwrap_or_default(),
                             };
-                            let mut terminal = Terminal::new(
+                            match Terminal::new(
                                 current_pane,
                                 entity,
                                 term_event_tx.clone(),
@@ -863,9 +875,18 @@ impl App {
                                 &self.config,
                                 *colors,
                                 profile_id_opt,
-                            );
-                            terminal.set_config(&self.config, &self.themes, self.zoom_adj);
-                            tab_model.data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                            ) {
+                                Ok(mut terminal) => {
+                                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                                    tab_model
+                                        .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                }
+                                Err(err) => {
+                                    log::error!("failed to open terminal: {}", err);
+                                    // Clean up partially created tab
+                                    return self.update(Message::TabClose(Some(entity)));
+                                }
+                            }
                         } else {
                             log::error!("Found no active pane");
                         }
@@ -1359,6 +1380,21 @@ impl Application for App {
             }
             Message::ProfileOpen(profile_id) => {
                 return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
+            }
+            Message::ProfileRemove(profile_id) => {
+                // Reset matching terminals to default profile
+                for (_pane, tab_model) in self.pane_model.panes.iter() {
+                    for entity in tab_model.iter() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            if terminal.profile_id_opt == Some(profile_id) {
+                                terminal.profile_id_opt = None;
+                            }
+                        }
+                    }
+                }
+                self.config.profiles.remove(&profile_id);
+                return self.save_profiles();
             }
             Message::ProfileSyntaxTheme(profile_id, theme_i, dark) => {
                 match self.theme_names.get(theme_i) {

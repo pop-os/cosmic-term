@@ -27,7 +27,7 @@ use indexmap::IndexSet;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    mem,
+    io, mem,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Weak,
@@ -193,6 +193,7 @@ pub struct Terminal {
     pub context_menu: Option<cosmic::iced::Point>,
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
+    pub profile_id_opt: Option<ProfileId>,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
@@ -201,7 +202,6 @@ pub struct Terminal {
     dim_font_weight: Weight,
     mouse_reporter: MouseReporter,
     notifier: Notifier,
-    profile_id_opt: Option<ProfileId>,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
     size: Size,
@@ -219,7 +219,7 @@ impl Terminal {
         app_config: &AppConfig,
         colors: Colors,
         profile_id_opt: Option<ProfileId>,
-    ) -> Self {
+    ) -> Result<Self, io::Error> {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
         let dim_font_weight = app_config.dim_font_weight;
@@ -272,13 +272,13 @@ impl Terminal {
         )));
 
         let window_id = 0;
-        let pty = tty::new(&options, size.into(), window_id).unwrap();
+        let pty = tty::new(&options, size.into(), window_id)?;
 
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 
-        Self {
+        Ok(Self {
             bold_font_weight: Weight(bold_font_weight),
             buffer: Arc::new(buffer),
             colors,
@@ -295,7 +295,7 @@ impl Terminal {
             size,
             term,
             use_bright_bold,
-        }
+        })
     }
 
     pub fn buffer_weak(&self) -> Weak<Buffer> {
