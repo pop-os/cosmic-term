@@ -17,7 +17,7 @@ use cosmic::{
         window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
     style,
-    widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
+    widget::{self, button, pane_grid, segmented_button, PaneGrid},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
@@ -934,7 +934,6 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
         // Update font name from config
@@ -1897,12 +1896,7 @@ impl Application for App {
         .on_resize(space_xxs, Message::PaneResized)
         .on_drag(Message::PaneDragged);
 
-        container(pane_grid)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(space_xxs)
-            .style(style::Container::Background)
-            .into()
+        pane_grid.into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
