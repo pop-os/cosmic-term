@@ -357,11 +357,22 @@ pub struct App {
 
 impl App {
     fn update_config(&mut self) -> Command<Message> {
-        //TODO: provide iterator over data
-        let panes: Vec<_> = self.pane_model.panes.iter().collect();
-        for (_pane, tab_model) in panes {
-            let entities: Vec<_> = tab_model.iter().collect();
-            for entity in entities {
+        let theme = self.config.app_theme.theme();
+
+        // Update terminal window background color
+        {
+            let color = Color::from(theme.cosmic().background.base);
+            let bytes = color.into_rgba8();
+            let data = (bytes[2] as u32)
+                | ((bytes[1] as u32) << 8)
+                | ((bytes[0] as u32) << 16)
+                | 0xFF000000;
+            terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
+        }
+
+        // Set config of all tabs
+        for (_pane, tab_model) in self.pane_model.panes.iter() {
+            for entity in tab_model.iter() {
                 if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
                     terminal.set_config(&self.config, &self.themes, self.zoom_adj);
@@ -369,8 +380,11 @@ impl App {
             }
         }
 
+        // Set headerbar state
         self.core.window.show_headerbar = self.config.show_headerbar;
-        cosmic::app::command::set_theme(self.config.app_theme.theme())
+
+        // Update application theme
+        cosmic::app::command::set_theme(theme)
     }
 
     fn save_config(&mut self) -> Command<Message> {
@@ -1085,7 +1099,10 @@ impl Application for App {
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = app.update_title(None);
+        let command = Command::batch([
+            app.update_config(),
+            app.update_title(None)
+        ]);
 
         (app, command)
     }
@@ -1785,31 +1802,7 @@ impl Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
-        let cosmic_theme = self.core().system_theme().cosmic();
-        let cosmic_theme::Spacing { space_xxs, .. } = cosmic_theme.spacing;
-
-        {
-            // Update terminal window color
-            //TODO: do this only when theme changes?
-            let color = Color::from(cosmic_theme.background.base);
-            let bytes = color.into_rgba8();
-            let data = (bytes[2] as u32)
-                | ((bytes[1] as u32) << 8)
-                | ((bytes[0] as u32) << 16)
-                | 0xFF000000;
-            if terminal::WINDOW_BG_COLOR.swap(data, Ordering::SeqCst) != data {
-                // If window bg color changed, update terminal colors
-                for (_pane, tab_model) in self.pane_model.panes.iter() {
-                    for entity in tab_model.iter() {
-                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.update_colors(&self.config);
-                            terminal.update();
-                        }
-                    }
-                }
-            }
-        }
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
 
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
