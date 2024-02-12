@@ -70,6 +70,7 @@ pub struct Config {
     pub bold_font_weight: u16,
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
+    pub opacity: u8,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub use_bright_bold: bool,
@@ -90,6 +91,7 @@ impl Default for Config {
             font_size_zoom_step_mul_100: 100,
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
+            opacity: 100,
             profiles: BTreeMap::new(),
             show_headerbar: true,
             syntax_theme_dark: "COSMIC Dark".to_string(),
@@ -112,6 +114,10 @@ impl Config {
         let font_size = self.font_size_adjusted(zoom_adj);
         let line_height = (font_size * 1.4).ceil();
         Metrics::new(font_size, line_height)
+    }
+
+    pub fn opacity_ratio(&self) -> f32 {
+        (self.opacity as f32) / 100.0
     }
 
     // Get a sorted and adjusted for duplicates list of profiles names and ids

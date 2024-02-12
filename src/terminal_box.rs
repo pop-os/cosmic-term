@@ -44,11 +44,13 @@ use crate::{terminal::Metadata, Terminal, TerminalScroll};
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
     id: Option<Id>,
+    border: Border,
     padding: Padding,
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
+    opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
 }
 
@@ -60,17 +62,24 @@ where
         Self {
             terminal,
             id: None,
+            border: Border::default(),
             padding: Padding::new(0.0),
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
             on_mouse_enter: None,
+            opacity: None,
             mouse_inside_boundary: None,
         }
     }
 
     pub fn id(mut self, id: Id) -> Self {
         self.id = Some(id);
+        self
+    }
+
+    pub fn border<B: Into<Border>>(mut self, border: B) -> Self {
+        self.border = border.into();
         self
     }
 
@@ -99,6 +108,11 @@ where
 
     pub fn on_mouse_enter(mut self, on_mouse_enter: impl Fn() -> Message + 'a) -> Self {
         self.on_mouse_enter = Some(Box::new(on_mouse_enter));
+        self
+    }
+
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = Some(opacity);
         self
     }
 }
@@ -248,17 +262,18 @@ where
 
             renderer.fill_quad(
                 Quad {
-                    bounds: Rectangle::new(
-                        view_position,
-                        Size::new(view_w as f32 + scrollbar_w, view_h as f32),
-                    ),
+                    bounds: layout.bounds(),
+                    border: self.border,
                     ..Default::default()
                 },
                 Color::new(
                     background_color.r() as f32 / 255.0,
                     background_color.g() as f32 / 255.0,
                     background_color.b() as f32 / 255.0,
-                    background_color.a() as f32 / 255.0,
+                    match self.opacity {
+                        Some(opacity) => opacity,
+                        None => background_color.a() as f32 / 255.0,
+                    },
                 ),
             );
         }
@@ -301,10 +316,6 @@ where
                         renderer: &mut Renderer,
                         is_focused: bool,
                     ) {
-                        if self.metadata == self.default_metadata {
-                            return;
-                        }
-
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::new(
                                 color.r() as f32 / 255.0,
@@ -339,11 +350,13 @@ where
                         }
 
                         let metadata = &self.metadata_set[self.metadata];
-                        let color = shade(metadata.bg, is_focused);
-                        renderer.fill_quad(
-                            mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
-                            cosmic_text_to_iced_color(color),
-                        );
+                        if metadata.bg != self.metadata_set[self.default_metadata].bg {
+                            let color = shade(metadata.bg, is_focused);
+                            renderer.fill_quad(
+                                mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
+                                cosmic_text_to_iced_color(color),
+                            );
+                        }
 
                         if !metadata.flags.is_empty() {
                             let style_line_height =

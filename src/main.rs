@@ -23,6 +23,7 @@ use cosmic::{
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
 use std::{
     any::TypeId,
+    cmp,
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
     sync::{atomic::Ordering, Mutex},
@@ -266,6 +267,7 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
+    Opacity(u8),
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     ProfileCollapse(ProfileId),
@@ -728,8 +730,14 @@ impl App {
                         Message::DefaultZoomStep(index)
                     }),
                 ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("opacity"))
+                    .description(format!("{}%", self.config.opacity))
+                    .control(widget::slider(0..=100, self.config.opacity, |opacity| {
+                        Message::Opacity(opacity)
+                    })),
             );
-        //TODO: background opacity
 
         let mut font_section = widget::settings::view_section(fl!("font"))
             .add(
@@ -934,6 +942,7 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
         // Update font name from config
@@ -1106,6 +1115,33 @@ impl Application for App {
 
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        // Helper for updating config values efficiently
+        macro_rules! config_set {
+            ($name: ident, $value: expr) => {
+                match &self.config_handler {
+                    Some(config_handler) => {
+                        match paste::paste! { self.config.[<set_ $name>](config_handler, $value) } {
+                            Ok(_) => {}
+                            Err(err) => {
+                                log::warn!(
+                                    "failed to save config {:?}: {}",
+                                    stringify!($name),
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    None => {
+                        self.config.$name = $value;
+                        log::warn!(
+                            "failed to save config {:?}: no config handler",
+                            stringify!($name)
+                        );
+                    }
+                }
+            };
+        }
+
         match message {
             Message::AppTheme(app_theme) => {
                 self.config.app_theme = app_theme;
@@ -1291,6 +1327,9 @@ impl Application for App {
                 self.pane_model.focus = pane;
                 return self.update_focus();
             }
+            Message::Opacity(opacity) => {
+                config_set!(opacity, cmp::min(100, opacity));
+            }
             Message::PaneClicked(pane) => {
                 self.pane_model.focus = pane;
                 return self.update_title(Some(pane));
@@ -1443,10 +1482,7 @@ impl Application for App {
                 }
             }
             Message::FocusFollowMouse(focus_follow_mouse) => {
-                if focus_follow_mouse != self.config.focus_follow_mouse {
-                    self.config.focus_follow_mouse = focus_follow_mouse;
-                    return self.save_config();
-                }
+                config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::SystemThemeChange => {
                 return self.update_config();
@@ -1751,10 +1787,11 @@ impl Application for App {
     fn view(&self) -> Element<Self::Message> {
         let cosmic_theme = self.core().system_theme().cosmic();
         let cosmic_theme::Spacing { space_xxs, .. } = cosmic_theme.spacing;
+
         {
             // Update terminal window color
             //TODO: do this only when theme changes?
-            let color = Color::from(cosmic_theme.bg_color());
+            let color = Color::from(cosmic_theme.background.base);
             let bytes = color.into_rgba8();
             let data = (bytes[2] as u32)
                 | ((bytes[1] as u32) << 8)
@@ -1773,6 +1810,7 @@ impl Application for App {
                 }
             }
         }
+
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
@@ -1798,9 +1836,13 @@ impl Application for App {
                 .unwrap_or_else(widget::Id::unique);
             match tab_model.data::<Mutex<Terminal>>(entity) {
                 Some(terminal) => {
-                    let mut terminal_box = terminal_box(terminal).id(terminal_id).on_context_menu(
-                        move |position_opt| Message::TabContextMenu(pane, position_opt),
-                    );
+                    let mut terminal_box = terminal_box(terminal)
+                        .id(terminal_id)
+                        .on_context_menu(move |position_opt| {
+                            Message::TabContextMenu(pane, position_opt)
+                        })
+                        .opacity(self.config.opacity_ratio())
+                        .padding(space_xxs);
 
                     if self.config.focus_follow_mouse {
                         terminal_box =
@@ -1891,11 +1933,11 @@ impl Application for App {
         })
         .width(Length::Fill)
         .height(Length::Fill)
-        .spacing(space_xxs)
         .on_click(Message::PaneClicked)
         .on_resize(space_xxs, Message::PaneResized)
         .on_drag(Message::PaneDragged);
 
+        //TODO: apply window border radius xs at bottom of window
         pane_grid.into()
     }
 

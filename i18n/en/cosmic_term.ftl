@@ -22,6 +22,7 @@ light = Light
 syntax-dark = Color scheme dark
 syntax-light = Color scheme light
 default-zoom-step = Zoom steps
+opacity = Background opacity
 
 ### Font
 font = Font
