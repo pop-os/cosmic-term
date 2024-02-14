@@ -35,11 +35,16 @@ use indexmap::IndexSet;
 use std::{
     cell::Cell,
     cmp,
+    collections::HashMap,
     sync::Mutex,
     time::{Duration, Instant},
 };
 
-use crate::{terminal::Metadata, Terminal, TerminalScroll};
+use crate::{
+    key_bind::{key_binds, KeyBind},
+    terminal::Metadata,
+    Action, Terminal, TerminalScroll,
+};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -52,6 +57,7 @@ pub struct TerminalBox<'a, Message> {
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
+    key_binds: HashMap<KeyBind, Action>,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -70,6 +76,7 @@ where
             on_mouse_enter: None,
             opacity: None,
             mouse_inside_boundary: None,
+            key_binds: key_binds(),
         }
     }
 
@@ -595,6 +602,11 @@ where
                 modifiers,
                 ..
             }) if state.is_focused => {
+                for (key_bind, _) in self.key_binds.iter() {
+                    if key_bind.matches(modifiers, &Key::Named(named)) {
+                        return Status::Captured;
+                    }
+                }
                 let mod_no = calculate_modifier_number(state);
                 let escape_code = match named {
                     Named::Insert => csi("2", "~", mod_no),
@@ -716,6 +728,11 @@ where
                 key,
                 ..
             }) if state.is_focused => {
+                for (key_bind, _) in self.key_binds.iter() {
+                    if key_bind.matches(modifiers, &key) {
+                        return Status::Captured;
+                    }
+                }
                 //Tab and Delete is handled by the KeyPress event
                 let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
                 if character as u32 == 9 || character as u32 == 127 {

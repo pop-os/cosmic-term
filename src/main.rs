@@ -1099,10 +1099,7 @@ impl Application for App {
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = Command::batch([
-            app.update_config(),
-            app.update_title(None)
-        ]);
+        let command = Command::batch([app.update_config(), app.update_title(None)]);
 
         (app, command)
     }
