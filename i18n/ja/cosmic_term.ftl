@@ -1,5 +1,15 @@
 # Context Pages
 
+## Profiles
+profiles = プロファイル
+name = 名前
+command-line = コマンドライン
+command-line-description = 設定されると、このコマンドラインを実行します
+tab-title = タブのイトル
+tab-title-description = デフォルトのタブタイトルを無効にします
+add-profile = プロファイルを追加
+new-profile = 新しいプロファイル
+
 ## Settings
 settings = 設定
 
@@ -7,11 +17,12 @@ settings = 設定
 appearance = 外観
 theme = テーマ
 match-desktop = システム設定に従う
-dark = ダークテーマ
-light = ライトテーマ
+dark = ダーク
+light = ライト
 syntax-dark = ダークシンタックスハイライト
 syntax-light = ライトシンタックスハイライト
 default-zoom-step = 拡大縮小の間隔
+opacity = Background opacity
 
 ### Font
 font = フォント
@@ -44,6 +55,8 @@ find-next = 次を検索
 file = ファイル
 new-tab = 新しいタブ
 new-window = 新しいウィンドウ
+profile = プロファイル
+menu-profiles = プロファイル...
 close-tab = タブを閉じる
 quit = 終了
 
