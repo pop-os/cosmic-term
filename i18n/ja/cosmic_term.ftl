@@ -22,7 +22,7 @@ light = ライト
 syntax-dark = ダークシンタックスハイライト
 syntax-light = ライトシンタックスハイライト
 default-zoom-step = 拡大縮小の間隔
-opacity = Background opacity
+opacity = 不透明度
 
 ### Font
 font = フォント
