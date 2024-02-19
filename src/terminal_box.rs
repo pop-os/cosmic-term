@@ -677,21 +677,20 @@ where
                 //Special handle Enter, Escape, Backspace and Tab as described in
                 //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
                 //Also special handle Ctrl-_ to behave like xterm
-                //Let CharacterRecieved event handle Ctrl keys if possible
                 let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
                 match named {
-                    Named::Backspace if !modifiers.control() => {
-                        let code = "\x7f";
+                    Named::Backspace => {
+                        let code = if modifiers.control() { "\x08" } else { "\x7f" };
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    Named::Enter if !modifiers.control() => {
+                    Named::Enter => {
                         terminal
                             .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    Named::Escape if !modifiers.control() => {
+                    Named::Escape => {
                         //Escape with any modifier will cancel selection
                         let had_selection = {
                             let mut term = terminal.term.lock();
@@ -706,7 +705,7 @@ where
                         }
                         status = Status::Captured;
                     }
-                    Named::Space if !modifiers.control() => {
+                    Named::Space => {
                         terminal.input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
                         status = Status::Captured;
                     }
@@ -733,11 +732,7 @@ where
                         return Status::Captured;
                     }
                 }
-                //Tab and Delete is handled by the KeyPress event
                 let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
-                if character as u32 == 9 || character as u32 == 127 {
-                    return status;
-                }
                 match (
                     modifiers.logo(),
                     modifiers.control(),
