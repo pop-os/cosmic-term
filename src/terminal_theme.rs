@@ -2,9 +2,11 @@ use alacritty_terminal::{
     term::color::Colors,
     vte::ansi::{NamedColor, Rgb},
 };
-
+use hex_color::HexColor;
 use palette::{encoding::Srgb, rgb::Rgb as PRgb, FromColor, Okhsl};
 use std::collections::HashMap;
+
+use crate::config::{ColorScheme, ColorSchemeAnsi};
 
 // Fill missing dim/bright colors with derived values from normal ones.
 struct ColorDerive {
@@ -136,6 +138,110 @@ fn auto_colors() -> Colors {
     }
 
     colors
+}
+
+impl From<&ColorScheme> for Colors {
+    fn from(color_scheme: &ColorScheme) -> Self {
+        let mut colors = auto_colors();
+
+        let encode_rgb = |rgb_opt: Option<HexColor>| -> Option<Rgb> {
+            let rgb = rgb_opt?;
+            Some(Rgb {
+                r: rgb.r,
+                g: rgb.g,
+                b: rgb.b,
+            })
+        };
+
+        // Set normal colors
+        colors[NamedColor::Black] = encode_rgb(color_scheme.normal.black);
+        colors[NamedColor::Red] = encode_rgb(color_scheme.normal.red);
+        colors[NamedColor::Green] = encode_rgb(color_scheme.normal.green);
+        colors[NamedColor::Yellow] = encode_rgb(color_scheme.normal.yellow);
+        colors[NamedColor::Blue] = encode_rgb(color_scheme.normal.blue);
+        colors[NamedColor::Magenta] = encode_rgb(color_scheme.normal.magenta);
+        colors[NamedColor::Cyan] = encode_rgb(color_scheme.normal.cyan);
+        colors[NamedColor::White] = encode_rgb(color_scheme.normal.white);
+
+        // Set bright colors
+        colors[NamedColor::BrightBlack] = encode_rgb(color_scheme.bright.black);
+        colors[NamedColor::BrightRed] = encode_rgb(color_scheme.bright.red);
+        colors[NamedColor::BrightGreen] = encode_rgb(color_scheme.bright.green);
+        colors[NamedColor::BrightYellow] = encode_rgb(color_scheme.bright.yellow);
+        colors[NamedColor::BrightBlue] = encode_rgb(color_scheme.bright.blue);
+        colors[NamedColor::BrightMagenta] = encode_rgb(color_scheme.bright.magenta);
+        colors[NamedColor::BrightCyan] = encode_rgb(color_scheme.bright.cyan);
+        colors[NamedColor::BrightWhite] = encode_rgb(color_scheme.bright.white);
+
+        // Set dim colors
+        colors[NamedColor::DimBlack] = encode_rgb(color_scheme.dim.black);
+        colors[NamedColor::DimRed] = encode_rgb(color_scheme.dim.red);
+        colors[NamedColor::DimGreen] = encode_rgb(color_scheme.dim.green);
+        colors[NamedColor::DimYellow] = encode_rgb(color_scheme.dim.yellow);
+        colors[NamedColor::DimBlue] = encode_rgb(color_scheme.dim.blue);
+        colors[NamedColor::DimMagenta] = encode_rgb(color_scheme.dim.magenta);
+        colors[NamedColor::DimCyan] = encode_rgb(color_scheme.dim.cyan);
+        colors[NamedColor::DimWhite] = encode_rgb(color_scheme.dim.white);
+
+        // Set special colors
+        colors[NamedColor::Foreground] = encode_rgb(color_scheme.foreground);
+        colors[NamedColor::Background] = encode_rgb(color_scheme.background);
+        colors[NamedColor::Cursor] = encode_rgb(color_scheme.cursor);
+        colors[NamedColor::BrightForeground] = encode_rgb(color_scheme.bright_foreground);
+        colors[NamedColor::DimForeground] = encode_rgb(color_scheme.dim_foreground);
+
+        colors
+    }
+}
+
+impl From<(&str, &Colors)> for ColorScheme {
+    fn from(tuple: (&str, &Colors)) -> Self {
+        let (name, colors) = tuple;
+
+        let encode_rgb = |rgb_opt: Option<Rgb>| -> Option<HexColor> {
+            let rgb = rgb_opt?;
+            Some(HexColor::rgb(rgb.r, rgb.g, rgb.b))
+        };
+
+        Self {
+            name: name.to_string(),
+            foreground: encode_rgb(colors[NamedColor::Foreground]),
+            background: encode_rgb(colors[NamedColor::Background]),
+            cursor: encode_rgb(colors[NamedColor::Cursor]),
+            bright_foreground: encode_rgb(colors[NamedColor::BrightForeground]),
+            dim_foreground: encode_rgb(colors[NamedColor::DimForeground]),
+            normal: ColorSchemeAnsi {
+                black: encode_rgb(colors[NamedColor::Black]),
+                red: encode_rgb(colors[NamedColor::Red]),
+                green: encode_rgb(colors[NamedColor::Green]),
+                yellow: encode_rgb(colors[NamedColor::Yellow]),
+                blue: encode_rgb(colors[NamedColor::Blue]),
+                magenta: encode_rgb(colors[NamedColor::Magenta]),
+                cyan: encode_rgb(colors[NamedColor::Cyan]),
+                white: encode_rgb(colors[NamedColor::White]),
+            },
+            bright: ColorSchemeAnsi {
+                black: encode_rgb(colors[NamedColor::BrightBlack]),
+                red: encode_rgb(colors[NamedColor::BrightRed]),
+                green: encode_rgb(colors[NamedColor::BrightGreen]),
+                yellow: encode_rgb(colors[NamedColor::BrightYellow]),
+                blue: encode_rgb(colors[NamedColor::BrightBlue]),
+                magenta: encode_rgb(colors[NamedColor::BrightMagenta]),
+                cyan: encode_rgb(colors[NamedColor::BrightCyan]),
+                white: encode_rgb(colors[NamedColor::BrightWhite]),
+            },
+            dim: ColorSchemeAnsi {
+                black: encode_rgb(colors[NamedColor::DimBlack]),
+                red: encode_rgb(colors[NamedColor::DimRed]),
+                green: encode_rgb(colors[NamedColor::DimGreen]),
+                yellow: encode_rgb(colors[NamedColor::DimYellow]),
+                blue: encode_rgb(colors[NamedColor::DimBlue]),
+                magenta: encode_rgb(colors[NamedColor::DimMagenta]),
+                cyan: encode_rgb(colors[NamedColor::DimCyan]),
+                white: encode_rgb(colors[NamedColor::DimWhite]),
+            },
+        }
+    }
 }
 
 fn tango_palette() -> Colors {

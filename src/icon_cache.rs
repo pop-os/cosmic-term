@@ -30,11 +30,13 @@ impl IconCache {
             };
         }
 
+        bundle!("dialog-error-symbolic", 16);
         bundle!("edit-clear-symbolic", 16);
         bundle!("edit-delete-symbolic", 16);
         bundle!("list-add-symbolic", 16);
         bundle!("go-down-symbolic", 16);
         bundle!("go-up-symbolic", 16);
+        bundle!("view-more-symbolic", 16);
         bundle!("window-close-symbolic", 16);
 
         Self { cache }
