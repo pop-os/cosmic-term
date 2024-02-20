@@ -194,6 +194,7 @@ pub struct Terminal {
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,
+    pub tab_title_override: Option<String>,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
@@ -219,6 +220,7 @@ impl Terminal {
         app_config: &AppConfig,
         colors: Colors,
         profile_id_opt: Option<ProfileId>,
+        tab_title_override: Option<String>,
     ) -> Result<Self, io::Error> {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
@@ -293,6 +295,7 @@ impl Terminal {
             search_regex_opt: None,
             search_value: String::new(),
             size,
+            tab_title_override,
             term,
             use_bright_bold,
         })

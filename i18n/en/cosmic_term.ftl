@@ -1,3 +1,5 @@
+new-terminal = New terminal
+
 # Context Pages
 
 ## Profiles

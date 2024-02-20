@@ -862,17 +862,12 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focus;
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            let entity = tab_model
-                                .insert()
-                                .text("New Terminal")
-                                .closable()
-                                .activate()
-                                .id();
                             // Use the profile options, startup options, or defaults
-                            let options = match profile_id_opt
+                            let (options, tab_title_override) = match profile_id_opt
                                 .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
                                 Some(profile) => {
+                                    if !profile.tab_title.is_empty() {}
                                     let mut shell = None;
                                     if let Some(mut args) = shlex::split(&profile.command) {
                                         if !args.is_empty() {
@@ -880,16 +875,32 @@ impl App {
                                             shell = Some(tty::Shell::new(command, args));
                                         }
                                     }
-                                    tty::Options {
+                                    let options = tty::Options {
                                         shell,
                                         //TODO: configurable working directory?
                                         working_directory: None,
                                         //TODO: configurable hold (keep open when child exits)?
                                         hold: false,
-                                    }
+                                    };
+                                    let tab_title_override = if !profile.tab_title.is_empty() {
+                                        Some(profile.tab_title.clone())
+                                    } else {
+                                        None
+                                    };
+                                    (options, tab_title_override)
                                 }
-                                None => self.startup_options.take().unwrap_or_default(),
+                                None => (self.startup_options.take().unwrap_or_default(), None),
                             };
+                            let entity = tab_model
+                                .insert()
+                                .text(
+                                    tab_title_override
+                                        .clone()
+                                        .unwrap_or_else(|| fl!("new-terminal")),
+                                )
+                                .closable()
+                                .activate()
+                                .id();
                             match Terminal::new(
                                 current_pane,
                                 entity,
@@ -899,6 +910,7 @@ impl App {
                                 &self.config,
                                 *colors,
                                 profile_id_opt,
+                                tab_title_override,
                             ) {
                                 Ok(mut terminal) => {
                                     terminal.set_config(&self.config, &self.themes, self.zoom_adj);
@@ -1669,7 +1681,17 @@ impl Application for App {
                     }
                     TermEvent::ResetTitle => {
                         if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
-                            tab_model.text_set(entity, "New Terminal");
+                            let tab_title_override =
+                                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                    let terminal = terminal.lock().unwrap();
+                                    terminal.tab_title_override.clone()
+                                } else {
+                                    None
+                                };
+                            tab_model.text_set(
+                                entity,
+                                tab_title_override.unwrap_or_else(|| fl!("new-terminal")),
+                            );
                         }
                         return self.update_title(Some(pane));
                     }
@@ -1684,7 +1706,16 @@ impl Application for App {
                     }
                     TermEvent::Title(title) => {
                         if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
-                            tab_model.text_set(entity, title);
+                            let has_override =
+                                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                    let terminal = terminal.lock().unwrap();
+                                    terminal.tab_title_override.is_some()
+                                } else {
+                                    false
+                                };
+                            if !has_override {
+                                tab_model.text_set(entity, title);
+                            }
                         }
                         return self.update_title(Some(pane));
                     }
