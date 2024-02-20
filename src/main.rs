@@ -594,7 +594,6 @@ impl App {
                                             Message::ProfileCommand(profile_id, text)
                                         })
                                         .into(),
-                                    widget::text::caption(fl!("command-line-description")).into(),
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),

@@ -6,7 +6,6 @@ new-terminal = New terminal
 profiles = Profiles
 name = Name
 command-line = Command line
-command-line-description = Custom command line to run, if set
 tab-title = Tab title
 tab-title-description = Override the default tab title
 add-profile = Add profile

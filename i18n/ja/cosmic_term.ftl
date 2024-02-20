@@ -4,7 +4,6 @@
 profiles = プロファイル
 name = 名前
 command-line = コマンドライン
-command-line-description = 設定されると、このコマンドラインを実行します
 tab-title = タブのイトル
 tab-title-description = デフォルトのタブタイトルを無効にします
 add-profile = プロファイルを追加

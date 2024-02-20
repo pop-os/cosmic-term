@@ -4,7 +4,6 @@
 profiles = Profiller
 name = İsim
 command-line = Komut satırı
-command-line-description = Ayarlandığında çalışacak özel komut satırı
 tab-title = Sekme başlığı
 tab-title-description = Varsayılan sekme başlığını geçersiz kılar
 add-profile = Profil ekle
