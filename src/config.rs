@@ -238,6 +238,25 @@ impl Default for Config {
 }
 
 impl Config {
+    // Get a sorted and adjusted for duplicates list of color scheme names and ids
+    pub fn color_scheme_names(&self) -> Vec<(String, ColorSchemeId)> {
+        let mut color_scheme_names =
+            Vec::<(String, ColorSchemeId)>::with_capacity(self.color_schemes.len());
+        for (color_scheme_id, color_scheme) in self.color_schemes.iter() {
+            let mut name = color_scheme.name.clone();
+
+            let mut copies = 1;
+            while color_scheme_names.iter().find(|x| x.0 == name).is_some() {
+                copies += 1;
+                name = format!("{} ({})", color_scheme.name, copies);
+            }
+
+            color_scheme_names.push((name, *color_scheme_id));
+        }
+        color_scheme_names.sort_by(|a, b| lexical_sort::natural_lexical_cmp(&a.0, &b.0));
+        color_scheme_names
+    }
+
     fn font_size_adjusted(&self, zoom_adj: i8) -> f32 {
         let font_size = f32::from(self.font_size).max(1.0);
         let adj = f32::from(zoom_adj);
@@ -256,7 +275,7 @@ impl Config {
         (self.opacity as f32) / 100.0
     }
 
-    // Get a sorted and adjusted for duplicates list of profiles names and ids
+    // Get a sorted and adjusted for duplicates list of profile names and ids
     pub fn profile_names(&self) -> Vec<(String, ProfileId)> {
         let mut profile_names = Vec::<(String, ProfileId)>::with_capacity(self.profiles.len());
         for (profile_id, profile) in self.profiles.iter() {

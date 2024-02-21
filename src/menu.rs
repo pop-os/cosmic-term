@@ -17,7 +17,7 @@ use cosmic::{
 };
 use std::collections::HashMap;
 
-use crate::{fl, Action, Config, KeyBind, Message};
+use crate::{fl, Action, ColorSchemeId, Config, KeyBind, Message};
 
 macro_rules! menu_button {
     ($($x:expr),+ $(,)?) => (
@@ -108,12 +108,12 @@ pub fn context_menu<'a>(
     .into()
 }
 
-pub fn color_scheme_menu<'a>(id: &str) -> Element<'a, Message> {
+pub fn color_scheme_menu<'a>(id: ColorSchemeId) -> Element<'a, Message> {
     let menu_item = |label, message| menu_button!(widget::text(label)).on_press(message);
 
     widget::container(column!(
-        menu_item(fl!("export"), Message::ColorSchemeExport(id.to_string())),
-        menu_item(fl!("delete"), Message::ColorSchemeDelete(id.to_string())),
+        menu_item(fl!("export"), Message::ColorSchemeExport(id)),
+        menu_item(fl!("delete"), Message::ColorSchemeDelete(id)),
     ))
     .padding(1)
     //TODO: move style to libcosmic

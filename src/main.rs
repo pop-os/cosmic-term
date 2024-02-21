@@ -32,7 +32,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use config::{AppTheme, ColorScheme, Config, Profile, ProfileId, CONFIG_VERSION};
+use config::{AppTheme, ColorScheme, ColorSchemeId, Config, Profile, ProfileId, CONFIG_VERSION};
 mod config;
 mod mouse_reporter;
 
@@ -249,11 +249,11 @@ impl Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
-    ColorSchemeCollapse(String),
-    ColorSchemeDelete(String),
-    ColorSchemeExport(String),
-    ColorSchemeExportResult(String, DialogResult),
-    ColorSchemeExpand(String),
+    ColorSchemeCollapse(ColorSchemeId),
+    ColorSchemeDelete(ColorSchemeId),
+    ColorSchemeExport(ColorSchemeId),
+    ColorSchemeExportResult(ColorSchemeId, DialogResult),
+    ColorSchemeExpand(ColorSchemeId),
     ColorSchemeImport,
     ColorSchemeImportResult(DialogResult),
     Config(Config),
@@ -366,7 +366,7 @@ pub struct App {
     startup_options: Option<tty::Options>,
     term_config: TermConfig,
     color_scheme_errors: Vec<String>,
-    color_scheme_expanded: Option<String>,
+    color_scheme_expanded: Option<ColorSchemeId>,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
@@ -414,6 +414,19 @@ impl App {
             }
         }
         self.update_config()
+    }
+
+    fn save_color_schemes(&mut self) -> Command<Message> {
+        // Optimized for just saving color_schemes
+        if let Some(ref config_handler) = self.config_handler {
+            match config_handler.set("color_schemes", &self.config.color_schemes) {
+                Ok(()) => {}
+                Err(err) => {
+                    log::error!("failed to save config: {}", err);
+                }
+            }
+        }
+        Command::none()
     }
 
     fn save_profiles(&mut self) -> Command<Message> {
@@ -546,30 +559,26 @@ impl App {
 
         let mut sections = Vec::with_capacity(2 + self.color_scheme_errors.len());
 
-        if !self.theme_names.is_empty() {
+        if !self.config.color_schemes.is_empty() {
             let mut section = widget::settings::view_section("");
-            for theme_name in self.theme_names.iter() {
-                let theme = match self.themes.get(theme_name) {
-                    Some(some) => some,
-                    None => continue,
-                };
-
-                let expanded = self.color_scheme_expanded.as_ref() == Some(theme_name);
+            for (color_scheme_name, color_scheme_id) in self.config.color_scheme_names() {
+                let expanded = self.color_scheme_expanded == Some(color_scheme_id);
 
                 let button = if expanded {
                     widget::button(icon_cache_get("view-more-symbolic", 16))
-                        .on_press(Message::ColorSchemeCollapse(theme_name.clone()))
+                        .on_press(Message::ColorSchemeCollapse(color_scheme_id))
                 } else {
                     widget::button(icon_cache_get("view-more-symbolic", 16))
-                        .on_press(Message::ColorSchemeExpand(theme_name.clone()))
+                        .on_press(Message::ColorSchemeExpand(color_scheme_id))
                 }
                 .style(style::Button::Icon);
 
-                let menu = menu::color_scheme_menu(theme_name);
+                let menu = menu::color_scheme_menu(color_scheme_id);
 
                 let popover = widget::popover(button, menu).show_popup(expanded);
 
-                section = section.add(widget::settings::item::builder(theme_name).control(popover));
+                section = section
+                    .add(widget::settings::item::builder(color_scheme_name).control(popover));
             }
             sections.push(section.into());
         }
@@ -1273,24 +1282,26 @@ impl Application for App {
             }
             Message::ColorSchemeDelete(color_scheme_id) => {
                 self.color_scheme_expanded = None;
-                self.themes.remove(&color_scheme_id);
-                self.theme_names.retain(|x| x != &color_scheme_id);
+                self.config.color_schemes.remove(&color_scheme_id);
+                return self.save_color_schemes();
             }
             Message::ColorSchemeExport(color_scheme_id) => {
                 self.color_scheme_expanded = None;
-                if self.dialog_opt.is_none() {
-                    let (dialog, command) = Dialog::new(
-                        DialogKind::SaveFile {
-                            filename: format!("{color_scheme_id}.ron"),
-                        },
-                        None,
-                        Message::DialogMessage,
-                        move |result| {
-                            Message::ColorSchemeExportResult(color_scheme_id.clone(), result)
-                        },
-                    );
-                    self.dialog_opt = Some(dialog);
-                    return command;
+                if let Some(color_scheme) = self.config.color_schemes.get(&color_scheme_id) {
+                    if self.dialog_opt.is_none() {
+                        let (dialog, command) = Dialog::new(
+                            DialogKind::SaveFile {
+                                filename: format!("{}.ron", color_scheme.name),
+                            },
+                            None,
+                            Message::DialogMessage,
+                            move |result| {
+                                Message::ColorSchemeExportResult(color_scheme_id.clone(), result)
+                            },
+                        );
+                        self.dialog_opt = Some(dialog);
+                        return command;
+                    }
                 }
             }
             Message::ColorSchemeExportResult(color_scheme_id, result) => {
@@ -1298,8 +1309,7 @@ impl Application for App {
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     let path = &paths[0];
-                    if let Some(theme) = self.themes.get(&color_scheme_id) {
-                        let color_scheme = ColorScheme::from((color_scheme_id.as_str(), theme));
+                    if let Some(color_scheme) = self.config.color_schemes.get(&color_scheme_id) {
                         match ron::ser::to_string_pretty(
                             &color_scheme,
                             ron::ser::PrettyConfig::new(),
@@ -1345,7 +1355,6 @@ impl Application for App {
                 }
             }
             Message::ColorSchemeImportResult(result) => {
-                //TODO: show errors in UI
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     self.color_scheme_errors.clear();
@@ -1360,7 +1369,16 @@ impl Application for App {
                         };
                         match ron::de::from_reader::<_, ColorScheme>(&mut file) {
                             Ok(color_scheme) => {
-                                println!("TODO IMPORT {:#?}", color_scheme);
+                                // Get next color_scheme ID
+                                let color_scheme_id = self
+                                    .config
+                                    .color_schemes
+                                    .last_key_value()
+                                    .map(|(id, _)| ColorSchemeId(id.0 + 1))
+                                    .unwrap_or_default();
+                                self.config
+                                    .color_schemes
+                                    .insert(color_scheme_id, color_scheme);
                             }
                             Err(err) => {
                                 self.color_scheme_errors
@@ -1368,6 +1386,7 @@ impl Application for App {
                             }
                         }
                     }
+                    return self.save_color_schemes();
                 }
             }
             Message::Config(config) => {
