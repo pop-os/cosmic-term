@@ -656,6 +656,166 @@ fn pop_dark() -> Colors {
     colors
 }
 
+fn selenized_white() -> Colors {
+    let mut colors = auto_colors();
+
+    let encode_rgb = |data: u32| -> Rgb {
+        Rgb {
+            r: (data >> 16) as u8,
+            g: (data >> 8) as u8,
+            b: data as u8,
+        }
+    };
+
+    colors[NamedColor::Black] = Some(encode_rgb(0xEBEBEB));
+    colors[NamedColor::Red] = Some(encode_rgb(0xD6000C));
+    colors[NamedColor::Green] = Some(encode_rgb(0x1D9700));
+    colors[NamedColor::Yellow] = Some(encode_rgb(0xC49700));
+    colors[NamedColor::Blue] = Some(encode_rgb(0x0064E4));
+    colors[NamedColor::Magenta] = Some(encode_rgb(0xDD0F9D));
+    colors[NamedColor::Cyan] = Some(encode_rgb(0x00AD9C));
+    colors[NamedColor::White] = Some(encode_rgb(0x878787));
+
+    colors[NamedColor::BrightBlack] = Some(encode_rgb(0xCDCDCD));
+    colors[NamedColor::BrightRed] = Some(encode_rgb(0xBF0000));
+    colors[NamedColor::BrightGreen] = Some(encode_rgb(0x008400));
+    colors[NamedColor::BrightYellow] = Some(encode_rgb(0xAF8500));
+    colors[NamedColor::BrightBlue] = Some(encode_rgb(0x0054CF));
+    colors[NamedColor::BrightMagenta] = Some(encode_rgb(0xC7008B));
+    colors[NamedColor::BrightCyan] = Some(encode_rgb(0x009A8A));
+    colors[NamedColor::BrightWhite] = Some(encode_rgb(0x282828));
+
+    // Set special colors
+    colors[NamedColor::Background] = Some(encode_rgb(0xFFFFFF));
+    colors[NamedColor::Foreground] = Some(encode_rgb(0x474747));
+    colors[NamedColor::Cursor] = colors[NamedColor::Black];
+
+    // Fill missing dim colors
+    ColorDerive::new().fill_missing_dims(&mut colors);
+
+    colors
+}
+
+fn selenized_light() -> Colors {
+    let mut colors = auto_colors();
+
+    let encode_rgb = |data: u32| -> Rgb {
+        Rgb {
+            r: (data >> 16) as u8,
+            g: (data >> 8) as u8,
+            b: data as u8,
+        }
+    };
+
+    colors[NamedColor::Black] = Some(encode_rgb(0xECE3CC));
+    colors[NamedColor::Red] = Some(encode_rgb(0xD2212D));
+    colors[NamedColor::Green] = Some(encode_rgb(0x489100));
+    colors[NamedColor::Yellow] = Some(encode_rgb(0xAD8900));
+    colors[NamedColor::Blue] = Some(encode_rgb(0x0072D4));
+    colors[NamedColor::Magenta] = Some(encode_rgb(0xCA4898));
+    colors[NamedColor::Cyan] = Some(encode_rgb(0x009C8F));
+    colors[NamedColor::White] = Some(encode_rgb(0x909995));
+
+    colors[NamedColor::BrightBlack] = Some(encode_rgb(0xD5CDB6));
+    colors[NamedColor::BrightRed] = Some(encode_rgb(0xCC1729));
+    colors[NamedColor::BrightGreen] = Some(encode_rgb(0x428B00));
+    colors[NamedColor::BrightYellow] = Some(encode_rgb(0xA78300));
+    colors[NamedColor::BrightBlue] = Some(encode_rgb(0x006DCE));
+    colors[NamedColor::BrightMagenta] = Some(encode_rgb(0xC44392));
+    colors[NamedColor::BrightCyan] = Some(encode_rgb(0x00978A));
+    colors[NamedColor::BrightWhite] = Some(encode_rgb(0x3A4D53));
+
+    // Set special colors
+    colors[NamedColor::Background] = Some(encode_rgb(0xFBF3DB));
+    colors[NamedColor::Foreground] = Some(encode_rgb(0x53676D));
+    colors[NamedColor::Cursor] = colors[NamedColor::Black];
+
+    // Fill missing dim colors
+    ColorDerive::new().fill_missing_dims(&mut colors);
+
+    colors
+}
+
+fn selenized_dark() -> Colors {
+    let mut colors = auto_colors();
+
+    let encode_rgb = |data: u32| -> Rgb {
+        Rgb {
+            r: (data >> 16) as u8,
+            g: (data >> 8) as u8,
+            b: data as u8,
+        }
+    };
+
+    colors[NamedColor::Black] = Some(encode_rgb(0x184956));
+    colors[NamedColor::Red] = Some(encode_rgb(0xFA5750));
+    colors[NamedColor::Green] = Some(encode_rgb(0x75B938));
+    colors[NamedColor::Yellow] = Some(encode_rgb(0xDBB32D));
+    colors[NamedColor::Blue] = Some(encode_rgb(0x4695F7));
+    colors[NamedColor::Magenta] = Some(encode_rgb(0xF275BE));
+    colors[NamedColor::Cyan] = Some(encode_rgb(0x41C7B9));
+    colors[NamedColor::White] = Some(encode_rgb(0x72898F));
+
+    colors[NamedColor::BrightBlack] = Some(encode_rgb(0x2D5B69));
+    colors[NamedColor::BrightRed] = Some(encode_rgb(0xFF665C));
+    colors[NamedColor::BrightGreen] = Some(encode_rgb(0x84C747));
+    colors[NamedColor::BrightYellow] = Some(encode_rgb(0xEBC13D));
+    colors[NamedColor::BrightBlue] = Some(encode_rgb(0x58A3FF));
+    colors[NamedColor::BrightMagenta] = Some(encode_rgb(0xFF84CD));
+    colors[NamedColor::BrightCyan] = Some(encode_rgb(0x53D6C7));
+    colors[NamedColor::BrightWhite] = Some(encode_rgb(0xCAD8D9));
+
+    // Set special colors
+    colors[NamedColor::Background] = Some(encode_rgb(0x103C48));
+    colors[NamedColor::Foreground] = Some(encode_rgb(0xADBCBC));
+    colors[NamedColor::Cursor] = colors[NamedColor::White];
+
+    // Fill missing dim colors
+    ColorDerive::new().fill_missing_dims(&mut colors);
+
+    colors
+}
+
+fn selenized_black() -> Colors {
+    let mut colors = auto_colors();
+
+    let encode_rgb = |data: u32| -> Rgb {
+        Rgb {
+            r: (data >> 16) as u8,
+            g: (data >> 8) as u8,
+            b: data as u8,
+        }
+    };
+
+    colors[NamedColor::Black] = Some(encode_rgb(0x252525));
+    colors[NamedColor::Red] = Some(encode_rgb(0xED4A46));
+    colors[NamedColor::Green] = Some(encode_rgb(0x70B433));
+    colors[NamedColor::Yellow] = Some(encode_rgb(0xDBB32D));
+    colors[NamedColor::Blue] = Some(encode_rgb(0x368AEB));
+    colors[NamedColor::Magenta] = Some(encode_rgb(0xEB6EB7));
+    colors[NamedColor::Cyan] = Some(encode_rgb(0x3FC5B7));
+    colors[NamedColor::White] = Some(encode_rgb(0x777777));
+
+    colors[NamedColor::BrightBlack] = Some(encode_rgb(0x3B3B3B));
+    colors[NamedColor::BrightRed] = Some(encode_rgb(0xFF5E56));
+    colors[NamedColor::BrightGreen] = Some(encode_rgb(0x83C746));
+    colors[NamedColor::BrightYellow] = Some(encode_rgb(0xEFC541));
+    colors[NamedColor::BrightBlue] = Some(encode_rgb(0x4F9CFE));
+    colors[NamedColor::BrightMagenta] = Some(encode_rgb(0xFF81CA));
+    colors[NamedColor::BrightCyan] = Some(encode_rgb(0x56D8C9));
+    colors[NamedColor::BrightWhite] = Some(encode_rgb(0xDEDEDE));
+
+    // Set special colors
+    colors[NamedColor::Background] = Some(encode_rgb(0x181818));
+    colors[NamedColor::Foreground] = Some(encode_rgb(0xB9B9B9));
+    colors[NamedColor::Cursor] = colors[NamedColor::White];
+
+    // Fill missing dim colors
+    ColorDerive::new().fill_missing_dims(&mut colors);
+
+    colors
+}
+
 pub fn terminal_themes() -> HashMap<String, Colors> {
     let mut themes = HashMap::new();
     themes.insert("Tango Dark".to_string(), tango_dark());
@@ -672,5 +832,9 @@ pub fn terminal_themes() -> HashMap<String, Colors> {
     themes.insert("gruvbox-dark".to_string(), gruvbox_dark());
     themes.insert("OneHalfDark".to_string(), one_half_dark());
     themes.insert("Pop Dark".to_string(), pop_dark());
+    themes.insert("Selenized Black".to_string(), selenized_black());
+    themes.insert("Selenized Dark".to_string(), selenized_dark());
+    themes.insert("Selenized Light".to_string(), selenized_light());
+    themes.insert("Selenized White".to_string(), selenized_white());
     themes
 }

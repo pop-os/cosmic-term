@@ -172,6 +172,7 @@ impl MouseReporter {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn report_sgr_mouse_wheel_scroll(
         &self,
         terminal: &Terminal,

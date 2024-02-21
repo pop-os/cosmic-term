@@ -9,7 +9,7 @@ use alacritty_terminal::{
         cell::Flags,
         color::{self, Colors},
         search::RegexSearch,
-        viewport_to_point, Config, TermMode,
+        viewport_to_point, Config, TermDamage, TermMode,
     },
     tty::{self, Options},
     vte::ansi::{Color, NamedColor, Rgb},
@@ -27,7 +27,7 @@ use indexmap::IndexSet;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    mem,
+    io, mem,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Weak,
@@ -38,7 +38,10 @@ use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
-use crate::{config::Config as AppConfig, mouse_reporter::MouseReporter};
+use crate::{
+    config::{Config as AppConfig, ProfileId},
+    mouse_reporter::MouseReporter,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -187,21 +190,23 @@ impl Metadata {
 }
 
 pub struct Terminal {
-    default_attrs: Attrs<'static>,
-    buffer: Arc<Buffer>,
-    size: Size,
-    pub term: Arc<FairMutex<Term<EventProxy>>>,
-    colors: Colors,
-    dim_font_weight: Weight,
-    bold_font_weight: Weight,
-    use_bright_bold: bool,
-    notifier: Notifier,
     pub context_menu: Option<cosmic::iced::Point>,
+    pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
+    pub profile_id_opt: Option<ProfileId>,
+    pub tab_title_override: Option<String>,
+    pub term: Arc<FairMutex<Term<EventProxy>>>,
+    bold_font_weight: Weight,
+    buffer: Arc<Buffer>,
+    colors: Colors,
+    default_attrs: Attrs<'static>,
+    dim_font_weight: Weight,
+    mouse_reporter: MouseReporter,
+    notifier: Notifier,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
-    pub metadata_set: IndexSet<Metadata>,
-    mouse_reporter: MouseReporter,
+    size: Size,
+    use_bright_bold: bool,
 }
 
 impl Terminal {
@@ -214,7 +219,9 @@ impl Terminal {
         options: Options,
         app_config: &AppConfig,
         colors: Colors,
-    ) -> Self {
+        profile_id_opt: Option<ProfileId>,
+        tab_title_override: Option<String>,
+    ) -> Result<Self, io::Error> {
         let font_stretch = app_config.typed_font_stretch();
         let font_weight = app_config.font_weight;
         let dim_font_weight = app_config.dim_font_weight;
@@ -242,12 +249,12 @@ impl Terminal {
 
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
-            let mut font_system = font_system.raw();
-            buffer.set_wrap(&mut font_system, Wrap::None);
+            let font_system = font_system.raw();
+            buffer.set_wrap(font_system, Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(&mut font_system, " ", default_attrs, Shaping::Advanced);
-            let layout = buffer.line_layout(&mut font_system, 0).unwrap();
+            buffer.set_text(font_system, " ", default_attrs, Shaping::Advanced);
+            let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
             buffer.set_monospace_width(font_system, Some(w));
             (w, metrics.line_height)
@@ -267,29 +274,31 @@ impl Terminal {
         )));
 
         let window_id = 0;
-        let pty = tty::new(&options, size.into(), window_id).unwrap();
+        let pty = tty::new(&options, size.into(), window_id)?;
 
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 
-        Self {
-            colors,
-            dim_font_weight: Weight(dim_font_weight),
+        Ok(Self {
             bold_font_weight: Weight(bold_font_weight),
-            use_bright_bold,
-            default_attrs,
             buffer: Arc::new(buffer),
-            size,
-            term,
-            notifier,
+            colors,
             context_menu: None,
-            needs_update: true,
-            search_regex_opt: None,
-            search_value: String::new(),
+            default_attrs,
+            dim_font_weight: Weight(dim_font_weight),
             metadata_set,
             mouse_reporter: Default::default(),
-        }
+            needs_update: true,
+            notifier,
+            profile_id_opt,
+            search_regex_opt: None,
+            search_value: String::new(),
+            size,
+            tab_title_override,
+            term,
+            use_bright_bold,
+        })
     }
 
     pub fn buffer_weak(&self) -> Weak<Buffer> {
@@ -370,6 +379,8 @@ impl Terminal {
                 let mut font_system = font_system().write().unwrap();
                 buffer.set_size(font_system.raw(), width as f32, height as f32);
             });
+
+            self.needs_update = true;
 
             log::debug!("resize {:?}", instant.elapsed());
         }
@@ -459,7 +470,7 @@ impl Terminal {
             };
 
             // Find next search match
-            match term.search_next(
+            if let Some(search_match) = term.search_next(
                 search_regex,
                 search_origin,
                 if forwards {
@@ -471,21 +482,18 @@ impl Terminal {
                 if forwards { Side::Left } else { Side::Right },
                 None,
             ) {
-                Some(search_match) => {
-                    // Scroll to match
-                    if forwards {
-                        term.scroll_to_point(*search_match.end());
-                    } else {
-                        term.scroll_to_point(*search_match.start());
-                    }
-
-                    // Set selection to match
-                    let mut selection =
-                        Selection::new(SelectionType::Simple, *search_match.start(), Side::Left);
-                    selection.update(*search_match.end(), Side::Right);
-                    term.selection = Some(selection);
+                // Scroll to match
+                if forwards {
+                    term.scroll_to_point(*search_match.end());
+                } else {
+                    term.scroll_to_point(*search_match.start());
                 }
-                None => {}
+
+                // Set selection to match
+                let mut selection =
+                    Selection::new(SelectionType::Simple, *search_match.start(), Side::Left);
+                selection.update(*search_match.end(), Side::Right);
+                term.selection = Some(selection);
             }
         }
 
@@ -551,7 +559,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(config.syntax_theme()) {
+        if let Some(colors) = themes.get(config.syntax_theme(self.profile_id_opt)) {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {
@@ -560,19 +568,7 @@ impl Terminal {
                 }
             }
             if changed {
-                self.metadata_set.clear();
-                let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
-                let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
-
-                let default_metadata = Metadata::new(default_bg, default_fg);
-                let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
-
-                self.default_attrs = Attrs::new()
-                    .family(Family::Monospace)
-                    .weight(Weight(config.font_weight))
-                    .stretch(config.typed_font_stretch())
-                    .color(default_fg)
-                    .metadata(default_metadata_idx);
+                self.update_colors(config);
                 update = true;
             }
         }
@@ -582,6 +578,22 @@ impl Terminal {
         } else if update {
             self.update();
         }
+    }
+
+    pub fn update_colors(&mut self, config: &AppConfig) {
+        self.metadata_set.clear();
+        let default_bg = convert_color(&self.colors, Color::Named(NamedColor::Background));
+        let default_fg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
+
+        let default_metadata = Metadata::new(default_bg, default_fg);
+        let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
+
+        self.default_attrs = Attrs::new()
+            .family(Family::Monospace)
+            .weight(Weight(config.font_weight))
+            .stretch(config.typed_font_stretch())
+            .color(default_fg)
+            .metadata(default_metadata_idx);
     }
 
     pub fn update_cell_size(&mut self) {
@@ -634,7 +646,14 @@ impl Terminal {
             let mut text = String::from(LRI);
             let mut attrs_list = AttrsList::new(self.default_attrs);
             {
-                let term = self.term.lock();
+                let mut term = self.term.lock();
+                //TODO: use damage?
+                match term.damage() {
+                    TermDamage::Full => {}
+                    TermDamage::Partial(_damage_lines) => {}
+                }
+                term.reset_damage();
+
                 let grid = term.grid();
                 for indexed in grid.display_iter() {
                     if indexed.point.line != last_point.unwrap_or(indexed.point).line {
@@ -647,10 +666,7 @@ impl Terminal {
                             buffer.set_redraw(true);
                         }
 
-                        // Tab skip/stop is handled by alacritty_terminal
-                        if buffer.lines[line_i]
-                            .set_text(text.replace('\t', " "), attrs_list.clone())
-                        {
+                        if buffer.lines[line_i].set_text(text.clone(), attrs_list.clone()) {
                             buffer.set_redraw(true);
                         }
                         line_i += 1;
@@ -668,7 +684,11 @@ impl Terminal {
                     }
 
                     let start = text.len();
-                    text.push(indexed.cell.c);
+                    // Tab skip/stop is handled by alacritty_terminal
+                    text.push(match indexed.cell.c {
+                        '\t' => ' ',
+                        c => c,
+                    });
                     if let Some(zerowidth) = indexed.cell.zerowidth() {
                         for &c in zerowidth {
                             text.push(c);
@@ -775,9 +795,11 @@ impl Terminal {
                 buffer.set_redraw(true);
             }
 
+            // Shape and trim shape run cache
             {
                 let mut font_system = font_system().write().unwrap();
                 buffer.shape_until_scroll(font_system.raw(), true);
+                font_system.raw().shape_run_cache.trim(1024);
             }
         }
 
@@ -800,6 +822,7 @@ impl Terminal {
     ) {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
+        #[allow(clippy::collapsible_else_if)]
         if mode.contains(TermMode::SGR_MOUSE) {
             if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
                 self.input_no_scroll(code)
@@ -849,6 +872,6 @@ impl Terminal {
 impl Drop for Terminal {
     fn drop(&mut self) {
         // Ensure shutdown on terminal drop
-        let _ = self.notifier.0.send(Msg::Shutdown);
+        self.notifier.0.send(Msg::Shutdown);
     }
 }

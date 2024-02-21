@@ -1,4 +1,15 @@
+new-terminal = New terminal
+
 # Context Pages
+
+## Profiles
+profiles = Profiles
+name = Name
+command-line = Command line
+tab-title = Tab title
+tab-title-description = Override the default tab title
+add-profile = Add profile
+new-profile = New profile
 
 ## Settings
 settings = Settings
@@ -12,6 +23,7 @@ light = Light
 syntax-dark = Color scheme dark
 syntax-light = Color scheme light
 default-zoom-step = Zoom steps
+opacity = Background opacity
 
 ### Font
 font = Font
@@ -44,6 +56,8 @@ find-next = Find next
 file = File
 new-tab = New tab
 new-window = New window
+profile = Profile
+menu-profiles = Profiles...
 close-tab = Close tab
 quit = Quit
 

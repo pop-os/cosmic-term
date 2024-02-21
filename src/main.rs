@@ -6,32 +6,32 @@ use alacritty_terminal::{
 };
 use cosmic::{
     app::{message, Command, Core, Settings},
-    cosmic_config::{self, CosmicConfigEntry},
+    cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
-        keyboard::{Event as KeyEvent, KeyCode, Modifiers},
+        keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
         subscription::{self, Subscription},
         window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
     style,
-    widget::{self, button, container, pane_grid, segmented_button, PaneGrid},
+    widget::{self, button, pane_grid, segmented_button, PaneGrid},
     Application, ApplicationExt, Element,
 };
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
 use std::{
     any::TypeId,
+    cmp,
     collections::{BTreeMap, BTreeSet, HashMap},
     env, process,
     sync::{atomic::Ordering, Mutex},
-    time::Duration,
 };
 use tokio::sync::mpsc;
 
-use config::{AppTheme, Config, CONFIG_VERSION};
+use config::{AppTheme, Config, Profile, ProfileId, CONFIG_VERSION};
 mod config;
 mod mouse_reporter;
 
@@ -120,8 +120,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let startup_options = if let Some(shell_program) = shell_program_opt {
-        let mut options = tty::Options::default();
-        options.shell = Some(tty::Shell::new(shell_program, shell_args));
+        let options = tty::Options {
+            shell: Some(tty::Shell::new(shell_program, shell_args)),
+            ..tty::Options::default()
+        };
         Some(options)
     } else {
         None
@@ -177,6 +179,8 @@ pub enum Action {
     PaneToggleMaximized,
     Paste,
     PastePrimary,
+    ProfileOpen(ProfileId),
+    Profiles,
     SelectAll,
     Settings,
     ShowHeaderBar(bool),
@@ -215,6 +219,8 @@ impl Action {
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
             Action::PastePrimary => Message::PastePrimary(entity_opt),
+            Action::ProfileOpen(profile_id) => Message::ProfileOpen(profile_id),
+            Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
@@ -254,7 +260,7 @@ pub enum Message {
     DefaultDimFontWeight(usize),
     DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
-    Key(Modifiers, KeyCode),
+    Key(Modifiers, Key),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -268,9 +274,19 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
+    Opacity(u8),
     Paste(Option<segmented_button::Entity>),
     PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
+    ProfileCollapse(ProfileId),
+    ProfileCommand(ProfileId, String),
+    ProfileExpand(ProfileId),
+    ProfileName(ProfileId, String),
+    ProfileNew,
+    ProfileOpen(ProfileId),
+    ProfileRemove(ProfileId),
+    ProfileSyntaxTheme(ProfileId, usize, bool),
+    ProfileTabTitle(ProfileId, String),
     SelectAll(Option<segmented_button::Entity>),
     UseBrightBold(bool),
     ShowHeaderBar(bool),
@@ -280,7 +296,7 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(segmented_button::Entity, Option<Point>),
+    TabContextMenu(pane_grid::Pane, Option<Point>),
     TabNew,
     TabPrev,
     TabNext,
@@ -298,12 +314,14 @@ pub enum Message {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContextPage {
+    Profiles,
     Settings,
 }
 
 impl ContextPage {
     fn title(&self) -> String {
         match self {
+            Self::Profiles => fl!("profiles"),
             Self::Settings => fl!("settings"),
         }
     }
@@ -340,17 +358,29 @@ pub struct App {
     term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: TermConfig,
+    profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
 }
 
 impl App {
     fn update_config(&mut self) -> Command<Message> {
-        //TODO: provide iterator over data
-        let panes: Vec<_> = self.pane_model.panes.iter().collect();
-        for (_pane, tab_model) in panes {
-            let entities: Vec<_> = tab_model.iter().collect();
-            for entity in entities {
+        let theme = self.config.app_theme.theme();
+
+        // Update terminal window background color
+        {
+            let color = Color::from(theme.cosmic().background.base);
+            let bytes = color.into_rgba8();
+            let data = (bytes[2] as u32)
+                | ((bytes[1] as u32) << 8)
+                | ((bytes[0] as u32) << 16)
+                | 0xFF000000;
+            terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
+        }
+
+        // Set config of all tabs
+        for (_pane, tab_model) in self.pane_model.panes.iter() {
+            for entity in tab_model.iter() {
                 if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
                     terminal.set_config(&self.config, &self.themes, self.zoom_adj);
@@ -358,27 +388,40 @@ impl App {
             }
         }
 
+        // Set headerbar state
         self.core.window.show_headerbar = self.config.show_headerbar;
-        cosmic::app::command::set_theme(self.config.app_theme.theme())
+
+        // Update application theme
+        cosmic::app::command::set_theme(theme)
     }
 
     fn save_config(&mut self) -> Command<Message> {
-        match self.config_handler {
-            Some(ref config_handler) => match self.config.write_entry(&config_handler) {
+        if let Some(ref config_handler) = self.config_handler {
+            match self.config.write_entry(config_handler) {
                 Ok(()) => {}
                 Err(err) => {
                     log::error!("failed to save config: {}", err);
                 }
-            },
-            None => {}
+            }
         }
         self.update_config()
     }
 
+    fn save_profiles(&mut self) -> Command<Message> {
+        // Optimized for just saving profiles
+        if let Some(ref config_handler) = self.config_handler {
+            match config_handler.set("profiles", &self.config.profiles) {
+                Ok(()) => {}
+                Err(err) => {
+                    log::error!("failed to save config: {}", err);
+                }
+            }
+        }
+        Command::none()
+    }
+
     fn update_focus(&self) -> Command<Message> {
-        if self.core.window.show_context {
-            Command::none()
-        } else if self.find {
+        if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focus).cloned() {
             widget::text_input::focus(terminal_id)
@@ -486,6 +529,146 @@ impl App {
         }
     }
 
+    fn profiles(&self) -> Element<Message> {
+        let cosmic_theme::Spacing {
+            space_s,
+            space_xs,
+            space_xxs,
+            space_xxxs,
+            ..
+        } = self.core().system_theme().cosmic().spacing;
+
+        let mut sections = Vec::with_capacity(2);
+
+        if !self.config.profiles.is_empty() {
+            let mut profiles_section = widget::settings::view_section("");
+            for (profile_name, profile_id) in self.config.profile_names() {
+                let profile = match self.config.profiles.get(&profile_id) {
+                    Some(some) => some,
+                    None => continue,
+                };
+
+                let expanded = self.profile_expanded == Some(profile_id);
+
+                profiles_section = profiles_section.add(
+                    widget::settings::item::builder(profile_name).control(
+                        widget::row::with_children(vec![
+                            widget::button(icon_cache_get("edit-delete-symbolic", 16))
+                                .on_press(Message::ProfileRemove(profile_id))
+                                .style(style::Button::Icon)
+                                .into(),
+                            if expanded {
+                                widget::button(icon_cache_get("go-up-symbolic", 16))
+                                    .on_press(Message::ProfileCollapse(profile_id))
+                            } else {
+                                widget::button(icon_cache_get("go-down-symbolic", 16))
+                                    .on_press(Message::ProfileExpand(profile_id))
+                            }
+                            .style(style::Button::Icon)
+                            .into(),
+                        ])
+                        .align_items(Alignment::Center)
+                        .spacing(space_xxs),
+                    ),
+                );
+
+                if expanded {
+                    let dark_selected = self
+                        .theme_names
+                        .iter()
+                        .position(|theme_name| theme_name == &profile.syntax_theme_dark);
+                    let light_selected = self
+                        .theme_names
+                        .iter()
+                        .position(|theme_name| theme_name == &profile.syntax_theme_light);
+
+                    let expanded_section = widget::settings::view_section("")
+                        .add(
+                            widget::column::with_children(vec![
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("name")).into(),
+                                    widget::text_input("", &profile.name)
+                                        .on_input(move |text| {
+                                            Message::ProfileName(profile_id, text)
+                                        })
+                                        .into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("command-line")).into(),
+                                    widget::text_input("", &profile.command)
+                                        .on_input(move |text| {
+                                            Message::ProfileCommand(profile_id, text)
+                                        })
+                                        .into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("tab-title")).into(),
+                                    widget::text_input("", &profile.tab_title)
+                                        .on_input(move |text| {
+                                            Message::ProfileTabTitle(profile_id, text)
+                                        })
+                                        .into(),
+                                    widget::text::caption(fl!("tab-title-description")).into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                            ])
+                            .padding([0, space_s])
+                            .spacing(space_xs),
+                        )
+                        .add(
+                            //TODO: rename to color-scheme-dark?
+                            widget::settings::item::builder(fl!("syntax-dark")).control(
+                                widget::dropdown(
+                                    &self.theme_names,
+                                    dark_selected,
+                                    move |theme_i| {
+                                        Message::ProfileSyntaxTheme(profile_id, theme_i, true)
+                                    },
+                                ),
+                            ),
+                        )
+                        .add(
+                            //TODO: rename to color-scheme-light?
+                            widget::settings::item::builder(fl!("syntax-light")).control(
+                                widget::dropdown(
+                                    &self.theme_names,
+                                    light_selected,
+                                    move |theme_i| {
+                                        Message::ProfileSyntaxTheme(profile_id, theme_i, false)
+                                    },
+                                ),
+                            ),
+                        );
+
+                    let padding = Padding {
+                        top: 0.0,
+                        bottom: 0.0,
+                        left: space_s as f32,
+                        right: space_s as f32,
+                    };
+                    profiles_section =
+                        profiles_section.add(widget::container(expanded_section).padding(padding))
+                }
+            }
+            sections.push(profiles_section.into());
+        }
+
+        let add_profile = widget::row::with_children(vec![
+            widget::horizontal_space(Length::Fill).into(),
+            widget::button(widget::text(fl!("add-profile")))
+                .on_press(Message::ProfileNew)
+                .into(),
+        ]);
+        sections.push(add_profile.into());
+
+        widget::settings::view_column(sections).into()
+    }
+
     fn settings(&self) -> Element<Message> {
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
@@ -568,15 +751,21 @@ impl App {
                         Message::DefaultZoomStep(index)
                     }),
                 ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("opacity"))
+                    .description(format!("{}%", self.config.opacity))
+                    .control(widget::slider(0..=100, self.config.opacity, |opacity| {
+                        Message::Opacity(opacity)
+                    })),
             );
-        //TODO: background opacity
 
         let mut font_section = widget::settings::view_section(fl!("font"))
             .add(
                 widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
                     &self.font_names,
                     font_selected,
-                    |index| Message::DefaultFont(index),
+                    Message::DefaultFont,
                 )),
             )
             .add(
@@ -600,7 +789,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_stretch_names,
                             font_stretch_selected,
-                            |index| Message::DefaultFontStretch(index),
+                            Message::DefaultFontStretch,
                         ),
                     ),
                 )
@@ -609,7 +798,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_weight_names,
                             font_weight_selected,
-                            |index| Message::DefaultFontWeight(index),
+                            Message::DefaultFontWeight,
                         ),
                     ),
                 )
@@ -618,7 +807,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_weight_names,
                             dim_font_weight_selected,
-                            |index| Message::DefaultDimFontWeight(index),
+                            Message::DefaultDimFontWeight,
                         ),
                     ),
                 )
@@ -627,7 +816,7 @@ impl App {
                         widget::dropdown(
                             &self.curr_font_weight_names,
                             bold_font_weight_selected,
-                            |index| Message::DefaultBoldFontWeight(index),
+                            Message::DefaultBoldFontWeight,
                         ),
                     ),
                 )
@@ -668,48 +857,97 @@ impl App {
         .into()
     }
 
-    fn create_and_focus_new_terminal(&mut self, pane: pane_grid::Pane) {
+    fn create_and_focus_new_terminal(
+        &mut self,
+        pane: pane_grid::Pane,
+        profile_id_opt: Option<ProfileId>,
+    ) -> Command<Message> {
         self.pane_model.focus = pane;
         match &self.term_event_tx_opt {
-            Some(term_event_tx) => match self.themes.get(self.config.syntax_theme()) {
-                Some(colors) => {
-                    let current_pane = self.pane_model.focus;
-                    if let Some(tab_model) = self.pane_model.active_mut() {
-                        let entity = tab_model
-                            .insert()
-                            .text("New Terminal")
-                            .closable()
-                            .activate()
-                            .id();
-                        // Use the startup options, or defaults
-                        let options = self.startup_options.take().unwrap_or_default();
-                        let mut terminal = Terminal::new(
-                            current_pane,
-                            entity,
-                            term_event_tx.clone(),
-                            self.term_config.clone(),
-                            options,
-                            &self.config,
-                            *colors,
+            Some(term_event_tx) => {
+                match self.themes.get(self.config.syntax_theme(profile_id_opt)) {
+                    Some(colors) => {
+                        let current_pane = self.pane_model.focus;
+                        if let Some(tab_model) = self.pane_model.active_mut() {
+                            // Use the profile options, startup options, or defaults
+                            let (options, tab_title_override) = match profile_id_opt
+                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                            {
+                                Some(profile) => {
+                                    if !profile.tab_title.is_empty() {}
+                                    let mut shell = None;
+                                    if let Some(mut args) = shlex::split(&profile.command) {
+                                        if !args.is_empty() {
+                                            let command = args.remove(0);
+                                            shell = Some(tty::Shell::new(command, args));
+                                        }
+                                    }
+                                    let options = tty::Options {
+                                        shell,
+                                        //TODO: configurable working directory?
+                                        working_directory: None,
+                                        //TODO: configurable hold (keep open when child exits)?
+                                        hold: false,
+                                    };
+                                    let tab_title_override = if !profile.tab_title.is_empty() {
+                                        Some(profile.tab_title.clone())
+                                    } else {
+                                        None
+                                    };
+                                    (options, tab_title_override)
+                                }
+                                None => (self.startup_options.take().unwrap_or_default(), None),
+                            };
+                            let entity = tab_model
+                                .insert()
+                                .text(
+                                    tab_title_override
+                                        .clone()
+                                        .unwrap_or_else(|| fl!("new-terminal")),
+                                )
+                                .closable()
+                                .activate()
+                                .id();
+                            match Terminal::new(
+                                current_pane,
+                                entity,
+                                term_event_tx.clone(),
+                                self.term_config.clone(),
+                                options,
+                                &self.config,
+                                *colors,
+                                profile_id_opt,
+                                tab_title_override,
+                            ) {
+                                Ok(mut terminal) => {
+                                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                                    tab_model
+                                        .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                }
+                                Err(err) => {
+                                    log::error!("failed to open terminal: {}", err);
+                                    // Clean up partially created tab
+                                    return self.update(Message::TabClose(Some(entity)));
+                                }
+                            }
+                        } else {
+                            log::error!("Found no active pane");
+                        }
+                    }
+                    None => {
+                        log::error!(
+                            "failed to find terminal theme {:?}",
+                            self.config.syntax_theme(profile_id_opt)
                         );
-                        terminal.set_config(&self.config, &self.themes, self.zoom_adj);
-                        tab_model.data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
-                    } else {
-                        log::error!("Found no active pane");
+                        //TODO: fall back to known good theme
                     }
                 }
-                None => {
-                    log::error!(
-                        "failed to find terminal theme {:?}",
-                        self.config.syntax_theme()
-                    );
-                    //TODO: fall back to known good theme
-                }
-            },
+            }
             None => {
                 log::warn!("tried to create new tab before having event channel");
             }
         }
+        return self.update_title(Some(pane));
     }
 }
 
@@ -762,7 +1000,7 @@ impl Application for App {
                     //TODO: get localized name if possible
                     let font_name = face
                         .families
-                        .get(0)
+                        .first()
                         .map_or_else(|| face.post_script_name.to_string(), |x| x.0.to_string());
                     font_name_faces_map
                         .entry(font_name)
@@ -838,7 +1076,7 @@ impl Application for App {
         }
 
         let themes = terminal_theme::terminal_themes();
-        let mut theme_names: Vec<_> = themes.keys().map(|x| x.clone()).collect();
+        let mut theme_names: Vec<_> = themes.keys().cloned().collect();
         theme_names.sort();
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
@@ -874,12 +1112,13 @@ impl Application for App {
             startup_options: flags.startup_options,
             term_config: flags.term_config,
             term_event_tx_opt: None,
+            profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = app.update_title(None);
+        let command = Command::batch([app.update_config(), app.update_title(None)]);
 
         (app, command)
     }
@@ -892,6 +1131,7 @@ impl Application for App {
         } else if self.find {
             // Close find if open
             self.find = false;
+            self.find_search_value.clear();
         }
 
         // Focus correct widget
@@ -908,6 +1148,33 @@ impl Application for App {
 
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        // Helper for updating config values efficiently
+        macro_rules! config_set {
+            ($name: ident, $value: expr) => {
+                match &self.config_handler {
+                    Some(config_handler) => {
+                        match paste::paste! { self.config.[<set_ $name>](config_handler, $value) } {
+                            Ok(_) => {}
+                            Err(err) => {
+                                log::warn!(
+                                    "failed to save config {:?}: {}",
+                                    stringify!($name),
+                                    err
+                                );
+                            }
+                        }
+                    }
+                    None => {
+                        self.config.$name = $value;
+                        log::warn!(
+                            "failed to save config {:?}: no config handler",
+                            stringify!($name)
+                        );
+                    }
+                }
+            };
+        }
+
         match message {
             Message::AppTheme(app_theme) => {
                 self.config.app_theme = app_theme;
@@ -928,12 +1195,13 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
-                            return clipboard::write(text);
+                            return Command::batch([clipboard::write(text), self.update_focus()]);
                         }
                     }
                 } else {
                     log::warn!("Failed to get focused pane");
                 }
+                return self.update_focus();
             }
             Message::CopyPrimary(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -1039,15 +1307,31 @@ impl Application for App {
                     log::warn!("failed to find zoom step with index {}", index);
                 }
             },
-            Message::Key(modifiers, key_code) => {
+            Message::Key(modifiers, key) => {
                 for (key_bind, action) in self.key_binds.iter() {
-                    if key_bind.matches(modifiers, key_code) {
+                    if key_bind.matches(modifiers, &key) {
                         return self.update(action.message(None));
                     }
                 }
             }
             Message::Find(find) => {
                 self.find = find;
+                if find {
+                    if let Some(tab_model) = self.pane_model.active() {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let terminal = terminal.lock().unwrap();
+                            let term = terminal.term.lock();
+                            if let Some(text) = term.selection_to_string() {
+                                self.find_search_value = text;
+                            }
+                        }
+                    } else {
+                        log::warn!("Failed to get focused pane");
+                    }
+                } else {
+                    self.find_search_value.clear();
+                }
 
                 // Focus correct input
                 return self.update_focus();
@@ -1100,6 +1384,9 @@ impl Application for App {
                 self.pane_model.focus = pane;
                 return self.update_focus();
             }
+            Message::Opacity(opacity) => {
+                config_set!(opacity, cmp::min(100, opacity));
+            }
             Message::PaneClicked(pane) => {
                 self.pane_model.focus = pane;
                 return self.update_title(Some(pane));
@@ -1112,9 +1399,9 @@ impl Application for App {
                 );
                 if let Some((pane, _)) = result {
                     self.terminal_ids.insert(pane, widget::Id::unique());
-                    self.create_and_focus_new_terminal(pane);
+                    let command = self.create_and_focus_new_terminal(pane, None);
                     self.pane_model.panes_created += 1;
-                    return self.update_title(Some(pane));
+                    return command;
                 }
             }
             Message::PaneToggleMaximized => {
@@ -1162,6 +1449,78 @@ impl Application for App {
                         terminal.paste(value);
                     }
                 }
+                return self.update_focus();
+            }
+            Message::ProfileCollapse(_profile_id) => {
+                self.profile_expanded = None;
+            }
+            Message::ProfileCommand(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.command = text;
+                    return self.save_profiles();
+                }
+            }
+            Message::ProfileExpand(profile_id) => {
+                self.profile_expanded = Some(profile_id);
+            }
+            Message::ProfileName(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.name = text;
+                    return self.save_profiles();
+                }
+            }
+            Message::ProfileNew => {
+                // Get next profile ID
+                let profile_id = self
+                    .config
+                    .profiles
+                    .last_key_value()
+                    .map(|(id, _)| ProfileId(id.0 + 1))
+                    .unwrap_or_default();
+                self.config.profiles.insert(profile_id, Profile::default());
+                self.profile_expanded = Some(profile_id);
+                return self.save_profiles();
+            }
+            Message::ProfileOpen(profile_id) => {
+                return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
+            }
+            Message::ProfileRemove(profile_id) => {
+                // Reset matching terminals to default profile
+                for (_pane, tab_model) in self.pane_model.panes.iter() {
+                    for entity in tab_model.iter() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            if terminal.profile_id_opt == Some(profile_id) {
+                                terminal.profile_id_opt = None;
+                            }
+                        }
+                    }
+                }
+                self.config.profiles.remove(&profile_id);
+                return self.save_profiles();
+            }
+            Message::ProfileSyntaxTheme(profile_id, theme_i, dark) => {
+                match self.theme_names.get(theme_i) {
+                    Some(theme_name) => {
+                        if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                            if dark {
+                                profile.syntax_theme_dark = theme_name.to_string();
+                            } else {
+                                profile.syntax_theme_light = theme_name.to_string();
+                            }
+                            return self.save_profiles();
+                        }
+                    }
+                    None => {
+                        log::warn!("failed to find syntax theme with index {}", theme_i);
+                    }
+                }
+            }
+            Message::ProfileTabTitle(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.tab_title = text;
+                    return self.save_profiles();
+                }
             }
             Message::SelectAll(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -1171,6 +1530,7 @@ impl Application for App {
                         terminal.select_all();
                     }
                 }
+                return self.update_focus();
             }
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {
@@ -1185,10 +1545,7 @@ impl Application for App {
                 }
             }
             Message::FocusFollowMouse(focus_follow_mouse) => {
-                if focus_follow_mouse != self.config.focus_follow_mouse {
-                    self.config.focus_follow_mouse = focus_follow_mouse;
-                    return self.save_config();
-                }
+                config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::SystemThemeChange => {
                 return self.update_config();
@@ -1263,33 +1620,46 @@ impl Application for App {
             }
             Message::TabContextAction(entity, action) => {
                 if let Some(tab_model) = self.pane_model.active() {
-                    match tab_model.data::<Mutex<Terminal>>(entity) {
-                        Some(terminal) => {
-                            // Close context menu
-                            {
-                                let mut terminal = terminal.lock().unwrap();
-                                terminal.context_menu = None;
-                            }
-                            // Run action's message
-                            return self.update(action.message(Some(entity)));
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Message::TabContextMenu(entity, position_opt) => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    match tab_model.data::<Mutex<Terminal>>(entity) {
-                        Some(terminal) => {
-                            // Update context menu position
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Close context menu
+                        {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = position_opt;
+                            terminal.context_menu = None;
                         }
-                        _ => {}
+                        // Run action's message
+                        return self.update(action.message(Some(entity)));
                     }
                 }
             }
-            Message::TabNew => self.create_and_focus_new_terminal(self.pane_model.focus),
+            Message::TabContextMenu(pane, position_opt) => {
+                // Close any existing context menues
+                let panes: Vec<_> = self.pane_model.panes.iter().collect();
+                for (_pane, tab_model) in panes {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.context_menu = None;
+                    }
+                }
+
+                // Show the context menu on the correct pane / terminal
+                if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Update context menu position
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.context_menu = position_opt;
+                    }
+                }
+
+                // Shift focus to the pane / terminal
+                // with the context menu
+                self.pane_model.focus = pane;
+                return self.update_title(Some(pane));
+            }
+            Message::TabNew => {
+                return self.create_and_focus_new_terminal(self.pane_model.focus, None)
+            }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let len = tab_model.iter().count();
@@ -1348,7 +1718,17 @@ impl Application for App {
                     }
                     TermEvent::ResetTitle => {
                         if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
-                            tab_model.text_set(entity, "New Terminal");
+                            let tab_title_override =
+                                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                    let terminal = terminal.lock().unwrap();
+                                    terminal.tab_title_override.clone()
+                                } else {
+                                    None
+                                };
+                            tab_model.text_set(
+                                entity,
+                                tab_title_override.unwrap_or_else(|| fl!("new-terminal")),
+                            );
                         }
                         return self.update_title(Some(pane));
                     }
@@ -1363,7 +1743,16 @@ impl Application for App {
                     }
                     TermEvent::Title(title) => {
                         if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
-                            tab_model.text_set(entity, title);
+                            let has_override =
+                                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                    let terminal = terminal.lock().unwrap();
+                                    terminal.tab_title_override.is_some()
+                                } else {
+                                    false
+                                };
+                            if !has_override {
+                                tab_model.text_set(entity, title);
+                            }
                         }
                         return self.update_title(Some(pane));
                     }
@@ -1381,7 +1770,33 @@ impl Application for App {
                 }
             }
             Message::TermEventTx(term_event_tx) => {
+                // Check if the terminal event channel was reset
+                if self.term_event_tx_opt.is_some() {
+                    // Close tabs using old terminal event channel
+                    log::warn!("terminal event channel reset, closing tabs");
+
+                    // First, close other panes
+                    while let Some((_state, sibling)) =
+                        self.pane_model.panes.close(self.pane_model.focus)
+                    {
+                        self.terminal_ids.remove(&self.pane_model.focus);
+                        self.pane_model.focus = sibling;
+                    }
+
+                    // Next, close all tabs in the active pane
+                    if let Some(tab_model) = self.pane_model.active_mut() {
+                        let entities: Vec<_> = tab_model.iter().collect();
+                        for entity in entities {
+                            tab_model.remove(entity);
+                        }
+                    }
+                }
+
+                // Set new terminal event channel
                 self.term_event_tx_opt = Some(term_event_tx);
+
+                // Spawn first tab
+                return self.update(Message::TabNew);
             }
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
@@ -1432,17 +1847,18 @@ impl Application for App {
         }
 
         Some(match self.context_page {
+            ContextPage::Profiles => self.profiles(),
             ContextPage::Settings => self.settings(),
         })
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.key_binds).into()]
+        vec![menu_bar(&self.config, &self.key_binds)]
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-        vec![widget::button(widget::icon::from_name("list-add-symbolic"))
+        vec![widget::button(icon_cache_get("list-add-symbolic", 16))
             .on_press(Message::TabNew)
             .padding(space_xxs)
             .style(style::Button::Icon)
@@ -1451,17 +1867,8 @@ impl Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<Self::Message> {
-        let cosmic_theme = self.core().system_theme().cosmic();
-        let cosmic_theme::Spacing { space_xxs, .. } = cosmic_theme.spacing;
-        {
-            let color = Color::from(cosmic_theme.bg_color());
-            let bytes = color.into_rgba8();
-            let data = (bytes[2] as u32)
-                | ((bytes[1] as u32) << 8)
-                | ((bytes[0] as u32) << 16)
-                | 0xFF000000;
-            terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
-        }
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
@@ -1491,11 +1898,13 @@ impl Application for App {
                     let mut terminal_box = terminal_box(terminal)
                         .id(terminal_id)
                         .on_context_menu(move |position_opt| {
-                            Message::TabContextMenu(entity, position_opt)
+                            Message::TabContextMenu(pane, position_opt)
                         })
                         .on_middle_click(move || {
                             Message::MiddleClick(pane, Some(entity_middle_click))
-                        });
+                        })
+                        .opacity(self.config.opacity_ratio())
+                        .padding(space_xxs);
 
                     if self.config.focus_follow_mouse {
                         terminal_box =
@@ -1523,7 +1932,8 @@ impl Application for App {
                 }
             }
 
-            if self.find {
+            //Only draw find in the currently focused pane
+            if self.find && pane == self.pane_model.focus {
                 let find_input = widget::text_input::text_input(
                     fl!("find-placeholder"),
                     &self.find_search_value,
@@ -1585,17 +1995,12 @@ impl Application for App {
         })
         .width(Length::Fill)
         .height(Length::Fill)
-        .spacing(space_xxs)
         .on_click(Message::PaneClicked)
         .on_resize(space_xxs, Message::PaneResized)
         .on_drag(Message::PaneDragged);
 
-        container(pane_grid)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .padding(space_xxs)
-            .style(style::Container::Background)
-            .into()
+        //TODO: apply window border radius xs at bottom of window
+        pane_grid.into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
@@ -1606,10 +2011,9 @@ impl Application for App {
 
         Subscription::batch([
             event::listen_with(|event, _status| match event {
-                Event::Keyboard(KeyEvent::KeyPressed {
-                    key_code,
-                    modifiers,
-                }) => Some(Message::Key(modifiers, key_code)),
+                Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
+                    Some(Message::Key(modifiers, key))
+                }
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
                 }
@@ -1624,12 +2028,6 @@ impl Application for App {
                 |mut output| async move {
                     let (event_tx, mut event_rx) = mpsc::channel(100);
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
-
-                    // Avoid creating two tabs at startup
-                    tokio::time::sleep(Duration::from_millis(50)).await;
-
-                    // Create first terminal tab
-                    output.send(Message::TabNew).await.unwrap();
 
                     while let Some((pane, entity, event)) = event_rx.recv().await {
                         output

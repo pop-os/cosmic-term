@@ -8,14 +8,15 @@ use alacritty_terminal::{
 use cosmic::{
     cosmic_theme::palette::{blend::Compose, WithAlpha},
     iced::{
-        advanced::graphics::text::{font_system, Raw},
+        advanced::graphics::text::Raw,
         event::{Event, Status},
-        keyboard::{Event as KeyEvent, KeyCode, Modifiers},
+        keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{self, Button, Event as MouseEvent, ScrollDelta},
         Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
     },
     iced_core::{
         clipboard::Clipboard,
+        keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
         text::Renderer as _,
@@ -24,7 +25,7 @@ use cosmic::{
             operation::{self, Operation, OperationOutputWrapper},
             tree, Id, Widget,
         },
-        Shell,
+        Border, Shell,
     },
     theme::Theme,
     Renderer,
@@ -34,22 +35,30 @@ use indexmap::IndexSet;
 use std::{
     cell::Cell,
     cmp,
+    collections::HashMap,
     sync::Mutex,
     time::{Duration, Instant},
 };
 
-use crate::{terminal::Metadata, Terminal, TerminalScroll};
+use crate::{
+    key_bind::{key_binds, KeyBind},
+    terminal::Metadata,
+    Action, Terminal, TerminalScroll,
+};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
     id: Option<Id>,
+    border: Border,
     padding: Padding,
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
+    opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
+    key_binds: HashMap<KeyBind, Action>,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -60,18 +69,26 @@ where
         Self {
             terminal,
             id: None,
+            border: Border::default(),
             padding: Padding::new(0.0),
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
             on_mouse_enter: None,
+            opacity: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
+            key_binds: key_binds(),
         }
     }
 
     pub fn id(mut self, id: Id) -> Self {
         self.id = Some(id);
+        self
+    }
+
+    pub fn border<B: Into<Border>>(mut self, border: B) -> Self {
+        self.border = border.into();
         self
     }
 
@@ -107,16 +124,21 @@ where
         self.on_middle_click = Some(Box::new(on_middle_click));
         self
     }
+
+    pub fn opacity(mut self, opacity: f32) -> Self {
+        self.opacity = Some(opacity);
+        self
+    }
 }
 
-pub fn terminal_box<'a, Message>(terminal: &'a Mutex<Terminal>) -> TerminalBox<'a, Message>
+pub fn terminal_box<Message>(terminal: &Mutex<Terminal>) -> TerminalBox<'_, Message>
 where
     Message: Clone,
 {
     TerminalBox::new(terminal)
 }
 
-impl<'a, Message> Widget<Message, Renderer> for TerminalBox<'a, Message>
+impl<'a, Message> Widget<Message, cosmic::Theme, Renderer> for TerminalBox<'a, Message>
 where
     Message: Clone,
 {
@@ -128,12 +150,8 @@ where
         tree::State::new(State::new())
     }
 
-    fn width(&self) -> Length {
-        Length::Fill
-    }
-
-    fn height(&self) -> Length {
-        Length::Fill
+    fn size(&self) -> Size<Length> {
+        Size::new(Length::Fill, Length::Fill)
     }
 
     fn layout(
@@ -154,12 +172,6 @@ where
             terminal.needs_update = false;
         }
 
-        // Ensure terminal is shaped
-        terminal.with_buffer_mut(|buffer| {
-            let mut font_system = font_system().write().unwrap();
-            buffer.shape_until_scroll(font_system.raw(), true);
-        });
-
         // Calculate layout lines
         terminal.with_buffer(|buffer| {
             let mut layout_lines = 0;
@@ -173,7 +185,7 @@ where
             let height = layout_lines as f32 * buffer.metrics().line_height;
             let size = Size::new(limits.max().width, height);
 
-            layout::Node::new(limits.resolve(size))
+            layout::Node::new(limits.resolve(Length::Fill, Length::Fill, size))
         })
     }
 
@@ -199,9 +211,8 @@ where
     ) -> mouse::Interaction {
         let state = tree.state.downcast_ref::<State>();
 
-        match &state.dragging {
-            Some(Dragging::Scrollbar { .. }) => return mouse::Interaction::Idle,
-            _ => {}
+        if let Some(Dragging::Scrollbar { .. }) = &state.dragging {
+            return mouse::Interaction::Idle;
         }
 
         if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -235,8 +246,7 @@ where
         let cosmic_theme = theme.cosmic();
         let scrollbar_w = cosmic_theme.spacing.space_xxs as f32;
 
-        let view_position =
-            layout.position() + [self.padding.left as f32, self.padding.top as f32].into();
+        let view_position = layout.position() + [self.padding.left, self.padding.top].into();
         let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
             - self.padding.horizontal() as i32
             - scrollbar_w as i32;
@@ -259,12 +269,6 @@ where
             terminal.needs_update = false;
         }
 
-        // Ensure terminal is shaped
-        terminal.with_buffer_mut(|buffer| {
-            let mut font_system = font_system().write().unwrap();
-            buffer.shape_until_scroll(font_system.raw(), true);
-        });
-
         // Render default background
         {
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
@@ -272,19 +276,18 @@ where
 
             renderer.fill_quad(
                 Quad {
-                    bounds: Rectangle::new(
-                        view_position,
-                        Size::new(view_w as f32 + scrollbar_w, view_h as f32),
-                    ),
-                    border_radius: 0.0.into(),
-                    border_width: 0.0,
-                    border_color: Color::TRANSPARENT,
+                    bounds: layout.bounds(),
+                    border: self.border,
+                    ..Default::default()
                 },
                 Color::new(
                     background_color.r() as f32 / 255.0,
                     background_color.g() as f32 / 255.0,
                     background_color.b() as f32 / 255.0,
-                    background_color.a() as f32 / 255.0,
+                    match self.opacity {
+                        Some(opacity) => opacity,
+                        None => background_color.a() as f32 / 255.0,
+                    },
                 ),
             );
         }
@@ -327,10 +330,6 @@ where
                         renderer: &mut Renderer,
                         is_focused: bool,
                     ) {
-                        if self.metadata == self.default_metadata {
-                            return;
-                        }
-
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::new(
                                 color.r() as f32 / 255.0,
@@ -356,9 +355,7 @@ where
                                         self.view_position + $pos_offset,
                                         Size::new($width, $style_line_height),
                                     ),
-                                    border_radius: 0.0.into(),
-                                    border_width: 0.0,
-                                    border_color: Color::TRANSPARENT,
+                                    ..Default::default()
                                 }
                             };
                             ($pos_offset:expr, $style_line_height:expr) => {
@@ -367,11 +364,13 @@ where
                         }
 
                         let metadata = &self.metadata_set[self.metadata];
-                        let color = shade(metadata.bg, is_focused);
-                        renderer.fill_quad(
-                            mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
-                            cosmic_text_to_iced_color(color),
-                        );
+                        if metadata.bg != self.metadata_set[self.default_metadata].bg {
+                            let color = shade(metadata.bg, is_focused);
+                            renderer.fill_quad(
+                                mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
+                                cosmic_text_to_iced_color(color),
+                            );
+                        }
 
                         if !metadata.flags.is_empty() {
                             let style_line_height =
@@ -462,7 +461,7 @@ where
                                     dot_width = dot_width.min(full_width - accu_width);
 
                                     let dot_bottom_offset = match accu_width as u32 % 8 {
-                                        3 | 4 | 5 => bottom_offset + style_line_height,
+                                        3..=5 => bottom_offset + style_line_height,
                                         2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
                                         1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
                                         _ => bottom_offset,
@@ -515,10 +514,7 @@ where
                 Size::new(scrollbar_w, scrollbar_h),
             );
 
-            let pressed = match &state.dragging {
-                Some(Dragging::Scrollbar { .. }) => true,
-                _ => false,
-            };
+            let pressed = matches!(&state.dragging, Some(Dragging::Scrollbar { .. }));
 
             let mut hover = false;
             if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -568,9 +564,12 @@ where
             renderer.fill_quad(
                 Quad {
                     bounds: scrollbar_draw,
-                    border_radius: (scrollbar_draw.width / 2.0).into(),
-                    border_width: 0.0,
-                    border_color: Color::TRANSPARENT,
+                    border: Border {
+                        radius: (scrollbar_draw.width / 2.0).into(),
+                        width: 0.0,
+                        color: Color::TRANSPARENT,
+                    },
+                    ..Default::default()
                 },
                 scrollbar_color,
             );
@@ -606,238 +605,100 @@ where
         let mut status = Status::Ignored;
         match event {
             Event::Keyboard(KeyEvent::KeyPressed {
-                key_code,
+                key: Key::Named(named),
                 modifiers,
-            }) if state.is_focused => match (
-                modifiers.logo(),
-                modifiers.control(),
-                modifiers.alt(),
-                modifiers.shift(),
-            ) {
-                (true, _, _, _) => {
-                    // Ignore super keys
+                ..
+            }) if state.is_focused => {
+                for (key_bind, _) in self.key_binds.iter() {
+                    if key_bind.matches(modifiers, &Key::Named(named)) {
+                        return Status::Captured;
+                    }
                 }
-                (_, true, _, _) => match key_code {
-                    KeyCode::Up => {
-                        terminal.input_scroll(b"\x1B[1;5A".as_slice());
+                let mod_no = calculate_modifier_number(state);
+                let escape_code = match named {
+                    Named::Insert => csi("2", "~", mod_no),
+                    Named::Delete => csi("3", "~", mod_no),
+                    Named::PageUp => csi("5", "~", mod_no),
+                    Named::PageDown => csi("6", "~", mod_no),
+                    Named::ArrowUp => {
+                        if is_app_cursor {
+                            ss3("A", mod_no)
+                        } else {
+                            csi("A", "", mod_no)
+                        }
+                    }
+                    Named::ArrowDown => {
+                        if is_app_cursor {
+                            ss3("B", mod_no)
+                        } else {
+                            csi("B", "", mod_no)
+                        }
+                    }
+                    Named::ArrowRight => {
+                        if is_app_cursor {
+                            ss3("C", mod_no)
+                        } else {
+                            csi("C", "", mod_no)
+                        }
+                    }
+                    Named::ArrowLeft => {
+                        if is_app_cursor {
+                            ss3("D", mod_no)
+                        } else {
+                            csi("D", "", mod_no)
+                        }
+                    }
+                    Named::End => {
+                        if is_app_cursor {
+                            ss3("F", mod_no)
+                        } else {
+                            csi("F", "", mod_no)
+                        }
+                    }
+                    Named::Home => {
+                        if is_app_cursor {
+                            ss3("H", mod_no)
+                        } else {
+                            csi("H", "", mod_no)
+                        }
+                    }
+                    Named::F1 => ss3("P", mod_no),
+                    Named::F2 => ss3("Q", mod_no),
+                    Named::F3 => ss3("R", mod_no),
+                    Named::F4 => ss3("S", mod_no),
+                    Named::F5 => csi("15", "~", mod_no),
+                    Named::F6 => csi("17", "~", mod_no),
+                    Named::F7 => csi("18", "~", mod_no),
+                    Named::F8 => csi("19", "~", mod_no),
+                    Named::F9 => csi("20", "~", mod_no),
+                    Named::F10 => csi("21", "~", mod_no),
+                    Named::F11 => csi("23", "~", mod_no),
+                    Named::F12 => csi("24", "~", mod_no),
+                    _ => None,
+                };
+                if let Some(escape_code) = escape_code {
+                    terminal.input_scroll(escape_code);
+                    return Status::Captured;
+                }
+
+                //Special handle Enter, Escape, Backspace and Tab as described in
+                //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
+                //Also special handle Ctrl-_ to behave like xterm
+                let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
+                match named {
+                    Named::Backspace => {
+                        let code = if modifiers.control() { "\x08" } else { "\x7f" };
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Down => {
-                        terminal.input_scroll(b"\x1B[1;5B".as_slice());
+                    Named::Enter => {
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Right => {
-                        terminal.input_scroll(b"\x1B[1;5C".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Left => {
-                        terminal.input_scroll(b"\x1B[1;5D".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::End => {
-                        terminal.input_scroll(b"\x1B[1;5F".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Home => {
-                        terminal.input_scroll(b"\x1B[1;5H".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Insert => {
-                        terminal.input_scroll(b"\x1B[2;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Delete => {
-                        terminal.input_scroll(b"\x1B[3;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageUp => {
-                        terminal.input_scroll(b"\x1B[5;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageDown => {
-                        terminal.input_scroll(b"\x1B[6;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F1 => {
-                        terminal.input_scroll(b"\x1BO;5P".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F2 => {
-                        terminal.input_scroll(b"\x1BO;5Q".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F3 => {
-                        terminal.input_scroll(b"\x1BO;5R".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F4 => {
-                        terminal.input_scroll(b"\x1BO;5S".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F5 => {
-                        terminal.input_scroll(b"\x1B[15;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F6 => {
-                        terminal.input_scroll(b"\x1B[17;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F7 => {
-                        terminal.input_scroll(b"\x1B[18;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F8 => {
-                        terminal.input_scroll(b"\x1B[19;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F9 => {
-                        terminal.input_scroll(b"\x1B[20;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F10 => {
-                        terminal.input_scroll(b"\x1B[21;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F11 => {
-                        terminal.input_scroll(b"\x1B[23;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F12 => {
-                        terminal.input_scroll(b"\x1B[24;5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    _ => (),
-                },
-                // Handle alt keys
-                (_, _, true, _) => match key_code {
-                    KeyCode::Up => {
-                        terminal.input_scroll(b"\x1B[1;3A".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Down => {
-                        terminal.input_scroll(b"\x1B[1;3B".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Right => {
-                        terminal.input_scroll(b"\x1B[1;3C".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Left => {
-                        terminal.input_scroll(b"\x1B[1;3D".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::End => {
-                        terminal.input_scroll(b"\x1B[1;3F".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Home => {
-                        terminal.input_scroll(b"\x1B[1;3H".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Insert => {
-                        terminal.input_scroll(b"\x1B[2;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Delete => {
-                        terminal.input_scroll(b"\x1B[3;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageUp => {
-                        terminal.input_scroll(b"\x1B[5;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageDown => {
-                        terminal.input_scroll(b"\x1B[6;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F1 => {
-                        terminal.input_scroll(b"\x1B[1;3P".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F2 => {
-                        terminal.input_scroll(b"\x1B1;3Q".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F3 => {
-                        terminal.input_scroll(b"\x1B1;3R".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F4 => {
-                        terminal.input_scroll(b"\x1B1;3S".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F5 => {
-                        terminal.input_scroll(b"\x1B[15;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F6 => {
-                        terminal.input_scroll(b"\x1B[17;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F7 => {
-                        terminal.input_scroll(b"\x1B[18;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F8 => {
-                        terminal.input_scroll(b"\x1B[19;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F9 => {
-                        terminal.input_scroll(b"\x1B[20;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F10 => {
-                        terminal.input_scroll(b"\x1B[21;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F11 => {
-                        terminal.input_scroll(b"\x1B[23;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F12 => {
-                        terminal.input_scroll(b"\x1B[24;3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Backspace => {
-                        terminal.input_scroll(b"\x1B\x7F".as_slice());
-                        status = Status::Captured;
-                    }
-                    _ => (),
-                },
-                // Handle shift keys
-                (_, _, _, true) => match key_code {
-                    KeyCode::End => {
-                        terminal.scroll(TerminalScroll::Bottom);
-                    }
-                    KeyCode::Home => {
-                        terminal.scroll(TerminalScroll::Top);
-                    }
-                    KeyCode::PageDown => {
-                        terminal.scroll(TerminalScroll::PageDown);
-                    }
-                    KeyCode::PageUp => {
-                        terminal.scroll(TerminalScroll::PageUp);
-                    }
-                    KeyCode::Tab => {
-                        terminal.input_scroll(b"\x1B[Z".as_slice());
-                    }
-                    _ => {}
-                },
-                // Handle keys with no modifiers
-                (_, _, _, false) => match key_code {
-                    KeyCode::Backspace => {
-                        terminal.input_scroll(b"\x7F".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Tab => {
-                        terminal.input_scroll(b"\t".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Enter => {
-                        terminal.input_scroll(b"\r".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Escape => {
+                    Named::Escape => {
+                        //Escape with any modifier will cancel selection
                         let had_selection = {
                             let mut term = terminal.term.lock();
                             term.selection.take().is_some()
@@ -845,138 +706,60 @@ where
                         if had_selection {
                             terminal.update();
                         } else {
-                            terminal.input_scroll(b"\x1B".as_slice());
+                            terminal.input_scroll(
+                                format!("{}{}", alt_prefix, "\x1B").as_bytes().to_vec(),
+                            );
                         }
                         status = Status::Captured;
                     }
-                    KeyCode::Up => {
-                        let code = if is_app_cursor { b"\x1BOA" } else { b"\x1B[A" };
-
-                        terminal.input_scroll(code.as_slice());
+                    Named::Space => {
+                        terminal.input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Down => {
-                        let code = if is_app_cursor { b"\x1BOB" } else { b"\x1B[B" };
-
-                        terminal.input_scroll(code.as_slice());
+                    Named::Tab => {
+                        let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
+                        terminal
+                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
                         status = Status::Captured;
                     }
-                    KeyCode::Right => {
-                        let code = if is_app_cursor { b"\x1BOC" } else { b"\x1B[C" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Left => {
-                        let code = if is_app_cursor { b"\x1BOD" } else { b"\x1B[D" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::End => {
-                        let code = if is_app_cursor { b"\x1BOF" } else { b"\x1B[F" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Home => {
-                        let code = if is_app_cursor { b"\x1BOH" } else { b"\x1B[H" };
-
-                        terminal.input_scroll(code.as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Insert => {
-                        terminal.input_scroll(b"\x1B[2~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::Delete => {
-                        terminal.input_scroll(b"\x1B[3~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageUp => {
-                        terminal.input_scroll(b"\x1B[5~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::PageDown => {
-                        terminal.input_scroll(b"\x1B[6~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F1 => {
-                        terminal.input_scroll(b"\x1BOP".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F2 => {
-                        terminal.input_scroll(b"\x1BOQ".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F3 => {
-                        terminal.input_scroll(b"\x1BOR".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F4 => {
-                        terminal.input_scroll(b"\x1BOS".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F5 => {
-                        terminal.input_scroll(b"\x1B[15~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F6 => {
-                        terminal.input_scroll(b"\x1B[17~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F7 => {
-                        terminal.input_scroll(b"\x1B[18~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F8 => {
-                        terminal.input_scroll(b"\x1B[19~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F9 => {
-                        terminal.input_scroll(b"\x1B[20~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F10 => {
-                        terminal.input_scroll(b"\x1B[21~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F11 => {
-                        terminal.input_scroll(b"\x1B[23~".as_slice());
-                        status = Status::Captured;
-                    }
-                    KeyCode::F12 => {
-                        terminal.input_scroll(b"\x1B[24~".as_slice());
-                        status = Status::Captured;
-                    }
-                    _ => (),
-                },
-            },
+                    _ => {}
+                }
+            }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
             }
-            Event::Keyboard(KeyEvent::CharacterReceived(character)) if state.is_focused => {
+            Event::Keyboard(KeyEvent::KeyPressed {
+                text,
+                modifiers,
+                key,
+                ..
+            }) if state.is_focused => {
+                for (key_bind, _) in self.key_binds.iter() {
+                    if key_bind.matches(modifiers, &key) {
+                        return Status::Captured;
+                    }
+                }
+                let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
                 match (
-                    state.modifiers.logo(),
-                    state.modifiers.control(),
-                    state.modifiers.alt(),
-                    state.modifiers.shift(),
+                    modifiers.logo(),
+                    modifiers.control(),
+                    modifiers.alt(),
+                    modifiers.shift(),
                 ) {
                     (true, _, _, _) => {
                         // Ignore super
                     }
-                    (false, true, true, false) => {
+                    (false, true, true, _) => {
                         // Handle ctrl-alt for non-control characters
-                        // Or should I try to minimize this to only
-                        // catch control sequences that conflicts with
-                        // keykodes for Split
-                        // if character != '\u{4}' && character != '\u{12}' {
-                        // is there any valid case for control characters with modifers
-                        // ctrl-alt?
-                        if !character.is_control() {
-                            let mut buf = [0, 0, 0, 0];
-                            let str = character.encode_utf8(&mut buf);
-                            terminal.input_scroll(str.as_bytes().to_vec());
+                        // and control characters 0-32
+                        if !character.is_control() || (character as u32) < 32 {
+                            // Handle alt for non-control characters
+                            let mut buf = [0x1B, 0, 0, 0, 0];
+                            let len = {
+                                let str = character.encode_utf8(&mut buf[1..]);
+                                str.len() + 1
+                            };
+                            terminal.input_scroll(buf[..len].to_vec());
                             status = Status::Captured;
                         }
                     }
@@ -990,7 +773,14 @@ where
                         }
                     }
                     (false, true, _, true) => {
-                        // Ignore ctrl+shift
+                        //This is normally Ctrl+Minus, but since that
+                        //is taken by zoom, we send that code for
+                        //Ctrl+Underline instead, like xterm and
+                        //gnome-terminal
+                        if key == Key::Character("_".into()) {
+                            terminal.input_scroll(b"\x1F".as_slice());
+                            status = Status::Captured;
+                        }
                     }
                     (false, false, true, _) => {
                         if !character.is_control() {
@@ -1029,6 +819,7 @@ where
                         state.is_focused = true;
 
                         // Handle left click drag
+                        #[allow(clippy::collapsible_if)]
                         if let Button::Left = button {
                             let x = p.x - self.padding.left;
                             let y = p.y - self.padding.top;
@@ -1264,7 +1055,7 @@ fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
     }
 }
 
-impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, Renderer>
+impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, cosmic::Theme, Renderer>
 where
     Message: Clone + 'a,
 {
@@ -1321,5 +1112,54 @@ impl operation::Focusable for State {
 
     fn unfocus(&mut self) {
         self.is_focused = false;
+    }
+}
+
+/*
+ shift     0b1         (1)
+alt       0b10        (2)
+ctrl      0b100       (4)
+super     0b1000      (8)
+hyper     0b10000     (16)
+meta      0b100000    (32)
+caps_lock 0b1000000   (64)
+num_lock  0b10000000  (128)
+*/
+fn calculate_modifier_number(state: &mut State) -> u8 {
+    let mut mod_no = 0;
+    if state.modifiers.shift() {
+        mod_no |= 1;
+    }
+    if state.modifiers.alt() {
+        mod_no |= 2;
+    }
+    if state.modifiers.control() {
+        mod_no |= 4;
+    }
+    if state.modifiers.logo() {
+        mod_no |= 8;
+    }
+    mod_no + 1
+}
+
+#[inline(always)]
+fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
+    if modifiers == 1 {
+        Some(format!("\x1B[{}{}", code, suffix).as_bytes().to_vec())
+    } else {
+        Some(
+            format!("\x1B[{};{}{}", code, modifiers, suffix)
+                .as_bytes()
+                .to_vec(),
+        )
+    }
+}
+
+#[inline(always)]
+fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    if modifiers == 1 {
+        Some(format!("\x1B\x4F{}", code).as_bytes().to_vec())
+    } else {
+        Some(format!("\x1B[1;{}{}", modifiers, code).as_bytes().to_vec())
     }
 }

@@ -1,0 +1,78 @@
+# Context Pages
+
+## Profiles
+profiles = Profiller
+name = İsim
+command-line = Komut satırı
+tab-title = Sekme başlığı
+tab-title-description = Varsayılan sekme başlığını geçersiz kılar
+add-profile = Profil ekle
+new-profile = Yeni profil
+
+## Settings
+settings = Ayarlar
+
+### Appearance
+appearance = Görünüm
+theme = Tema
+match-desktop = Masaüstüyle eşle
+dark = Karanlık
+light = Aydınlık
+syntax-dark = Karanlık renk şeması
+syntax-light = Aydınlık renk şeması
+default-zoom-step = Yakınlaştırma basamakları
+
+### Font
+font = Yazı tipi
+advanced-font-settings = Gelişmiş Yazı tipi Seçenekleri
+default-font = Yazı tipi
+default-font-size = Yazı tipi boyutu
+default-font-stretch = Yazı tipi esnekliği
+default-font-weight = Normal yazı tipi ağırlığı
+default-dim-font-weight = Soluk yazı tipi ağırlığı
+default-bold-font-weight = Kalın yazı tipi ağırlığı
+use-bright-bold = Kalın metni daha parlak yap
+
+### Splits
+splits = Bölmeler
+focus-follow-mouse = Yazma odağı fareyi takip etsin
+
+### Advanced
+advanced = Gelişmiş
+show-headerbar = Başlığı göster
+show-header-description = Sağ tıklama menüsünden başlığı gösterin.
+
+# Find
+find-placeholder = Bul...
+find-previous = Öncekini bul
+find-next = Sonrakini bul
+
+# Menu
+
+## File
+file = Dosyal
+new-tab = Yeni sekme
+new-window = Yeni pencere
+profile = Profil
+menu-profiles = Profiller...
+close-tab = Sekmeyi kapat
+quit = Çık
+
+## Edit
+edit = Düzenle
+copy = Kopyala
+paste = Yapıştır
+select-all = Hepsini seç
+find = Bul
+
+## View
+view = Görünüş
+zoom-in = Daha büyük metin
+zoom-reset = Varsayılan metin boyutu
+zoom-out = Daha küçük metin
+next-tab = Sonraki sekme
+previous-tab = Önceki sekme
+split-horizontal = Yatay böl
+split-vertical = Dikey böl
+pane-toggle-maximize = En üste geç
+menu-settings = Ayarlar...
