@@ -4,6 +4,7 @@ new-terminal = New terminal
 
 ## Color schemes
 color-schemes = Color schemes
+rename = Rename
 export = Export
 delete = Delete
 import = Import

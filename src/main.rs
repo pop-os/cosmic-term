@@ -254,6 +254,8 @@ pub enum Message {
     ColorSchemeExport(ColorSchemeId),
     ColorSchemeExportResult(ColorSchemeId, DialogResult),
     ColorSchemeExpand(ColorSchemeId),
+    ColorSchemeRename(ColorSchemeId, String),
+    ColorSchemeRenameSubmit,
     ColorSchemeImport,
     ColorSchemeImportResult(DialogResult),
     Config(Config),
@@ -367,6 +369,8 @@ pub struct App {
     term_config: TermConfig,
     color_scheme_errors: Vec<String>,
     color_scheme_expanded: Option<ColorSchemeId>,
+    color_scheme_renaming: Option<(ColorSchemeId, String)>,
+    color_scheme_rename_id: widget::Id,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
@@ -592,6 +596,10 @@ impl App {
             let mut section = widget::settings::view_section("");
             for (color_scheme_name, color_scheme_id) in self.config.color_scheme_names() {
                 let expanded = self.color_scheme_expanded == Some(color_scheme_id);
+                let renaming = match &self.color_scheme_renaming {
+                    Some((id, value)) if id == &color_scheme_id => Some(value),
+                    _ => None,
+                };
 
                 let button = if expanded {
                     widget::button(icon_cache_get("view-more-symbolic", 16))
@@ -602,12 +610,24 @@ impl App {
                 }
                 .style(style::Button::Icon);
 
-                let menu = menu::color_scheme_menu(color_scheme_id);
+                let menu = menu::color_scheme_menu(color_scheme_id, &color_scheme_name);
 
                 let popover = widget::popover(button, menu).show_popup(expanded);
 
-                section = section
-                    .add(widget::settings::item::builder(color_scheme_name).control(popover));
+                let item = match renaming {
+                    Some(value) => widget::settings::item_row(vec![
+                        widget::text_input("", value)
+                            .id(self.color_scheme_rename_id.clone())
+                            .on_input(move |value| {
+                                Message::ColorSchemeRename(color_scheme_id, value)
+                            })
+                            .on_submit(Message::ColorSchemeRenameSubmit)
+                            .into(),
+                        popover.into(),
+                    ]),
+                    None => widget::settings::item::builder(color_scheme_name).control(popover),
+                };
+                section = section.add(item);
             }
             sections.push(section.into());
         }
@@ -1234,6 +1254,8 @@ impl Application for App {
             term_event_tx_opt: None,
             color_scheme_errors: Vec::new(),
             color_scheme_expanded: None,
+            color_scheme_renaming: None,
+            color_scheme_rename_id: widget::Id::unique(),
             profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
@@ -1365,6 +1387,25 @@ impl Application for App {
             }
             Message::ColorSchemeExpand(color_scheme_id) => {
                 self.color_scheme_expanded = Some(color_scheme_id);
+            }
+            Message::ColorSchemeRename(color_scheme_id, color_scheme_name) => {
+                self.color_scheme_expanded = None;
+                let focus = self.color_scheme_renaming.is_none();
+                self.color_scheme_renaming = Some((color_scheme_id, color_scheme_name));
+                if focus {
+                    return widget::text_input::focus(self.color_scheme_rename_id.clone());
+                }
+            }
+            Message::ColorSchemeRenameSubmit => {
+                if let Some((color_scheme_id, color_scheme_name)) =
+                    self.color_scheme_renaming.take()
+                {
+                    if let Some(color_scheme) = self.config.color_schemes.get_mut(&color_scheme_id)
+                    {
+                        color_scheme.name = color_scheme_name;
+                        return self.save_color_schemes();
+                    }
+                }
             }
             Message::ColorSchemeImport => {
                 if self.dialog_opt.is_none() {
@@ -2020,6 +2061,7 @@ impl Application for App {
                     ContextPage::ColorSchemes => {
                         self.color_scheme_errors.clear();
                         self.color_scheme_expanded = None;
+                        self.color_scheme_renaming = None;
                     }
                     _ => {}
                 }
