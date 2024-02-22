@@ -2,6 +2,14 @@ new-terminal = New terminal
 
 # Context Pages
 
+## Color schemes
+color-schemes = Color schemes
+rename = Rename
+export = Export
+delete = Delete
+import = Import
+import-errors = Import errors
+
 ## Profiles
 profiles = Profiles
 name = Name
@@ -78,4 +86,5 @@ previous-tab = Previous tab
 split-horizontal = Split horizontal
 split-vertical = Split vertical
 pane-toggle-maximize = Toggle maximized
+menu-color-schemes = Color schemes...
 menu-settings = Settings...

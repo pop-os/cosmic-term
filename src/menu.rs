@@ -17,7 +17,7 @@ use cosmic::{
 };
 use std::collections::HashMap;
 
-use crate::{fl, Action, Config, KeyBind, Message};
+use crate::{fl, Action, ColorSchemeId, Config, KeyBind, Message};
 
 macro_rules! menu_button {
     ($($x:expr),+ $(,)?) => (
@@ -108,6 +108,38 @@ pub fn context_menu<'a>(
     .into()
 }
 
+pub fn color_scheme_menu<'a>(id: ColorSchemeId, name: &str) -> Element<'a, Message> {
+    let menu_item = |label, message| menu_button!(widget::text(label)).on_press(message);
+
+    widget::container(column!(
+        menu_item(
+            fl!("rename"),
+            Message::ColorSchemeRename(id, name.to_string())
+        ),
+        menu_item(fl!("export"), Message::ColorSchemeExport(id)),
+        menu_item(fl!("delete"), Message::ColorSchemeDelete(id)),
+    ))
+    .padding(1)
+    //TODO: move style to libcosmic
+    .style(theme::Container::custom(|theme| {
+        let cosmic = theme.cosmic();
+        let component = &cosmic.background.component;
+        widget::container::Appearance {
+            icon_color: Some(component.on.into()),
+            text_color: Some(component.on.into()),
+            background: Some(Background::Color(component.base.into())),
+            border: Border {
+                radius: 8.0.into(),
+                width: 1.0,
+                color: component.divider.into(),
+            },
+            ..Default::default()
+        }
+    }))
+    .width(Length::Fixed(120.0))
+    .into()
+}
+
 pub fn menu_bar<'a>(config: &Config, key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message> {
     //TODO: port to libcosmic
     let menu_root = |label| {
@@ -185,6 +217,7 @@ pub fn menu_bar<'a>(config: &Config, key_binds: &HashMap<KeyBind, Action>) -> El
                 menu_item(fl!("split-vertical"), Action::PaneSplitVertical),
                 menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
                 MenuTree::new(horizontal_rule(1)),
+                menu_item(fl!("menu-color-schemes"), Action::ColorSchemes),
                 menu_item(fl!("menu-settings"), Action::Settings),
             ],
         ),
