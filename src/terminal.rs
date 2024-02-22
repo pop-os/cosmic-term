@@ -39,7 +39,7 @@ use tokio::sync::mpsc;
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
-    config::{Config as AppConfig, ProfileId},
+    config::{ColorSchemeKind, Config as AppConfig, ProfileId},
     mouse_reporter::MouseReporter,
 };
 
@@ -519,7 +519,7 @@ impl Terminal {
     pub fn set_config(
         &mut self,
         config: &AppConfig,
-        themes: &HashMap<String, Colors>,
+        themes: &HashMap<(String, ColorSchemeKind), Colors>,
         zoom_adj: i8,
     ) {
         let mut update_cell_size = false;
@@ -559,7 +559,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(config.syntax_theme(self.profile_id_opt)) {
+        if let Some(colors) = themes.get(&config.syntax_theme(self.profile_id_opt)) {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {

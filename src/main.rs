@@ -32,7 +32,10 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use config::{AppTheme, ColorScheme, ColorSchemeId, Config, Profile, ProfileId, CONFIG_VERSION};
+use config::{
+    AppTheme, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile, ProfileId,
+    CONFIG_VERSION,
+};
 mod config;
 mod mouse_reporter;
 
@@ -168,7 +171,7 @@ pub struct Flags {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
-    ColorSchemes,
+    ColorSchemes(ColorSchemeKind),
     Copy,
     Find,
     PaneFocusDown,
@@ -207,7 +210,9 @@ pub enum Action {
 impl Action {
     pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
-            Action::ColorSchemes => Message::ToggleContextPage(ContextPage::ColorSchemes),
+            Action::ColorSchemes(color_scheme_kind) => {
+                Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind))
+            }
             Action::Copy => Message::Copy(entity_opt),
             Action::Find => Message::Find(true),
             Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
@@ -249,15 +254,16 @@ impl Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
-    ColorSchemeCollapse(ColorSchemeId),
-    ColorSchemeDelete(ColorSchemeId),
-    ColorSchemeExport(ColorSchemeId),
-    ColorSchemeExportResult(ColorSchemeId, DialogResult),
-    ColorSchemeExpand(ColorSchemeId),
-    ColorSchemeRename(ColorSchemeId, String),
+    ColorSchemeCollapse,
+    ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
+    ColorSchemeExport(ColorSchemeKind, ColorSchemeId),
+    ColorSchemeExportResult(ColorSchemeKind, ColorSchemeId, DialogResult),
+    ColorSchemeExpand(ColorSchemeKind, ColorSchemeId),
+    ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
     ColorSchemeRenameSubmit,
-    ColorSchemeImport,
-    ColorSchemeImportResult(DialogResult),
+    ColorSchemeImport(ColorSchemeKind),
+    ColorSchemeImportResult(ColorSchemeKind, DialogResult),
+    ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
     Copy(Option<segmented_button::Entity>),
     DefaultFont(usize),
@@ -291,12 +297,12 @@ pub enum Message {
     ProfileNew,
     ProfileOpen(ProfileId),
     ProfileRemove(ProfileId),
-    ProfileSyntaxTheme(ProfileId, usize, bool),
+    ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
     SelectAll(Option<segmented_button::Entity>),
     UseBrightBold(bool),
     ShowHeaderBar(bool),
-    SyntaxTheme(usize, bool),
+    SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
@@ -320,7 +326,7 @@ pub enum Message {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContextPage {
-    ColorSchemes,
+    ColorSchemes(ColorSchemeKind),
     Profiles,
     Settings,
 }
@@ -328,7 +334,7 @@ pub enum ContextPage {
 impl ContextPage {
     fn title(&self) -> String {
         match self {
-            Self::ColorSchemes => fl!("color-schemes"),
+            Self::ColorSchemes(_color_scheme_kind) => fl!("color-schemes"),
             Self::Profiles => fl!("profiles"),
             Self::Settings => fl!("settings"),
         }
@@ -356,8 +362,9 @@ pub struct App {
     zoom_adj: i8,
     zoom_step_names: Vec<String>,
     zoom_steps: Vec<u16>,
-    theme_names: Vec<String>,
-    themes: HashMap<String, TermColors>,
+    theme_names_dark: Vec<String>,
+    theme_names_light: Vec<String>,
+    themes: HashMap<(String, ColorSchemeKind), TermColors>,
     context_page: ContextPage,
     dialog_opt: Option<Dialog<Message>>,
     terminal_ids: HashMap<pane_grid::Pane, widget::Id>,
@@ -368,37 +375,67 @@ pub struct App {
     startup_options: Option<tty::Options>,
     term_config: TermConfig,
     color_scheme_errors: Vec<String>,
-    color_scheme_expanded: Option<ColorSchemeId>,
-    color_scheme_renaming: Option<(ColorSchemeId, String)>,
+    color_scheme_expanded: Option<(ColorSchemeKind, ColorSchemeId)>,
+    color_scheme_renaming: Option<(ColorSchemeKind, ColorSchemeId, String)>,
     color_scheme_rename_id: widget::Id,
+    color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
 }
 
 impl App {
+    fn theme_names(&self, color_scheme_kind: ColorSchemeKind) -> &Vec<String> {
+        match color_scheme_kind {
+            ColorSchemeKind::Dark => &self.theme_names_dark,
+            ColorSchemeKind::Light => &self.theme_names_light,
+        }
+    }
+
     fn update_color_schemes(&mut self) {
         self.themes = terminal_theme::terminal_themes();
-        for (color_scheme_name, color_scheme_id) in self.config.color_scheme_names() {
-            if let Some(color_scheme) = self.config.color_schemes.get(&color_scheme_id) {
-                if self
-                    .themes
-                    .insert(color_scheme_name.clone(), color_scheme.into())
-                    .is_some()
+        for &color_scheme_kind in &[ColorSchemeKind::Dark, ColorSchemeKind::Light] {
+            for (color_scheme_name, color_scheme_id) in
+                self.config.color_scheme_names(color_scheme_kind)
+            {
+                if let Some(color_scheme) = self
+                    .config
+                    .color_schemes(color_scheme_kind)
+                    .get(&color_scheme_id)
                 {
-                    log::warn!(
-                        "custom color scheme {:?} replaces builtin one",
-                        color_scheme_name
-                    );
+                    if self
+                        .themes
+                        .insert(
+                            (color_scheme_name.clone(), color_scheme_kind),
+                            color_scheme.into(),
+                        )
+                        .is_some()
+                    {
+                        log::warn!(
+                            "custom {:?} color scheme {:?} replaces builtin one",
+                            color_scheme_kind,
+                            color_scheme_name
+                        );
+                    }
                 }
             }
         }
 
-        self.theme_names.clear();
-        for theme_name in self.themes.keys() {
-            self.theme_names.push(theme_name.clone());
+        self.theme_names_dark.clear();
+        self.theme_names_light.clear();
+        for (name, color_scheme_kind) in self.themes.keys() {
+            match *color_scheme_kind {
+                ColorSchemeKind::Dark => {
+                    self.theme_names_dark.push(name.clone());
+                }
+                ColorSchemeKind::Light => {
+                    self.theme_names_light.push(name.clone());
+                }
+            }
         }
-        self.theme_names
+        self.theme_names_dark
+            .sort_by(|a, b| lexical_sort::natural_lexical_cmp(a, b));
+        self.theme_names_light
             .sort_by(|a, b| lexical_sort::natural_lexical_cmp(a, b));
     }
 
@@ -448,10 +485,16 @@ impl App {
         self.update_config()
     }
 
-    fn save_color_schemes(&mut self) -> Command<Message> {
+    fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Command<Message> {
         // Optimized for just saving color_schemes
         if let Some(ref config_handler) = self.config_handler {
-            match config_handler.set("color_schemes", &self.config.color_schemes) {
+            match config_handler.set(
+                match color_scheme_kind {
+                    ColorSchemeKind::Dark => "color_schemes_dark",
+                    ColorSchemeKind::Light => "color_schemes_light",
+                },
+                &self.config.color_schemes(color_scheme_kind),
+            ) {
                 Ok(()) => {}
                 Err(err) => {
                     log::error!("failed to save config: {}", err);
@@ -587,30 +630,45 @@ impl App {
         }
     }
 
-    fn color_schemes(&self) -> Element<Message> {
+    fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<Message> {
         let cosmic_theme::Spacing { space_xxxs, .. } = self.core().system_theme().cosmic().spacing;
 
-        let mut sections = Vec::with_capacity(2 + self.color_scheme_errors.len());
+        let mut sections = Vec::with_capacity(3 + self.color_scheme_errors.len());
 
-        if !self.config.color_schemes.is_empty() {
+        sections.push(
+            widget::view_switcher::horizontal(&self.color_scheme_tab_model)
+                .on_activate(Message::ColorSchemeTabActivate)
+                .into(),
+        );
+
+        if !self.config.color_schemes(color_scheme_kind).is_empty() {
             let mut section = widget::settings::view_section("");
-            for (color_scheme_name, color_scheme_id) in self.config.color_scheme_names() {
-                let expanded = self.color_scheme_expanded == Some(color_scheme_id);
+            for (color_scheme_name, color_scheme_id) in
+                self.config.color_scheme_names(color_scheme_kind)
+            {
+                let expanded =
+                    self.color_scheme_expanded == Some((color_scheme_kind, color_scheme_id));
                 let renaming = match &self.color_scheme_renaming {
-                    Some((id, value)) if id == &color_scheme_id => Some(value),
+                    Some((kind, id, value))
+                        if kind == &color_scheme_kind && id == &color_scheme_id =>
+                    {
+                        Some(value)
+                    }
                     _ => None,
                 };
 
                 let button = if expanded {
                     widget::button(icon_cache_get("view-more-symbolic", 16))
-                        .on_press(Message::ColorSchemeCollapse(color_scheme_id))
+                        .on_press(Message::ColorSchemeCollapse)
                 } else {
-                    widget::button(icon_cache_get("view-more-symbolic", 16))
-                        .on_press(Message::ColorSchemeExpand(color_scheme_id))
+                    widget::button(icon_cache_get("view-more-symbolic", 16)).on_press(
+                        Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id),
+                    )
                 }
                 .style(style::Button::Icon);
 
-                let menu = menu::color_scheme_menu(color_scheme_id, &color_scheme_name);
+                let menu =
+                    menu::color_scheme_menu(color_scheme_kind, color_scheme_id, &color_scheme_name);
 
                 let popover = widget::popover(button, menu).show_popup(expanded);
 
@@ -619,7 +677,11 @@ impl App {
                         widget::text_input("", value)
                             .id(self.color_scheme_rename_id.clone())
                             .on_input(move |value| {
-                                Message::ColorSchemeRename(color_scheme_id, value)
+                                Message::ColorSchemeRename(
+                                    color_scheme_kind,
+                                    color_scheme_id,
+                                    value,
+                                )
                             })
                             .on_submit(Message::ColorSchemeRenameSubmit)
                             .into(),
@@ -636,7 +698,7 @@ impl App {
             widget::row::with_children(vec![
                 widget::horizontal_space(Length::Fill).into(),
                 widget::button::standard(fl!("import"))
-                    .on_press(Message::ColorSchemeImport)
+                    .on_press(Message::ColorSchemeImport(color_scheme_kind))
                     .into(),
             ])
             .into(),
@@ -716,11 +778,11 @@ impl App {
 
                 if expanded {
                     let dark_selected = self
-                        .theme_names
+                        .theme_names_dark
                         .iter()
                         .position(|theme_name| theme_name == &profile.syntax_theme_dark);
                     let light_selected = self
-                        .theme_names
+                        .theme_names_light
                         .iter()
                         .position(|theme_name| theme_name == &profile.syntax_theme_light);
 
@@ -766,10 +828,14 @@ impl App {
                             //TODO: rename to color-scheme-dark?
                             widget::settings::item::builder(fl!("syntax-dark")).control(
                                 widget::dropdown(
-                                    &self.theme_names,
+                                    &self.theme_names_dark,
                                     dark_selected,
                                     move |theme_i| {
-                                        Message::ProfileSyntaxTheme(profile_id, theme_i, true)
+                                        Message::ProfileSyntaxTheme(
+                                            profile_id,
+                                            ColorSchemeKind::Dark,
+                                            theme_i,
+                                        )
                                     },
                                 ),
                             ),
@@ -778,10 +844,14 @@ impl App {
                             //TODO: rename to color-scheme-light?
                             widget::settings::item::builder(fl!("syntax-light")).control(
                                 widget::dropdown(
-                                    &self.theme_names,
+                                    &self.theme_names_light,
                                     light_selected,
                                     move |theme_i| {
-                                        Message::ProfileSyntaxTheme(profile_id, theme_i, false)
+                                        Message::ProfileSyntaxTheme(
+                                            profile_id,
+                                            ColorSchemeKind::Light,
+                                            theme_i,
+                                        )
                                     },
                                 ),
                             ),
@@ -818,11 +888,11 @@ impl App {
             AppTheme::System => 0,
         };
         let dark_selected = self
-            .theme_names
+            .theme_names_dark
             .iter()
             .position(|theme_name| theme_name == &self.config.syntax_theme_dark);
         let light_selected = self
-            .theme_names
+            .theme_names_light
             .iter()
             .position(|theme_name| theme_name == &self.config.syntax_theme_light);
         let font_selected = {
@@ -874,17 +944,17 @@ impl App {
             .add(
                 //TODO: rename to color-scheme-dark?
                 widget::settings::item::builder(fl!("syntax-dark")).control(widget::dropdown(
-                    &self.theme_names,
+                    &self.theme_names_dark,
                     dark_selected,
-                    move |index| Message::SyntaxTheme(index, true),
+                    move |index| Message::SyntaxTheme(ColorSchemeKind::Dark, index),
                 )),
             )
             .add(
                 //TODO: rename to color-scheme-light?
                 widget::settings::item::builder(fl!("syntax-light")).control(widget::dropdown(
-                    &self.theme_names,
+                    &self.theme_names_light,
                     light_selected,
-                    move |index| Message::SyntaxTheme(index, false),
+                    move |index| Message::SyntaxTheme(ColorSchemeKind::Light, index),
                 )),
             )
             .add(
@@ -1007,7 +1077,7 @@ impl App {
         self.pane_model.focus = pane;
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
-                match self.themes.get(self.config.syntax_theme(profile_id_opt)) {
+                match self.themes.get(&self.config.syntax_theme(profile_id_opt)) {
                     Some(colors) => {
                         let current_pane = self.pane_model.focus;
                         if let Some(tab_model) = self.pane_model.active_mut() {
@@ -1241,7 +1311,8 @@ impl Application for App {
             zoom_adj: 0,
             zoom_step_names,
             zoom_steps,
-            theme_names: Vec::new(),
+            theme_names_dark: Vec::new(),
+            theme_names_light: Vec::new(),
             themes: HashMap::new(),
             context_page: ContextPage::Settings,
             dialog_opt: None,
@@ -1256,6 +1327,7 @@ impl Application for App {
             color_scheme_expanded: None,
             color_scheme_renaming: None,
             color_scheme_rename_id: widget::Id::unique(),
+            color_scheme_tab_model: widget::segmented_button::Model::default(),
             profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
@@ -1324,17 +1396,23 @@ impl Application for App {
                 self.config.app_theme = app_theme;
                 return self.save_config();
             }
-            Message::ColorSchemeCollapse(_color_scheme_id) => {
+            Message::ColorSchemeCollapse => {
                 self.color_scheme_expanded = None;
             }
-            Message::ColorSchemeDelete(color_scheme_id) => {
+            Message::ColorSchemeDelete(color_scheme_kind, color_scheme_id) => {
                 self.color_scheme_expanded = None;
-                self.config.color_schemes.remove(&color_scheme_id);
-                return self.save_color_schemes();
+                self.config
+                    .color_schemes_mut(color_scheme_kind)
+                    .remove(&color_scheme_id);
+                return self.save_color_schemes(color_scheme_kind);
             }
-            Message::ColorSchemeExport(color_scheme_id) => {
+            Message::ColorSchemeExport(color_scheme_kind, color_scheme_id) => {
                 self.color_scheme_expanded = None;
-                if let Some(color_scheme) = self.config.color_schemes.get(&color_scheme_id) {
+                if let Some(color_scheme) = self
+                    .config
+                    .color_schemes(color_scheme_kind)
+                    .get(&color_scheme_id)
+                {
                     if self.dialog_opt.is_none() {
                         let (dialog, command) = Dialog::new(
                             DialogKind::SaveFile {
@@ -1343,7 +1421,11 @@ impl Application for App {
                             None,
                             Message::DialogMessage,
                             move |result| {
-                                Message::ColorSchemeExportResult(color_scheme_id.clone(), result)
+                                Message::ColorSchemeExportResult(
+                                    color_scheme_kind,
+                                    color_scheme_id.clone(),
+                                    result,
+                                )
                             },
                         );
                         self.dialog_opt = Some(dialog);
@@ -1351,12 +1433,16 @@ impl Application for App {
                     }
                 }
             }
-            Message::ColorSchemeExportResult(color_scheme_id, result) => {
+            Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id, result) => {
                 //TODO: show errors in UI
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     let path = &paths[0];
-                    if let Some(color_scheme) = self.config.color_schemes.get(&color_scheme_id) {
+                    if let Some(color_scheme) = self
+                        .config
+                        .color_schemes(color_scheme_kind)
+                        .get(&color_scheme_id)
+                    {
                         match ron::ser::to_string_pretty(
                             &color_scheme,
                             ron::ser::PrettyConfig::new(),
@@ -1385,42 +1471,23 @@ impl Application for App {
                     }
                 }
             }
-            Message::ColorSchemeExpand(color_scheme_id) => {
-                self.color_scheme_expanded = Some(color_scheme_id);
+            Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id) => {
+                self.color_scheme_expanded = Some((color_scheme_kind, color_scheme_id));
             }
-            Message::ColorSchemeRename(color_scheme_id, color_scheme_name) => {
-                self.color_scheme_expanded = None;
-                let focus = self.color_scheme_renaming.is_none();
-                self.color_scheme_renaming = Some((color_scheme_id, color_scheme_name));
-                if focus {
-                    return widget::text_input::focus(self.color_scheme_rename_id.clone());
-                }
-            }
-            Message::ColorSchemeRenameSubmit => {
-                if let Some((color_scheme_id, color_scheme_name)) =
-                    self.color_scheme_renaming.take()
-                {
-                    if let Some(color_scheme) = self.config.color_schemes.get_mut(&color_scheme_id)
-                    {
-                        color_scheme.name = color_scheme_name;
-                        return self.save_color_schemes();
-                    }
-                }
-            }
-            Message::ColorSchemeImport => {
+            Message::ColorSchemeImport(color_scheme_kind) => {
                 if self.dialog_opt.is_none() {
                     self.color_scheme_errors.clear();
                     let (dialog, command) = Dialog::new(
                         DialogKind::OpenMultipleFiles,
                         None,
                         Message::DialogMessage,
-                        move |result| Message::ColorSchemeImportResult(result),
+                        move |result| Message::ColorSchemeImportResult(color_scheme_kind, result),
                     );
                     self.dialog_opt = Some(dialog);
                     return command;
                 }
             }
-            Message::ColorSchemeImportResult(result) => {
+            Message::ColorSchemeImportResult(color_scheme_kind, result) => {
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     self.color_scheme_errors.clear();
@@ -1438,12 +1505,12 @@ impl Application for App {
                                 // Get next color_scheme ID
                                 let color_scheme_id = self
                                     .config
-                                    .color_schemes
+                                    .color_schemes(color_scheme_kind)
                                     .last_key_value()
                                     .map(|(id, _)| ColorSchemeId(id.0 + 1))
                                     .unwrap_or_default();
                                 self.config
-                                    .color_schemes
+                                    .color_schemes_mut(color_scheme_kind)
                                     .insert(color_scheme_id, color_scheme);
                             }
                             Err(err) => {
@@ -1452,7 +1519,40 @@ impl Application for App {
                             }
                         }
                     }
-                    return self.save_color_schemes();
+                    return self.save_color_schemes(color_scheme_kind);
+                }
+            }
+            Message::ColorSchemeRename(color_scheme_kind, color_scheme_id, color_scheme_name) => {
+                self.color_scheme_expanded = None;
+                let focus = self.color_scheme_renaming.is_none();
+                self.color_scheme_renaming =
+                    Some((color_scheme_kind, color_scheme_id, color_scheme_name));
+                if focus {
+                    return widget::text_input::focus(self.color_scheme_rename_id.clone());
+                }
+            }
+            Message::ColorSchemeRenameSubmit => {
+                if let Some((color_scheme_kind, color_scheme_id, color_scheme_name)) =
+                    self.color_scheme_renaming.take()
+                {
+                    if let Some(color_scheme) = self
+                        .config
+                        .color_schemes_mut(color_scheme_kind)
+                        .get_mut(&color_scheme_id)
+                    {
+                        color_scheme.name = color_scheme_name;
+                        return self.save_color_schemes(color_scheme_kind);
+                    }
+                }
+            }
+            Message::ColorSchemeTabActivate(entity) => {
+                if let Some(color_scheme_kind) =
+                    self.color_scheme_tab_model.data::<ColorSchemeKind>(entity)
+                {
+                    let context_page = ContextPage::ColorSchemes(*color_scheme_kind);
+                    if self.context_page != context_page {
+                        return self.update(Message::ToggleContextPage(context_page));
+                    }
                 }
             }
             Message::Config(config) => {
@@ -1749,14 +1849,21 @@ impl Application for App {
                 self.config.profiles.remove(&profile_id);
                 return self.save_profiles();
             }
-            Message::ProfileSyntaxTheme(profile_id, theme_i, dark) => {
-                match self.theme_names.get(theme_i) {
+            Message::ProfileSyntaxTheme(profile_id, color_scheme_kind, theme_i) => {
+                match self
+                    .theme_names(color_scheme_kind)
+                    .get(theme_i)
+                    .map(|x| x.to_string())
+                {
                     Some(theme_name) => {
                         if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
-                            if dark {
-                                profile.syntax_theme_dark = theme_name.to_string();
-                            } else {
-                                profile.syntax_theme_light = theme_name.to_string();
+                            match color_scheme_kind {
+                                ColorSchemeKind::Dark => {
+                                    profile.syntax_theme_dark = theme_name;
+                                }
+                                ColorSchemeKind::Light => {
+                                    profile.syntax_theme_light = theme_name;
+                                }
                             }
                             return self.save_profiles();
                         }
@@ -1800,19 +1907,24 @@ impl Application for App {
             Message::SystemThemeChange => {
                 return self.update_config();
             }
-            Message::SyntaxTheme(index, dark) => match self.theme_names.get(index) {
-                Some(theme_name) => {
-                    if dark {
-                        self.config.syntax_theme_dark = theme_name.to_string();
-                    } else {
-                        self.config.syntax_theme_light = theme_name.to_string();
+            Message::SyntaxTheme(color_scheme_kind, index) => {
+                match self.theme_names(color_scheme_kind).get(index) {
+                    Some(theme_name) => {
+                        match color_scheme_kind {
+                            ColorSchemeKind::Dark => {
+                                self.config.syntax_theme_dark = theme_name.to_string();
+                            }
+                            ColorSchemeKind::Light => {
+                                self.config.syntax_theme_light = theme_name.to_string();
+                            }
+                        }
+                        return self.save_config();
                     }
-                    return self.save_config();
+                    None => {
+                        log::warn!("failed to find syntax theme with index {}", index);
+                    }
                 }
-                None => {
-                    log::warn!("failed to find syntax theme with index {}", index);
-                }
-            },
+            }
             Message::TabActivate(entity) => {
                 if let Some(tab_model) = self.pane_model.active_mut() {
                     tab_model.activate(entity);
@@ -2058,10 +2170,28 @@ impl Application for App {
 
                 // Extra work to do to prepare context pages
                 match self.context_page {
-                    ContextPage::ColorSchemes => {
+                    ContextPage::ColorSchemes(color_scheme_kind) => {
                         self.color_scheme_errors.clear();
                         self.color_scheme_expanded = None;
                         self.color_scheme_renaming = None;
+                        self.color_scheme_tab_model = widget::segmented_button::Model::default();
+                        let dark_entity = self
+                            .color_scheme_tab_model
+                            .insert()
+                            .text(fl!("dark"))
+                            .data(ColorSchemeKind::Dark)
+                            .id();
+                        let light_entity = self
+                            .color_scheme_tab_model
+                            .insert()
+                            .text(fl!("light"))
+                            .data(ColorSchemeKind::Light)
+                            .id();
+                        self.color_scheme_tab_model
+                            .activate(match color_scheme_kind {
+                                ColorSchemeKind::Dark => dark_entity,
+                                ColorSchemeKind::Light => light_entity,
+                            });
                     }
                     _ => {}
                 }
@@ -2108,7 +2238,7 @@ impl Application for App {
         }
 
         Some(match self.context_page {
-            ContextPage::ColorSchemes => self.color_schemes(),
+            ContextPage::ColorSchemes(color_scheme_kind) => self.color_schemes(color_scheme_kind),
             ContextPage::Profiles => self.profiles(),
             ContextPage::Settings => self.settings(),
         })

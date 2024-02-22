@@ -15,7 +15,7 @@ use crate::fl;
 
 pub const CONFIG_VERSION: u64 = 1;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum AppTheme {
     Dark,
     Light,
@@ -30,6 +30,12 @@ impl AppTheme {
             Self::System => theme::system_preference(),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum ColorSchemeKind {
+    Dark,
+    Light,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -197,7 +203,8 @@ impl Default for Profile {
 #[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Config {
     pub app_theme: AppTheme,
-    pub color_schemes: BTreeMap<ColorSchemeId, ColorScheme>,
+    pub color_schemes_dark: BTreeMap<ColorSchemeId, ColorScheme>,
+    pub color_schemes_light: BTreeMap<ColorSchemeId, ColorScheme>,
     pub font_name: String,
     pub font_size: u16,
     pub font_weight: u16,
@@ -219,7 +226,8 @@ impl Default for Config {
         Self {
             app_theme: AppTheme::System,
             bold_font_weight: Weight::BOLD.0,
-            color_schemes: BTreeMap::new(),
+            color_schemes_dark: BTreeMap::new(),
+            color_schemes_light: BTreeMap::new(),
             dim_font_weight: Weight::NORMAL.0,
             focus_follow_mouse: false,
             font_name: "Fira Mono".to_string(),
@@ -238,11 +246,43 @@ impl Default for Config {
 }
 
 impl Config {
+    pub fn color_schemes(
+        &self,
+        color_scheme_kind: ColorSchemeKind,
+    ) -> &BTreeMap<ColorSchemeId, ColorScheme> {
+        match color_scheme_kind {
+            ColorSchemeKind::Dark => &self.color_schemes_dark,
+            ColorSchemeKind::Light => &self.color_schemes_light,
+        }
+    }
+
+    pub fn color_schemes_mut(
+        &mut self,
+        color_scheme_kind: ColorSchemeKind,
+    ) -> &mut BTreeMap<ColorSchemeId, ColorScheme> {
+        match color_scheme_kind {
+            ColorSchemeKind::Dark => &mut self.color_schemes_dark,
+            ColorSchemeKind::Light => &mut self.color_schemes_light,
+        }
+    }
+
+    pub fn color_scheme_kind(&self) -> ColorSchemeKind {
+        if self.app_theme.theme().theme_type.is_dark() {
+            ColorSchemeKind::Dark
+        } else {
+            ColorSchemeKind::Light
+        }
+    }
+
     // Get a sorted and adjusted for duplicates list of color scheme names and ids
-    pub fn color_scheme_names(&self) -> Vec<(String, ColorSchemeId)> {
+    pub fn color_scheme_names(
+        &self,
+        color_scheme_kind: ColorSchemeKind,
+    ) -> Vec<(String, ColorSchemeId)> {
+        let color_schemes = self.color_schemes(color_scheme_kind);
         let mut color_scheme_names =
-            Vec::<(String, ColorSchemeId)>::with_capacity(self.color_schemes.len());
-        for (color_scheme_id, color_scheme) in self.color_schemes.iter() {
+            Vec::<(String, ColorSchemeId)>::with_capacity(color_schemes.len());
+        for (color_scheme_id, color_scheme) in color_schemes.iter() {
             let mut name = color_scheme.name.clone();
 
             let mut copies = 1;
@@ -294,24 +334,20 @@ impl Config {
     }
 
     // Get current syntax theme based on dark mode
-    pub fn syntax_theme(&self, profile_id_opt: Option<ProfileId>) -> &str {
-        let dark = self.app_theme.theme().theme_type.is_dark();
-        match profile_id_opt.and_then(|profile_id| self.profiles.get(&profile_id)) {
-            Some(profile) => {
-                if dark {
-                    &profile.syntax_theme_dark
-                } else {
-                    &profile.syntax_theme_light
-                }
-            }
-            None => {
-                if dark {
-                    &self.syntax_theme_dark
-                } else {
-                    &self.syntax_theme_light
-                }
-            }
-        }
+    pub fn syntax_theme(&self, profile_id_opt: Option<ProfileId>) -> (String, ColorSchemeKind) {
+        let color_scheme_kind = self.color_scheme_kind();
+        let theme_name = match profile_id_opt.and_then(|profile_id| self.profiles.get(&profile_id))
+        {
+            Some(profile) => match color_scheme_kind {
+                ColorSchemeKind::Dark => profile.syntax_theme_dark.clone(),
+                ColorSchemeKind::Light => profile.syntax_theme_light.clone(),
+            },
+            None => match color_scheme_kind {
+                ColorSchemeKind::Dark => self.syntax_theme_dark.clone(),
+                ColorSchemeKind::Light => self.syntax_theme_light.clone(),
+            },
+        };
+        (theme_name, color_scheme_kind)
     }
 
     pub fn typed_font_stretch(&self) -> Stretch {

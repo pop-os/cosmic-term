@@ -6,7 +6,7 @@ use hex_color::HexColor;
 use palette::{encoding::Srgb, rgb::Rgb as PRgb, FromColor, Okhsl};
 use std::{collections::HashMap, fs};
 
-use crate::config::{ColorScheme, ColorSchemeAnsi};
+use crate::config::{ColorScheme, ColorSchemeAnsi, ColorSchemeKind};
 
 // Fill missing dim/bright colors with derived values from normal ones.
 #[allow(dead_code)]
@@ -335,17 +335,23 @@ fn cosmic_light() -> Colors {
 }
 
 // Get builtin themes
-pub fn terminal_themes() -> HashMap<String, Colors> {
+pub fn terminal_themes() -> HashMap<(String, ColorSchemeKind), Colors> {
     let mut themes = HashMap::new();
-    themes.insert("COSMIC Dark".to_string(), cosmic_dark());
-    themes.insert("COSMIC Light".to_string(), cosmic_light());
+    themes.insert(
+        ("COSMIC Dark".to_string(), ColorSchemeKind::Dark),
+        cosmic_dark(),
+    );
+    themes.insert(
+        ("COSMIC Light".to_string(), ColorSchemeKind::Light),
+        cosmic_light(),
+    );
     themes
 }
 
 // Helper function to export builtin themes to theme files
 #[allow(dead_code)]
 pub fn export() {
-    for (name, theme) in terminal_themes() {
+    for ((name, _color_scheme_kind), theme) in terminal_themes() {
         let color_scheme = ColorScheme::from((name.as_str(), &theme));
 
         // Ensure conversion to and from ColorScheme matches original theme
