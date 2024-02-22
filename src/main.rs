@@ -988,9 +988,14 @@ impl App {
                 ),
             )
             .add(
-                widget::settings::item::builder(fl!("advanced-font-settings")).toggler(
-                    self.show_advanced_font_settings,
-                    Message::ShowAdvancedFontSettings,
+                widget::settings::item::builder(fl!("advanced-font-settings")).control(
+                    if self.show_advanced_font_settings {
+                        widget::button(icon_cache_get("go-up-symbolic", 16))
+                            .on_press(Message::ShowAdvancedFontSettings(false))
+                    } else {
+                        widget::button(icon_cache_get("go-down-symbolic", 16))
+                            .on_press(Message::ShowAdvancedFontSettings(true))
+                    },
                 ),
             );
 
