@@ -373,8 +373,36 @@ pub struct App {
 }
 
 impl App {
+    fn update_color_schemes(&mut self) {
+        self.themes = terminal_theme::terminal_themes();
+        for (color_scheme_name, color_scheme_id) in self.config.color_scheme_names() {
+            if let Some(color_scheme) = self.config.color_schemes.get(&color_scheme_id) {
+                if self
+                    .themes
+                    .insert(color_scheme_name.clone(), color_scheme.into())
+                    .is_some()
+                {
+                    log::warn!(
+                        "custom color scheme {:?} replaces builtin one",
+                        color_scheme_name
+                    );
+                }
+            }
+        }
+
+        self.theme_names.clear();
+        for theme_name in self.themes.keys() {
+            self.theme_names.push(theme_name.clone());
+        }
+        self.theme_names
+            .sort_by(|a, b| lexical_sort::natural_lexical_cmp(a, b));
+    }
+
     fn update_config(&mut self) -> Command<Message> {
         let theme = self.config.app_theme.theme();
+
+        // Update color schemes
+        self.update_color_schemes();
 
         // Update terminal window background color
         {
@@ -426,6 +454,7 @@ impl App {
                 }
             }
         }
+        self.update_color_schemes();
         Command::none()
     }
 
@@ -1168,10 +1197,6 @@ impl Application for App {
             zoom_steps.push(zoom_step);
         }
 
-        let themes = terminal_theme::terminal_themes();
-        let mut theme_names: Vec<_> = themes.keys().cloned().collect();
-        //TODO: lexical sort?
-        theme_names.sort();
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focus, widget::Id::unique());
@@ -1196,8 +1221,8 @@ impl Application for App {
             zoom_adj: 0,
             zoom_step_names,
             zoom_steps,
-            theme_names,
-            themes,
+            theme_names: Vec::new(),
+            themes: HashMap::new(),
             context_page: ContextPage::Settings,
             dialog_opt: None,
             terminal_ids,
