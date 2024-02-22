@@ -69,6 +69,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl, Shift], Key::Character("T".into()), TabNew);
     bind!([Ctrl, Shift], Key::Character("V".into()), Paste);
     bind!([Ctrl, Shift], Key::Character("W".into()), TabClose);
+    bind!([Ctrl], Key::Character(",".into()), Settings);
 
     // Ctrl+Alt+D splits horizontally, Ctrl+Alt+R splits vertically, Ctrl+Shift+X maximizes split
     //TODO: Adjust bindings as desired by UX
