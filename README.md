@@ -7,5 +7,5 @@ back to using `softbuffer` and `tiny-skia`.
 
 ## Color Schemes
 
-Custom color schemes can be imported from the View -> Color Schemes... menu item.
+Custom color schemes can be imported from the `View -> Color schemes...` menu item.
 You can find templates for color schemes in the [color-schemes](color-schemes) folder.
