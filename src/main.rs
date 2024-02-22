@@ -995,7 +995,8 @@ impl App {
                     } else {
                         widget::button(icon_cache_get("go-down-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(true))
-                    },
+                    }
+                    .style(style::Button::Icon),
                 ),
             );
 

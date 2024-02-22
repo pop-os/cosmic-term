@@ -35,7 +35,7 @@ opacity = Background opacity
 
 ### Font
 font = Font
-advanced-font-settings = Advanced Font Settings
+advanced-font-settings = Advanced font settings
 default-font = Font
 default-font-size = Font size
 default-font-stretch = Font stretch
