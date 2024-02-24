@@ -860,7 +860,7 @@ impl App {
                         .add(widget::settings::item::builder("Make default").control(
                             widget::toggler(
                                 "".to_string(),
-                                self.get_default_profile().is_some(),
+                                self.get_default_profile().is_some_and(|p| p == profile_id),
                                 move |t| Message::UpdateDefaultProfile((t, profile_id)),
                             ),
                         ));
