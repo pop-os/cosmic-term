@@ -18,6 +18,7 @@ tab-title = Tab title
 tab-title-description = Override the default tab title
 add-profile = Add profile
 new-profile = New profile
+make-default = Make default
 
 ## Settings
 settings = Settings
