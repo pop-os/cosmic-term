@@ -1869,6 +1869,9 @@ impl Application for App {
                         }
                     }
                 }
+                if Some(profile_id) == self.get_default_profile() {
+                    config_set!(default_profile, None);
+                }
                 self.config.profiles.remove(&profile_id);
                 return self.save_profiles();
             }
