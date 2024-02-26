@@ -219,6 +219,7 @@ pub struct Config {
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
+    pub default_profile: Option<ProfileId>,
 }
 
 impl Default for Config {
@@ -241,6 +242,7 @@ impl Default for Config {
             syntax_theme_dark: "COSMIC Dark".to_string(),
             syntax_theme_light: "COSMIC Light".to_string(),
             use_bright_bold: false,
+            default_profile: None,
         }
     }
 }

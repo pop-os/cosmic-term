@@ -322,6 +322,7 @@ pub enum Message {
     ZoomOut,
     ZoomReset,
     FocusFollowMouse(bool),
+    UpdateDefaultProfile((bool, ProfileId)),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -855,6 +856,15 @@ impl App {
                                     },
                                 ),
                             ),
+                        )
+                        .add(
+                            widget::settings::item::builder(fl!("make-default")).control(
+                                widget::toggler(
+                                    "".to_string(),
+                                    self.get_default_profile().is_some_and(|p| p == profile_id),
+                                    move |t| Message::UpdateDefaultProfile((t, profile_id)),
+                                ),
+                            ),
                         );
 
                     let padding = Padding {
@@ -1073,6 +1083,9 @@ impl App {
             advanced_section.into(),
         ])
         .into()
+    }
+    fn get_default_profile(&self) -> Option<ProfileId> {
+        self.config.default_profile
     }
 
     fn create_and_focus_new_terminal(
@@ -1398,6 +1411,9 @@ impl Application for App {
         }
 
         match message {
+            Message::UpdateDefaultProfile((default, profile_id)) => {
+                config_set!(default_profile, default.then_some(profile_id));
+            }
             Message::AppTheme(app_theme) => {
                 self.config.app_theme = app_theme;
                 return self.save_config();
@@ -1761,7 +1777,8 @@ impl Application for App {
                 );
                 if let Some((pane, _)) = result {
                     self.terminal_ids.insert(pane, widget::Id::unique());
-                    let command = self.create_and_focus_new_terminal(pane, None);
+                    let command =
+                        self.create_and_focus_new_terminal(pane, self.get_default_profile());
                     self.pane_model.panes_created += 1;
                     return command;
                 }
@@ -1851,6 +1868,9 @@ impl Application for App {
                             }
                         }
                     }
+                }
+                if Some(profile_id) == self.get_default_profile() {
+                    config_set!(default_profile, None);
                 }
                 self.config.profiles.remove(&profile_id);
                 return self.save_profiles();
@@ -2026,7 +2046,10 @@ impl Application for App {
                 return self.update_title(Some(pane));
             }
             Message::TabNew => {
-                return self.create_and_focus_new_terminal(self.pane_model.focus, None)
+                return self.create_and_focus_new_terminal(
+                    self.pane_model.focus,
+                    self.get_default_profile(),
+                )
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
