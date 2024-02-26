@@ -637,7 +637,7 @@ impl App {
         let mut sections = Vec::with_capacity(3 + self.color_scheme_errors.len());
 
         sections.push(
-            widget::view_switcher::horizontal(&self.color_scheme_tab_model)
+            widget::tab_bar::horizontal(&self.color_scheme_tab_model)
                 .on_activate(Message::ColorSchemeTabActivate)
                 .into(),
         );
@@ -2303,7 +2303,7 @@ impl Application for App {
             if tab_model.iter().count() > 1 {
                 tab_column = tab_column.push(
                     widget::container(
-                        widget::view_switcher::horizontal(tab_model)
+                        widget::tab_bar::horizontal(tab_model)
                             .button_height(32)
                             .button_spacing(space_xxs)
                             .on_activate(Message::TabActivate)

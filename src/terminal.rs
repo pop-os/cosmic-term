@@ -507,15 +507,12 @@ impl Terminal {
             let start = Point::new(Line(-(grid.history_size() as i32)), Column(0));
             let mut end_line = grid.bottommost_line();
             while end_line.0 > 0 {
-                if ! grid[end_line].is_clear() {
+                if !grid[end_line].is_clear() {
                     break;
                 }
                 end_line.0 -= 1;
             }
-            let end = Point::new(
-                end_line,
-                Column(grid.columns() - 1),
-            );
+            let end = Point::new(end_line, Column(grid.columns() - 1));
             let mut selection = Selection::new(SelectionType::Lines, start, Side::Left);
             selection.update(end, Side::Right);
             term.selection = Some(selection);
