@@ -668,10 +668,17 @@ impl App {
                 }
                 .style(style::Button::Icon);
 
-                let menu =
-                    menu::color_scheme_menu(color_scheme_kind, color_scheme_id, &color_scheme_name);
-
-                let popover = widget::popover(button, menu).show_popup(expanded);
+                let mut popover = widget::popover(button);
+                if expanded {
+                    let menu = menu::color_scheme_menu(
+                        color_scheme_kind,
+                        color_scheme_id,
+                        &color_scheme_name,
+                    );
+                    popover = popover
+                        .popup(menu)
+                        .position(widget::popover::Position::Bottom);
+                }
 
                 let item = match renaming {
                     Some(value) => widget::settings::item_row(vec![
@@ -2341,12 +2348,10 @@ impl Application for App {
                     };
 
                     let tab_element: Element<'_, Message> = match context_menu {
-                        Some(position) => widget::popover(
-                            terminal_box.context_menu(position),
-                            menu::context_menu(&self.config, &self.key_binds, entity),
-                        )
-                        .position(position)
-                        .into(),
+                        Some(point) => widget::popover(terminal_box.context_menu(point))
+                            .popup(menu::context_menu(&self.config, &self.key_binds, entity))
+                            .position(widget::popover::Position::Point(point))
+                            .into(),
                         None => terminal_box.into(),
                     };
                     tab_column = tab_column.push(tab_element);
@@ -2483,13 +2488,13 @@ impl Application for App {
                     cosmic_theme::LIGHT_THEME_ID
                 }
                 .into(),
-                cosmic_theme::Theme::version(),
+                cosmic_theme::Theme::VERSION,
             )
             .map(|_update| Message::SystemThemeChange),
             cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
                 TypeId::of::<ThemeModeSubscription>(),
                 cosmic_theme::THEME_MODE_ID.into(),
-                cosmic_theme::ThemeMode::version(),
+                cosmic_theme::ThemeMode::VERSION,
             )
             .map(|_update| Message::SystemThemeChange),
             match &self.dialog_opt {
