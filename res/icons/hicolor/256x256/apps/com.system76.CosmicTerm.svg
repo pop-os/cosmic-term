@@ -1,24 +1,16 @@
 <svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="256" height="256" fill="#D3D3D3"/>
-<g id="App Icons">
-<path d="M-1225 -527C-1225 -531.418 -1221.42 -535 -1217 -535H1065C1069.42 -535 1073 -531.418 1073 -527V674C1073 678.418 1069.42 682 1065 682H-1217C-1221.42 682 -1225 678.418 -1225 674V-527Z" fill="#D7D7D7"/>
-<path d="M-1217 -534H1065V-536H-1217V-534ZM1072 -527V674H1074V-527H1072ZM1065 681H-1217V683H1065V681ZM-1224 674V-527H-1226V674H-1224ZM-1217 681C-1220.87 681 -1224 677.866 -1224 674H-1226C-1226 678.971 -1221.97 683 -1217 683V681ZM1072 674C1072 677.866 1068.87 681 1065 681V683C1069.97 683 1074 678.971 1074 674H1072ZM1065 -534C1068.87 -534 1072 -530.866 1072 -527H1074C1074 -531.971 1069.97 -536 1065 -536V-534ZM-1217 -536C-1221.97 -536 -1226 -531.971 -1226 -527H-1224C-1224 -530.866 -1220.87 -534 -1217 -534V-536Z" fill="black" fill-opacity="0.1"/>
-<g id="cosmic-terminal">
-<rect x="-427.5" y="-19.5" width="703" height="295" rx="4.5" stroke="#9747FF" stroke-dasharray="10 5"/>
 <g id="Size=256">
-<rect id="Rectangle 418" x="8" y="40" width="240" height="176" rx="16" fill="url(#paint0_linear_470_3802)"/>
-<path id="Subtract" fill-rule="evenodd" clip-rule="evenodd" d="M24 40C15.1634 40 8 47.1634 8 56V200C8 208.837 15.1634 216 24 216H232C240.837 216 248 208.837 248 200V56C248 47.1634 240.837 40 232 40H24ZM24 48C19.5817 48 16 51.5817 16 56V200C16 204.418 19.5817 208 24 208H232C236.418 208 240 204.418 240 200V56C240 51.5817 236.418 48 232 48H24Z" fill="url(#paint1_linear_470_3802)"/>
+<rect id="Rectangle 418" x="8" y="40" width="240" height="176" rx="16" fill="url(#paint0_linear_2056_1672)"/>
+<path id="Subtract" fill-rule="evenodd" clip-rule="evenodd" d="M24 40C15.1634 40 8 47.1634 8 56V200C8 208.837 15.1634 216 24 216H232C240.837 216 248 208.837 248 200V56C248 47.1634 240.837 40 232 40H24ZM24 48C19.5817 48 16 51.5817 16 56V200C16 204.418 19.5817 208 24 208H232C236.418 208 240 204.418 240 200V56C240 51.5817 236.418 48 232 48H24Z" fill="url(#paint1_linear_2056_1672)"/>
 <rect id="Rectangle 493" x="62" y="112" width="36" height="8" rx="4" fill="#FFAD00"/>
 <path id="Rectangle 494" d="M47.0847 73.3407C56.0337 82.1897 70 96 70 96C70 96 56.3133 109.534 47.0847 118.659C45.6525 120.075 43.5042 120.784 41.3559 118.659C39.2076 116.535 39.9237 114.411 41.3559 112.994C48.3473 106.081 58.5423 96 58.5423 96C58.5423 96 48.0676 85.6423 41.3559 79.0055C39.9237 77.5893 39.2076 75.465 41.3559 73.3407C43.5042 71.2164 45.6525 71.9245 47.0847 73.3407Z" fill="#FFAD00"/>
 </g>
-</g>
-</g>
 <defs>
-<linearGradient id="paint0_linear_470_3802" x1="248" y1="40" x2="6.11676" y2="213.373" gradientUnits="userSpaceOnUse">
+<linearGradient id="paint0_linear_2056_1672" x1="248" y1="40" x2="6.11676" y2="213.373" gradientUnits="userSpaceOnUse">
 <stop stop-color="#243C5F"/>
 <stop offset="1" stop-color="#102A4C"/>
 </linearGradient>
-<linearGradient id="paint1_linear_470_3802" x1="248" y1="40" x2="6.11676" y2="213.373" gradientUnits="userSpaceOnUse">
+<linearGradient id="paint1_linear_2056_1672" x1="248" y1="40" x2="6.11676" y2="213.373" gradientUnits="userSpaceOnUse">
 <stop stop-color="#BEBEBE"/>
 <stop offset="1" stop-color="#9E9E9E"/>
 </linearGradient>
