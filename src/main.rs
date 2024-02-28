@@ -258,38 +258,40 @@ pub enum Message {
     AppTheme(AppTheme),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
+    ColorSchemeExpand(ColorSchemeKind, ColorSchemeId),
     ColorSchemeExport(ColorSchemeKind, ColorSchemeId),
     ColorSchemeExportResult(ColorSchemeKind, ColorSchemeId, DialogResult),
-    ColorSchemeExpand(ColorSchemeKind, ColorSchemeId),
-    ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
-    ColorSchemeRenameSubmit,
     ColorSchemeImport(ColorSchemeKind),
     ColorSchemeImportResult(ColorSchemeKind, DialogResult),
+    ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
+    ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
     Copy(Option<segmented_button::Entity>),
+    DefaultBoldFontWeight(usize),
+    DefaultDimFontWeight(usize),
     DefaultFont(usize),
     DefaultFontSize(usize),
     DefaultFontStretch(usize),
     DefaultFontWeight(usize),
-    DefaultDimFontWeight(usize),
-    DefaultBoldFontWeight(usize),
     DefaultZoomStep(usize),
     DialogMessage(DialogMessage),
-    Key(Modifiers, Key),
     Find(bool),
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
-    PaneClicked(pane_grid::Pane),
-    PaneSplit(pane_grid::Axis),
-    PaneToggleMaximized,
-    PaneFocusAdjacent(pane_grid::Direction),
-    PaneDragged(pane_grid::DragEvent),
-    PaneResized(pane_grid::ResizeEvent),
+    FocusFollowMouse(bool),
+    Key(Modifiers, Key),
+    LaunchUrl(String),
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
+    PaneClicked(pane_grid::Pane),
+    PaneDragged(pane_grid::DragEvent),
+    PaneFocusAdjacent(pane_grid::Direction),
+    PaneResized(pane_grid::ResizeEvent),
+    PaneSplit(pane_grid::Axis),
+    PaneToggleMaximized,
     Paste(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     ProfileCollapse(ProfileId),
@@ -302,7 +304,7 @@ pub enum Message {
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
     SelectAll(Option<segmented_button::Entity>),
-    UseBrightBold(bool),
+    ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
@@ -312,19 +314,18 @@ pub enum Message {
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(pane_grid::Pane, Option<Point>),
     TabNew,
-    TabPrev,
     TabNext,
+    TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
-    ShowAdvancedFontSettings(bool),
+    UpdateDefaultProfile((bool, ProfileId)),
+    UseBrightBold(bool),
     WindowClose,
     WindowNew,
     ZoomIn,
     ZoomOut,
     ZoomReset,
-    FocusFollowMouse(bool),
-    UpdateDefaultProfile((bool, ProfileId)),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -637,24 +638,31 @@ impl App {
 
     fn about(&self) -> Element<Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let repository = "https://github.com/pop-os/cosmic-term";
+        let hash = env!("VERGEN_GIT_SHA");
+        let date = env!("VERGEN_GIT_COMMIT_DATE");
         widget::column::with_children(vec![
                 widget::svg(widget::svg::Handle::from_memory(
                     &include_bytes!(
-                        "../res/icons/hicolor/256x256/apps/com.system76.CosmicTerm.svg"
+                        "../res/icons/hicolor/128x128/apps/com.system76.CosmicTerm.svg"
                     )[..],
                 ))
                 .into(),
-                widget::text::heading(fl!("cosmic-terminal")).into(),
-                widget::button::link("https://github.com/pop-os/cosmic-term")
+                widget::text::title3(fl!("cosmic-terminal")).into(),
+                widget::button::link(repository)
+                    .on_press(Message::LaunchUrl(repository.to_string()))
                     .padding(0)
                     .into(),
-                widget::text(fl!(
+                widget::button::link(fl!(
                     "git-description",
-                    hash = env!("VERGEN_GIT_SHA"),
-                    date = env!("VERGEN_GIT_COMMIT_DATE")
+                    hash = hash,
+                    date = date
                 ))
+                    .on_press(Message::LaunchUrl(format!("{}/commits/{}", repository, hash)))
+                    .padding(0)
                 .into(),
             ])
+        .align_items(Alignment::Center)
         .spacing(space_xxs)
         .into()
     }
@@ -1446,9 +1454,6 @@ impl Application for App {
         }
 
         match message {
-            Message::UpdateDefaultProfile((default, profile_id)) => {
-                config_set!(default_profile, default.then_some(profile_id));
-            }
             Message::AppTheme(app_theme) => {
                 self.config.app_theme = app_theme;
                 return self.save_config();
@@ -1730,13 +1735,6 @@ impl Application for App {
                     return dialog.update(dialog_message);
                 }
             }
-            Message::Key(modifiers, key) => {
-                for (key_bind, action) in self.key_binds.iter() {
-                    if key_bind.matches(modifiers, &key) {
-                        return self.update(action.message(None));
-                    }
-                }
-            }
             Message::Find(find) => {
                 self.find = find;
                 if find {
@@ -1790,6 +1788,22 @@ impl Application for App {
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
             }
+            Message::FocusFollowMouse(focus_follow_mouse) => {
+                config_set!(focus_follow_mouse, focus_follow_mouse);
+            }
+            Message::Key(modifiers, key) => {
+                for (key_bind, action) in self.key_binds.iter() {
+                    if key_bind.matches(modifiers, &key) {
+                        return self.update(action.message(None));
+                    }
+                }
+            }
+            Message::LaunchUrl(url) => match open::that_detached(&url) {
+                Ok(()) => {}
+                Err(err) => {
+                    log::warn!("failed to open {:?}: {}", url, err);
+                }
+            },
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
@@ -1962,8 +1976,8 @@ impl Application for App {
                     return self.save_config();
                 }
             }
-            Message::FocusFollowMouse(focus_follow_mouse) => {
-                config_set!(focus_follow_mouse, focus_follow_mouse);
+            Message::ShowAdvancedFontSettings(show) => {
+                self.show_advanced_font_settings = show;
             }
             Message::SystemThemeChange => {
                 return self.update_config();
@@ -2262,8 +2276,8 @@ impl Application for App {
 
                 self.set_context_title(context_page.title());
             }
-            Message::ShowAdvancedFontSettings(show) => {
-                self.show_advanced_font_settings = show;
+            Message::UpdateDefaultProfile((default, profile_id)) => {
+                config_set!(default_profile, default.then_some(profile_id));
             }
             Message::WindowClose => {
                 return window::close(window::Id::MAIN);
