@@ -8,11 +8,7 @@ export VENDOR ?= 1
 
 override_dh_auto_clean:
 	if ! ischroot && test "${VENDOR}" = "1"; then \
-		mkdir -p .cargo; \
-		cargo vendor | head -n -1 > .cargo/config; \
-		echo 'directory = "vendor"' >> .cargo/config; \
-		tar pcf vendor.tar vendor; \
-		rm -rf vendor; \
+		just vendor; \
 	fi
 
 override_dh_auto_build:

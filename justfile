@@ -73,10 +73,14 @@ uninstall:
 vendor:
     mkdir -p .cargo
     cargo vendor --sync Cargo.toml \
-        | head -n -1 > .cargo/config
-    echo 'directory = "vendor"' >> .cargo/config
-    tar pcf vendor.tar vendor
-    rm -rf vendor
+        | head -n -1 > .cargo/config.toml
+    echo 'directory = "vendor"' >> .cargo/config.toml
+    echo >> .cargo/config.toml
+    echo '[env]' >> .cargo/config.toml
+    echo "VERGEN_GIT_COMMIT_DATE = \"$(git log -1 --pretty=format:'%cs' HEAD)\"" >> .cargo/config.toml
+    echo "VERGEN_GIT_SHA = \"$(git rev-parse --short HEAD)\"" >> .cargo/config.toml
+    tar pcf vendor.tar .cargo vendor
+    rm -rf .cargo vendor
 
 # Extracts vendored dependencies
 vendor-extract:

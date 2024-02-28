@@ -2,10 +2,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Rebuild if i18n files change
     println!("cargo:rerun-if-changed=i18n");
 
-    vergen::EmitBuilder::builder()
-        .fail_on_error()
-        .git_commit_date()
-        .git_sha(true)
-        .emit()?;
+    // Emit version information (if not cached by just vendor)
+    let mut vergen = vergen::EmitBuilder::builder();
+    if std::env::var_os("VERGEN_GIT_COMMIT_DATE").is_none() {
+        vergen.git_commit_date();
+    }
+    if std::env::var_os("VERGEN_GIT_SHA").is_none() {
+        vergen.git_sha(true);
+    }
+    vergen.fail_on_error().emit()?;
     Ok(())
 }
