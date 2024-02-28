@@ -15,6 +15,9 @@ desktop := APPID + '.desktop'
 desktop-src := 'res' / desktop
 desktop-dst := clean(rootdir / prefix) / 'share' / 'applications' / desktop
 
+icons-src := 'res' / 'icons' / 'hicolor'
+icons-dst := clean(rootdir / prefix) / 'share' / 'icons' / 'hicolor'
+
 # Default recipe which runs `just build-release`
 default: build-release
 
@@ -57,7 +60,10 @@ run *args:
 # Installs files
 install:
     install -Dm0755 {{bin-src}} {{bin-dst}}
-    install -Dm0755 {{desktop-src}} {{desktop-dst}}
+    install -Dm0644 {{desktop-src}} {{desktop-dst}}
+    for size in `ls {{icons-src}}`; do \
+        install -Dm0644 "{{icons-src}}/$size/apps/{{APPID}}.svg" "{{icons-dst}}/$size/apps/{{APPID}}.svg"; \
+    done
 
 # Uninstalls installed files
 uninstall:
