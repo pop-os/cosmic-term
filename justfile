@@ -71,14 +71,21 @@ uninstall:
 
 # Vendor dependencies locally
 vendor:
+    #!/usr/bin/env bash
     mkdir -p .cargo
-    cargo vendor --sync Cargo.toml \
-        | head -n -1 > .cargo/config.toml
+    cargo vendor --sync Cargo.toml | head -n -1 > .cargo/config.toml
     echo 'directory = "vendor"' >> .cargo/config.toml
     echo >> .cargo/config.toml
     echo '[env]' >> .cargo/config.toml
-    echo "VERGEN_GIT_COMMIT_DATE = \"$(git log -1 --pretty=format:'%cs' HEAD)\"" >> .cargo/config.toml
-    echo "VERGEN_GIT_SHA = \"$(git rev-parse --short HEAD)\"" >> .cargo/config.toml
+    if [ -n "${SOURCE_DATE_EPOCH}" ]
+    then
+        source_date="$(date -d "@${SOURCE_DATE_EPOCH}" "+%Y-%m-%d")"
+        echo "VERGEN_GIT_COMMIT_DATE = \"${source_date}\"" >> .cargo/config.toml
+    fi
+    if [ -n "${SOURCE_GIT_HASH}" ]
+    then
+        echo "VERGEN_GIT_SHA = \"${SOURCE_GIT_HASH}\"" >> .cargo/config.toml
+    fi
     tar pcf vendor.tar .cargo vendor
     rm -rf .cargo vendor
 
