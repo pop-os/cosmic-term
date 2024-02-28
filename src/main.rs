@@ -339,7 +339,7 @@ pub enum ContextPage {
 impl ContextPage {
     fn title(&self) -> String {
         match self {
-            Self::About => fl!("about"),
+            Self::About => String::new(),
             Self::ColorSchemes(_color_scheme_kind) => fl!("color-schemes"),
             Self::Profiles => fl!("profiles"),
             Self::Settings => fl!("settings"),
