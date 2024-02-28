@@ -640,6 +640,7 @@ impl App {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
         let repository = "https://github.com/pop-os/cosmic-term";
         let hash = env!("VERGEN_GIT_SHA");
+        let short_hash: String = hash.chars().take(7).collect();
         let date = env!("VERGEN_GIT_COMMIT_DATE");
         widget::column::with_children(vec![
                 widget::svg(widget::svg::Handle::from_memory(
@@ -655,7 +656,7 @@ impl App {
                     .into(),
                 widget::button::link(fl!(
                     "git-description",
-                    hash = hash,
+                    hash = short_hash.as_str(),
                     date = date
                 ))
                     .on_press(Message::LaunchUrl(format!("{}/commits/{}", repository, hash)))
