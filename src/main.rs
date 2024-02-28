@@ -171,6 +171,7 @@ pub struct Flags {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
+    About,
     ColorSchemes(ColorSchemeKind),
     Copy,
     Find,
@@ -210,6 +211,7 @@ pub enum Action {
 impl Action {
     pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
+            Action::About => Message::ToggleContextPage(ContextPage::About),
             Action::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind))
             }
@@ -327,6 +329,7 @@ pub enum Message {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ContextPage {
+    About,
     ColorSchemes(ColorSchemeKind),
     Profiles,
     Settings,
@@ -335,6 +338,7 @@ pub enum ContextPage {
 impl ContextPage {
     fn title(&self) -> String {
         match self {
+            Self::About => fl!("about"),
             Self::ColorSchemes(_color_scheme_kind) => fl!("color-schemes"),
             Self::Profiles => fl!("profiles"),
             Self::Settings => fl!("settings"),
@@ -536,9 +540,9 @@ impl App {
             let (header_title, window_title) = match tab_model.text(tab_model.active()) {
                 Some(tab_title) => (
                     tab_title.to_string(),
-                    format!("{tab_title} — COSMIC Terminal"),
+                    format!("{tab_title} — {}", fl!("cosmic-terminal")),
                 ),
-                None => (String::new(), "COSMIC Terminal".to_string()),
+                None => (String::new(), fl!("cosmic-terminal")),
             };
             self.set_header_title(header_title);
             Command::batch([
@@ -548,7 +552,7 @@ impl App {
         } else {
             log::error!("Failed to get the specific pane");
             Command::batch([
-                self.set_window_title("COSMIC Terminal".to_string(), window::Id::MAIN),
+                self.set_window_title(fl!("cosmic-terminal"), window::Id::MAIN),
                 self.update_focus(),
             ])
         }
@@ -629,6 +633,30 @@ impl App {
         {
             self.config.bold_font_weight = Weight::BOLD.0;
         }
+    }
+
+    fn about(&self) -> Element<Message> {
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        widget::column::with_children(vec![
+                widget::svg(widget::svg::Handle::from_memory(
+                    &include_bytes!(
+                        "../res/icons/hicolor/256x256/apps/com.system76.CosmicTerm.svg"
+                    )[..],
+                ))
+                .into(),
+                widget::text::heading(fl!("cosmic-terminal")).into(),
+                widget::button::link("https://github.com/pop-os/cosmic-term")
+                    .padding(0)
+                    .into(),
+                widget::text(fl!(
+                    "git-description",
+                    hash = env!("VERGEN_GIT_SHA"),
+                    date = env!("VERGEN_GIT_COMMIT_DATE")
+                ))
+                .into(),
+            ])
+        .spacing(space_xxs)
+        .into()
     }
 
     fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<Message> {
@@ -2274,6 +2302,7 @@ impl Application for App {
         }
 
         Some(match self.context_page {
+            ContextPage::About => self.about(),
             ContextPage::ColorSchemes(color_scheme_kind) => self.color_schemes(color_scheme_kind),
             ContextPage::Profiles => self.profiles(),
             ContextPage::Settings => self.settings(),

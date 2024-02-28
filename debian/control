@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Jeremy Soller <jeremy@system76.com>
 Build-Depends:
     debhelper-compat (=13),
+    git,
     just (>= 1.13.0),
     pkg-config,
     rust-all,
@@ -14,4 +15,4 @@ Package: cosmic-term
 Architecture: amd64 arm64
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Provides: x-terminal-emulator
-Description: Cosmic Terminal
+Description: COSMIC Terminal

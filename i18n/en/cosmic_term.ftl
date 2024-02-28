@@ -1,6 +1,11 @@
+cosmic-terminal = COSMIC Terminal
 new-terminal = New terminal
 
 # Context Pages
+
+## About
+about = About
+git-description = Git commit {$hash} on {$date}
 
 ## Color schemes
 color-schemes = Color schemes
@@ -89,3 +94,4 @@ split-vertical = Split vertical
 pane-toggle-maximize = Toggle maximized
 menu-color-schemes = Color schemes...
 menu-settings = Settings...
+menu-about = About COSMIC Terminal...
