@@ -4,13 +4,13 @@ new-terminal = Nuovo terminale
 # Context Pages
 
 ## About
-git-description = Commit git {$hash} del {$date}
+git-description = Git commit {$hash}, data {$date}
 
 ## Color schemes
-color-schemes = Schema colori
+color-schemes = Schema dei colori
 rename = Rinomina
 export = Esporta
-delete = Cancella
+delete = Elimina
 import = Importa
 import-errors = Importa errori
 
@@ -30,7 +30,7 @@ settings = Impostazioni
 ### Appearance
 appearance = Aspetto
 theme = Tema
-match-desktop = Abbina alla scrivania
+match-desktop = Combacia col Desktop
 dark = Scuro
 light = Chiaro
 syntax-dark = Schema colori scuro
@@ -39,14 +39,14 @@ default-zoom-step = Passi ingrandimento
 opacity = Opacità sfondo
 
 ### Font
-font = Carattere tipografico
-advanced-font-settings = Impostazioni avanzate del carattere tipografico
+font = Carattere
+advanced-font-settings = Impostazioni avanzate del carattere
 default-font = Font predefinito
-default-font-size = Dimensione del carattere tipografico predefinita
-default-font-stretch = Estensione del carattere tipografico predefinita
-default-font-weight = Spessore del carattere tipografico normale
-default-dim-font-weight = Spessore del carattere tipografico attenuato
-default-bold-font-weight = Spessore del carattere tipografico in grassetto
+default-font-size = Dimensione predefinita del carattere
+default-font-stretch = Espansione predefinita del carattere
+default-font-weight = Spessore predefinito del carattere
+default-dim-font-weight = Spessore del carattere attenuato
+default-bold-font-weight = Spessore del carattere in grassetto
 use-bright-bold = Rendi il testo in grassetto più luminoso
 
 ### Splits
@@ -71,14 +71,14 @@ new-tab = Nuova scheda
 new-window = Nuova finestra
 profile = Profilo
 menu-profiles = Profili...
-close-tab = Chiudi finestra
+close-tab = Chiudi scheda
 quit = Esci
 
 ## Edit
 edit = Modifica
 copy = Copia
 paste = Incolla
-select-all = Seleziona tutti
+select-all = Seleziona tutto
 find = Trova
 
 ## View
@@ -90,7 +90,7 @@ next-tab = Scheda successiva
 previous-tab = Scheda precedente
 split-horizontal = Dividi orizzontalmente
 split-vertical = Dividi verticalmente
-pane-toggle-maximize = Abilita/disabilita schermo intero
+pane-toggle-maximize = Abilita o disabilita schermo intero
 menu-color-schemes = Schemi di colore...
 menu-settings = Impostazioni...
-menu-about = A proposito di COSMIC Terminal...
+menu-about = Informazioni su COSMIC Terminal...
