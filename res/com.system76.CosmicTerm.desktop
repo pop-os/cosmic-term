@@ -5,6 +5,6 @@ Exec=cosmic-term
 Terminal=false
 Type=Application
 StartupNotify=true
-Icon=utilities-terminal
+Icon=com.system76.CosmicTerm
 Categories=COSMIC;System;TerminalEmulator;
 Keywords=Command;Shell;Terminal;

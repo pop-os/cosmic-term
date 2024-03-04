@@ -1,4 +1,29 @@
+cosmic-terminal = COSMIC Terminal
+new-terminal = Novi terminal
+
 # Context Pages
+
+## About
+about = O programu
+git-description = Git commit {$hash} on {$date}
+
+## Color schemes
+color-schemes = Šeme boja
+rename = Preimenuj
+export = Izvezi
+delete = Izbriši
+import = Uvezi
+import-errors = Greške pri uvozu
+
+## Profiles
+profiles = Profili
+name = Ime
+command-line = Komandna linija
+tab-title = Naslov kartice
+tab-title-description = Zameni podrazumevani naslov kartice
+add-profile = Dodaj profil
+new-profile = Novi profil
+make-default = Postavi kao podrazumevani
 
 ## Settings
 settings = Podešavanja
@@ -9,15 +34,35 @@ theme = Tema
 match-desktop = Kao sistem
 dark = Tamna
 light = Svetla
-syntax-dark = Tamna sintaksa
-syntax-light = Svetla sintaksa
-advanced-font-settings = Napredna podešavanja fonta
-default-font = Podrazumevani font
-default-font-stretch = Podrazumevano rastezanje fonta
-default-font-weight = Podrazumevana debljina fonta
-default-bold-font-weight = Podrazumevana debljina podebljanog fonta
-default-font-size = Podrazumevana veličina fonta
+syntax-dark = Tamna tema sintakse
+syntax-light = Svetla tema sintakse
 default-zoom-step = Podrazumevani korak uvećanja
+opacity = Neprozirnost pozadine
+
+### Font
+font = Font
+advanced-font-settings = Napredna podešavanja fonta
+default-font = Font
+default-font-size = Veličina fonta
+default-font-stretch = Rastezanje fonta
+default-font-weight = Debljina normalnog fonta
+default-dim-font-weight = Debljina tamnog fonta
+default-bold-font-weight = Debljina podebljanog fonta
+use-bright-bold = Učini podebljani tekst svetlijim
+
+### Splits
+splits = Podele
+focus-follow-mouse = Fokus kucanja prati miš
+
+### Advanced
+advanced = Napredno
+show-headerbar = Prikaži zaglavlje
+show-header-description = Otkrijte zaglavlje iz menija desnog klika.
+
+# Find
+find-placeholder = Pronađi...
+find-previous = Pronađi prethodno
+find-next = Pronađi sledeće
 
 # Menu
 
@@ -25,6 +70,8 @@ default-zoom-step = Podrazumevani korak uvećanja
 file = Datoteka
 new-tab = Nova kartica
 new-window = Novi prozor
+profile = Profili
+menu-profiles = Profili...
 close-tab = Zatvori karticu
 quit = Izađi
 
@@ -37,7 +84,14 @@ find = Pronađi
 
 ## View
 view = Prikaz
+zoom-in = Veći tekst
+zoom-reset = Podrazumevana veličina teksta
+zoom-out = Manji tekst
+next-tab = Sledeća kartica
+previous-tab = Prethodna kartica
+split-horizontal = Podeli horizontalno
+split-vertical = Podeli vertikalno
+pane-toggle-maximize = Maksimizuj
+menu-color-schemes = Šeme boja...
 menu-settings = Podešavanja...
-
-# Context menu
-show-headerbar = Prikaži traku zaglavlja
+menu-about = O COSMIC Terminalu...

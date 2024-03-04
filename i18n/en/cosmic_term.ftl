@@ -1,6 +1,18 @@
+cosmic-terminal = COSMIC Terminal
 new-terminal = New terminal
 
 # Context Pages
+
+## About
+git-description = Git commit {$hash} on {$date}
+
+## Color schemes
+color-schemes = Color schemes
+rename = Rename
+export = Export
+delete = Delete
+import = Import
+import-errors = Import errors
 
 ## Profiles
 profiles = Profiles
@@ -10,6 +22,7 @@ tab-title = Tab title
 tab-title-description = Override the default tab title
 add-profile = Add profile
 new-profile = New profile
+make-default = Make default
 
 ## Settings
 settings = Settings
@@ -27,7 +40,7 @@ opacity = Background opacity
 
 ### Font
 font = Font
-advanced-font-settings = Advanced Font Settings
+advanced-font-settings = Advanced font settings
 default-font = Font
 default-font-size = Font size
 default-font-stretch = Font stretch
@@ -78,4 +91,6 @@ previous-tab = Previous tab
 split-horizontal = Split horizontal
 split-vertical = Split vertical
 pane-toggle-maximize = Toggle maximized
+menu-color-schemes = Color schemes...
 menu-settings = Settings...
+menu-about = About COSMIC Terminal...

@@ -39,7 +39,7 @@ use tokio::sync::mpsc;
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
-    config::{Config as AppConfig, ProfileId},
+    config::{ColorSchemeKind, Config as AppConfig, ProfileId},
     mouse_reporter::MouseReporter,
 };
 
@@ -505,10 +505,14 @@ impl Terminal {
             let mut term = self.term.lock();
             let grid = term.grid();
             let start = Point::new(Line(-(grid.history_size() as i32)), Column(0));
-            let end = Point::new(
-                Line(grid.screen_lines() as i32 - 1),
-                Column(grid.columns() - 1),
-            );
+            let mut end_line = grid.bottommost_line();
+            while end_line.0 > 0 {
+                if !grid[end_line].is_clear() {
+                    break;
+                }
+                end_line.0 -= 1;
+            }
+            let end = Point::new(end_line, Column(grid.columns() - 1));
             let mut selection = Selection::new(SelectionType::Lines, start, Side::Left);
             selection.update(end, Side::Right);
             term.selection = Some(selection);
@@ -519,7 +523,7 @@ impl Terminal {
     pub fn set_config(
         &mut self,
         config: &AppConfig,
-        themes: &HashMap<String, Colors>,
+        themes: &HashMap<(String, ColorSchemeKind), Colors>,
         zoom_adj: i8,
     ) {
         let mut update_cell_size = false;
@@ -559,7 +563,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(config.syntax_theme(self.profile_id_opt)) {
+        if let Some(colors) = themes.get(&config.syntax_theme(self.profile_id_opt)) {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {

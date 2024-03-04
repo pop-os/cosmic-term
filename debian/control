@@ -14,4 +14,4 @@ Package: cosmic-term
 Architecture: amd64 arm64
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Provides: x-terminal-emulator
-Description: Cosmic Terminal
+Description: COSMIC Terminal
