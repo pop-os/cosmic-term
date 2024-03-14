@@ -1,4 +1,18 @@
+cosmic-terminal = COSMIC端末
+new-terminal = 新しい端末
+
 # Context Pages
+
+## About
+git-description = {$date}の{$hash}というGitコミット
+
+## Color schemes
+color-schemes = Color schemes
+rename = 名前を変更
+export = エクスポート
+delete = 削除
+import = インポート
+import-errors = インポートエラー
 
 ## Profiles
 profiles = プロファイル
@@ -8,6 +22,7 @@ tab-title = タブのイトル
 tab-title-description = デフォルトのタブタイトルを無効にします
 add-profile = プロファイルを追加
 new-profile = 新しいプロファイル
+make-default = デフォルトにする
 
 ## Settings
 settings = 設定
@@ -76,4 +91,6 @@ previous-tab = 前のタブ
 split-horizontal = 上下に分割
 split-vertical = 左右に分割
 pane-toggle-maximize = ペインの最大化を切替
+menu-color-schemes = カラースキーム
 menu-settings = 設定...
+menu-about = COSMIC端末について...
