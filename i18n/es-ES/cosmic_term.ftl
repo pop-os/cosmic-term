@@ -47,7 +47,7 @@ default-font-stretch = Anchura del fuente
 default-font-weight = Peso del fuente normal
 default-dim-font-weight = Peso del fuente delgado
 default-bold-font-weight = Peso del fuente en negritas
-use-bright-bold = Hacer las negritas de color claro
+use-bright-bold = Mostrar negritas en colores claros
 
 ### Splits
 splits = Splits
