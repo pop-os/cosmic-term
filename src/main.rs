@@ -68,13 +68,41 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 /// Runs application with these settings
 #[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut shell_program_opt = None;
+    let mut shell_args = Vec::new();
+    let mut parse_flags = true;
+    let mut daemonize = true;
+    for arg in env::args().skip(1) {
+        if parse_flags {
+            match arg.as_str() {
+                // These flags indicate the end of parsing flags
+                "-e" | "--command" | "--" => {
+                    parse_flags = false;
+                }
+                "--no-daemon" => {
+                    daemonize = false;
+                }
+                _ => {
+                    //TODO: should this throw an error?
+                    log::warn!("ignored argument {:?}", arg);
+                }
+            }
+        } else if shell_program_opt.is_none() {
+            shell_program_opt = Some(arg);
+        } else {
+            shell_args.push(arg);
+        }
+    }
+    
     #[cfg(all(unix, not(target_os = "redox")))]
-    match fork::daemon(true, true) {
-        Ok(fork::Fork::Child) => (),
-        Ok(fork::Fork::Parent(_child_pid)) => process::exit(0),
-        Err(err) => {
-            eprintln!("failed to daemonize: {:?}", err);
-            process::exit(1);
+    if daemonize {
+        match fork::daemon(true, true) {
+            Ok(fork::Fork::Child) => (),
+            Ok(fork::Fork::Parent(_child_pid)) => process::exit(0),
+            Err(err) => {
+                eprintln!("failed to daemonize: {:?}", err);
+                process::exit(1);
+            }
         }
     }
 
@@ -98,28 +126,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (None, Config::default())
         }
     };
-
-    let mut shell_program_opt = None;
-    let mut shell_args = Vec::new();
-    let mut parse_flags = true;
-    for arg in env::args().skip(1) {
-        if parse_flags {
-            match arg.as_str() {
-                // These flags indicate the end of parsing flags
-                "-e" | "--command" | "--" => {
-                    parse_flags = false;
-                }
-                _ => {
-                    //TODO: should this throw an error?
-                    log::warn!("ignored argument {:?}", arg);
-                }
-            }
-        } else if shell_program_opt.is_none() {
-            shell_program_opt = Some(arg);
-        } else {
-            shell_args.push(arg);
-        }
-    }
 
     let startup_options = if let Some(shell_program) = shell_program_opt {
         let options = tty::Options {
