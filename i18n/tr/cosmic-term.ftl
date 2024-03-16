@@ -1,4 +1,18 @@
+cosmic-terminal = COSMIC Uçbirim
+new-terminal = Yeni uçbirim
+
 # Context Pages
+
+## About
+git-description = Git commit {$hash}, {$date}
+
+## Color schemes
+color-schemes = Renk şemaları
+rename = Yeniden adlandır
+export = Dışa akar
+delete = Sil
+import = İçe aktar
+import-errors = İçe aktarma hataları 
 
 ## Profiles
 profiles = Profiller
@@ -8,6 +22,7 @@ tab-title = Sekme başlığı
 tab-title-description = Varsayılan sekme başlığını geçersiz kılar
 add-profile = Profil ekle
 new-profile = Yeni profil
+make-default = Varsayılan yap
 
 ## Settings
 settings = Ayarlar
@@ -21,6 +36,7 @@ light = Aydınlık
 syntax-dark = Karanlık renk şeması
 syntax-light = Aydınlık renk şeması
 default-zoom-step = Yakınlaştırma basamakları
+opacity = Arkaplan saydamlığı
 
 ### Font
 font = Yazı tipi
@@ -74,5 +90,7 @@ next-tab = Sonraki sekme
 previous-tab = Önceki sekme
 split-horizontal = Yatay böl
 split-vertical = Dikey böl
-pane-toggle-maximize = En üste geç
+pane-toggle-maximize = Tam ekrana geç
+menu-color-schemes = Renk şemalaro...
 menu-settings = Ayarlar...
+menu-about = COSMIC Uçbirim hakkında
