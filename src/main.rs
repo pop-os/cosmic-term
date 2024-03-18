@@ -2481,10 +2481,8 @@ impl Application for App {
                 .padding(space_xxs)
                 .spacing(space_xxs);
 
-                tab_column = tab_column.push(
-                    widget::cosmic_container::container(find_widget)
-                        .layer(cosmic_theme::Layer::Primary),
-                );
+                tab_column = tab_column
+                    .push(widget::layer_container(find_widget).layer(cosmic_theme::Layer::Primary));
             }
 
             pane_grid::Content::new(tab_column)
