@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
+use cosmic::widget::menu::action::MenuAction;
+use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
     app::{message, Command, Core, Settings},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
@@ -40,7 +42,7 @@ mod mouse_reporter;
 use icon_cache::IconCache;
 mod icon_cache;
 
-use key_bind::{key_binds, KeyBind};
+use key_bind::key_binds;
 mod key_bind;
 
 mod localize;
@@ -206,12 +208,14 @@ pub enum Action {
     ZoomReset,
 }
 
-impl Action {
-    pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
+impl MenuAction for Action {
+    type Message = Message;
+
+    fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Action::About => Message::ToggleContextPage(ContextPage::About),
             Action::ColorSchemes(color_scheme_kind) => {
-                Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind))
+                Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
             Action::Copy => Message::Copy(entity_opt),
             Action::Find => Message::Find(true),
@@ -223,11 +227,11 @@ impl Action {
             Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
-            Action::ProfileOpen(profile_id) => Message::ProfileOpen(profile_id),
+            Action::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
             Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
-            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
+            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
             Action::TabActivate0 => Message::TabActivateJump(0),
             Action::TabActivate1 => Message::TabActivateJump(1),
             Action::TabActivate2 => Message::TabActivateJump(2),
