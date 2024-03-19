@@ -5,6 +5,7 @@ use alacritty_terminal::{
     selection::{Selection, SelectionType},
     term::{cell::Flags, TermMode},
 };
+use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
     cosmic_theme::palette::{blend::Compose, WithAlpha},
     iced::{
@@ -40,11 +41,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    key_bind::{key_binds, KeyBind},
-    terminal::Metadata,
-    Action, Terminal, TerminalScroll,
-};
+use crate::{key_bind::key_binds, terminal::Metadata, Action, Terminal, TerminalScroll};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
