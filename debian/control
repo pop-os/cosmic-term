@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Jeremy Soller <jeremy@system76.com>
 Build-Depends:
     debhelper-compat (=13),
+    git,
     just (>= 1.13.0),
     pkg-config,
     rust-all,
