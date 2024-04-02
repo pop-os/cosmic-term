@@ -22,7 +22,7 @@ tab-title = Título de pestaña
 tab-title-description = Cambiar el título por defecto de la pestaña
 add-profile = Añadir perfil
 new-profile = Nuevo perfil
-make-default = Impostar como defecto
+make-default = Establecer como predeterminado
 
 ## Settings
 settings = Ajustes
@@ -31,22 +31,22 @@ settings = Ajustes
 appearance = Apariencia
 theme = Tema
 match-desktop = Automático
-dark = Obscuro
+dark = Oscuro
 light = Claro
-syntax-dark = Esquema de color obscura
-syntax-light = Esquema de color clara
-default-zoom-step = Pasos de zoom
-opacity = Opacidad del fondo
+syntax-dark = Esquema de color oscuro
+syntax-light = Esquema de color claro
+default-zoom-step = Escalas de zoom
+opacity = Opacidad de fondo
 
 ### Font
 font = Fuente
-advanced-font-settings = Ajustes avanzados del fuente
+advanced-font-settings = Ajustes avanzados de fuente
 default-font = Fuente
-default-font-size = Tamaño del fuente
-default-font-stretch = Anchura del fuente
-default-font-weight = Peso del fuente normal
-default-dim-font-weight = Peso del fuente delgado
-default-bold-font-weight = Peso del fuente en negritas
+default-font-size = Tamaño de fuente
+default-font-stretch = Anchura de fuente
+default-font-weight = Peso de fuente normal
+default-dim-font-weight = Peso de fuente delgado
+default-bold-font-weight = Peso de fuente en negritas
 use-bright-bold = Mostrar negritas en colores claros
 
 ### Splits
@@ -54,9 +54,9 @@ splits = Splits
 focus-follow-mouse = Enfoque del tecleo sigue el ratón
 
 ### Advanced
-advanced = Advanzado
+advanced = Avanzado
 show-headerbar = Mostrar encabezado
-show-header-description = Mostrar el encabezado desde el menú del clic secundario.
+show-header-description = Mostrar encabezado desde el menú del clic secundario.
 
 # Find
 find-placeholder = Buscar...
@@ -68,7 +68,7 @@ find-next = Buscar siguiente
 ## File
 file = Archivo
 new-tab = Nueva pestaña
-new-window = Ventana nueva
+new-window = Nueva ventana
 profile = Perfil
 menu-profiles = Perfiles...
 close-tab = Cerrar pestaña
@@ -84,7 +84,7 @@ find = Buscar
 ## View
 view = Vista
 zoom-in = Texto más grande
-zoom-reset = Tamaño por defecto del fuente
+zoom-reset = Tamaño de fuente por defecto
 zoom-out = Texto más pequeño
 next-tab = Pestaña siguiente
 previous-tab = Pestaña previa
