@@ -1165,6 +1165,7 @@ impl App {
                                         working_directory: None,
                                         //TODO: configurable hold (keep open when child exits)?
                                         hold: false,
+                                        env: HashMap::new(),
                                     };
                                     let tab_title_override = if !profile.tab_title.is_empty() {
                                         Some(profile.tab_title.clone())
@@ -2235,6 +2236,9 @@ impl Application for App {
                             }
                         }
                     }
+                    TermEvent::ChildExit(_error_code) => {
+                        //Ignore this for now
+                    },
                 }
             }
             Message::TermEventTx(term_event_tx) => {

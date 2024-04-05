@@ -10,7 +10,7 @@ rust-version = "1.71"
 vergen = { version = "8", features = ["git", "gitcl"] }
 
 [dependencies]
-alacritty_terminal = "0.20"
+alacritty_terminal = "0.23"
 env_logger = "0.10"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
