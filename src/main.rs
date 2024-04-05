@@ -1,9 +1,9 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use alacritty_terminal::{
-    event::Event as TermEvent, term::color::Colors as TermColors, term::Config as TermConfig, tty,
-};
+use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
+use cosmic::widget::menu::action::MenuAction;
+use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
     app::{message, Command, Core, Settings},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
@@ -43,7 +43,7 @@ mod mouse_reporter;
 use icon_cache::IconCache;
 mod icon_cache;
 
-use key_bind::{key_binds, KeyBind};
+use key_bind::key_binds;
 mod key_bind;
 
 mod localize;
@@ -134,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    let term_config = TermConfig::default();
+    let term_config = term::Config::default();
     // Set up environmental variables for terminal
     tty::setup_env();
     // Override TERM for better compatibility
@@ -167,7 +167,7 @@ pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
     startup_options: Option<tty::Options>,
-    term_config: TermConfig,
+    term_config: term::Config,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -211,12 +211,14 @@ pub enum Action {
     ZoomReset,
 }
 
-impl Action {
-    pub fn message(self, entity_opt: Option<segmented_button::Entity>) -> Message {
+impl MenuAction for Action {
+    type Message = Message;
+
+    fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Action::About => Message::ToggleContextPage(ContextPage::About),
             Action::ColorSchemes(color_scheme_kind) => {
-                Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind))
+                Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
             Action::Copy => Message::Copy(entity_opt),
             Action::CopyPrimary => Message::CopyPrimary(entity_opt),
@@ -230,11 +232,11 @@ impl Action {
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
             Action::PastePrimary => Message::PastePrimary(entity_opt),
-            Action::ProfileOpen(profile_id) => Message::ProfileOpen(profile_id),
+            Action::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
             Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
             Action::SelectAll => Message::SelectAll(entity_opt),
             Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
-            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(show_headerbar),
+            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
             Action::TabActivate0 => Message::TabActivateJump(0),
             Action::TabActivate1 => Message::TabActivateJump(1),
             Action::TabActivate2 => Message::TabActivateJump(2),
@@ -387,7 +389,7 @@ pub struct App {
     find_search_value: String,
     term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
-    term_config: TermConfig,
+    term_config: term::Config,
     color_scheme_errors: Vec<String>,
     color_scheme_expanded: Option<(ColorSchemeKind, ColorSchemeId)>,
     color_scheme_renaming: Option<(ColorSchemeKind, ColorSchemeId, String)>,
@@ -2174,6 +2176,31 @@ impl Application for App {
                     TermEvent::Bell => {
                         //TODO: audible or visible bell options?
                     }
+                    TermEvent::ClipboardLoad(kind, callback) => {
+                        match kind {
+                            term::ClipboardType::Clipboard => {
+                                log::info!("clipboard load");
+                                return clipboard::read(move |data_opt| {
+                                    //TODO: what to do when data_opt is None?
+                                    callback(&data_opt.unwrap_or_default());
+                                    // We don't need to do anything else
+                                    message::none()
+                                });
+                            }
+                            term::ClipboardType::Selection => {
+                                log::info!("TODO: load selection");
+                            }
+                        }
+                    }
+                    TermEvent::ClipboardStore(kind, data) => match kind {
+                        term::ClipboardType::Clipboard => {
+                            log::info!("clipboard store");
+                            return clipboard::write(data);
+                        }
+                        term::ClipboardType::Selection => {
+                            log::info!("TODO: store selection");
+                        }
+                    },
                     TermEvent::ColorRequest(index, f) => {
                         if let Some(tab_model) = self.pane_model.panes.get(pane) {
                             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
@@ -2183,6 +2210,9 @@ impl Application for App {
                                 terminal.input_no_scroll(text.into_bytes());
                             }
                         }
+                    }
+                    TermEvent::CursorBlinkingChange => {
+                        //TODO: should we blink the cursor?
                     }
                     TermEvent::Exit => {
                         return self.update(Message::TabClose(Some(entity)));
@@ -2242,9 +2272,6 @@ impl Application for App {
                                 terminal.needs_update = true;
                             }
                         }
-                    }
-                    _ => {
-                        log::warn!("TODO: {:?}", event);
                     }
                 }
             }
@@ -2500,10 +2527,8 @@ impl Application for App {
                 .padding(space_xxs)
                 .spacing(space_xxs);
 
-                tab_column = tab_column.push(
-                    widget::cosmic_container::container(find_widget)
-                        .layer(cosmic_theme::Layer::Primary),
-                );
+                tab_column = tab_column
+                    .push(widget::layer_container(find_widget).layer(cosmic_theme::Layer::Primary));
             }
 
             pane_grid::Content::new(tab_column)
