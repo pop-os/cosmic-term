@@ -276,7 +276,7 @@ impl Terminal {
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
 
-        let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false);
+        let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false)?;
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 
@@ -876,6 +876,8 @@ impl Terminal {
 impl Drop for Terminal {
     fn drop(&mut self) {
         // Ensure shutdown on terminal drop
-        self.notifier.0.send(Msg::Shutdown);
+        if let Err(err) = self.notifier.0.send(Msg::Shutdown) {
+            log::warn!("Failed to send shutdown message on dropped terminal: {err}");
+        }
     }
 }
