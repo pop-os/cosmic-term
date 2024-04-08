@@ -2231,7 +2231,7 @@ impl Application for App {
                     }
                     TermEvent::ChildExit(_error_code) => {
                         //Ignore this for now
-                    },
+                    }
                 }
             }
             Message::TermEventTx(term_event_tx) => {
