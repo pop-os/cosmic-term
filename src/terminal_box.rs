@@ -615,8 +615,22 @@ where
                 let escape_code = match named {
                     Named::Insert => csi("2", "~", mod_no),
                     Named::Delete => csi("3", "~", mod_no),
-                    Named::PageUp => csi("5", "~", mod_no),
-                    Named::PageDown => csi("6", "~", mod_no),
+                    Named::PageUp => {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::PageUp);
+                            None
+                        } else {
+                            csi("5", "~", mod_no)
+                        }
+                    }
+                    Named::PageDown => {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::PageDown);
+                            None
+                        } else {
+                            csi("6", "~", mod_no)
+                        }
+                    }
                     Named::ArrowUp => {
                         if is_app_cursor {
                             ss3("A", mod_no)
@@ -646,14 +660,20 @@ where
                         }
                     }
                     Named::End => {
-                        if is_app_cursor {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::Bottom);
+                            None
+                        } else if is_app_cursor {
                             ss3("F", mod_no)
                         } else {
                             csi("F", "", mod_no)
                         }
                     }
                     Named::Home => {
-                        if is_app_cursor {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::Top);
+                            None
+                        } else if is_app_cursor {
                             ss3("H", mod_no)
                         } else {
                             csi("H", "", mod_no)
