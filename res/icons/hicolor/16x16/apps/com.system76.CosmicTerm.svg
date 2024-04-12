@@ -1,0 +1,18 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Size=16">
+<rect id="Rectangle 418" x="1" y="3" width="14" height="10" rx="1.5" fill="url(#paint0_linear_2056_1666)"/>
+<path id="Subtract" fill-rule="evenodd" clip-rule="evenodd" d="M2.5 3C1.67157 3 1 3.67157 1 4.5V11.5C1 12.3284 1.67157 13 2.5 13H13.5C14.3284 13 15 12.3284 15 11.5V4.5C15 3.67157 14.3284 3 13.5 3H2.5ZM3 4C2.44772 4 2 4.44772 2 5V11C2 11.5523 2.44772 12 3 12H13C13.5523 12 14 11.5523 14 11V5C14 4.44772 13.5523 4 13 4H3Z" fill="url(#paint1_linear_2056_1666)"/>
+<rect id="Rectangle 493" x="7" y="10" width="4" height="1" rx="0.5" fill="#FFAD00"/>
+<path id="Rectangle 494" d="M4.94463 5.16759C6.13782 6.27371 8 8 8 8C8 8 6.17511 9.69172 4.94463 10.8324C4.75366 11.0094 4.46722 11.0979 4.18078 10.8324C3.89434 10.5669 3.98982 10.3013 4.18078 10.1243C5.11297 9.26015 6.47231 8 6.47231 8C6.47231 8 5.07568 6.70529 4.18078 5.87569C3.98982 5.69867 3.89434 5.43313 4.18078 5.16759C4.46722 4.90205 4.75366 4.99056 4.94463 5.16759Z" fill="#FFAD00"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_2056_1666" x1="15" y1="3" x2="1.14429" y2="13.1961" gradientUnits="userSpaceOnUse">
+<stop stop-color="#243C5F"/>
+<stop offset="1" stop-color="#102A4C"/>
+</linearGradient>
+<linearGradient id="paint1_linear_2056_1666" x1="29" y1="3" x2="0.780292" y2="23.2268" gradientUnits="userSpaceOnUse">
+<stop stop-color="#BEBEBE"/>
+<stop offset="1" stop-color="#9E9E9E"/>
+</linearGradient>
+</defs>
+</svg>

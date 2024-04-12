@@ -1,0 +1,18 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Size=64">
+<rect id="Rectangle 418" x="2" y="10" width="60" height="44" rx="4" fill="url(#paint0_linear_2056_1670)"/>
+<path id="Subtract" fill-rule="evenodd" clip-rule="evenodd" d="M6 10C3.79086 10 2 11.7909 2 14V50C2 52.2091 3.79086 54 6 54H58C60.2091 54 62 52.2091 62 50V14C62 11.7909 60.2091 10 58 10H6ZM6 12C4.89543 12 4 12.8954 4 14V50C4 51.1046 4.89543 52 6 52H58C59.1046 52 60 51.1046 60 50V14C60 12.8954 59.1046 12 58 12H6Z" fill="url(#paint1_linear_2056_1670)"/>
+<rect id="Rectangle 493" x="19" y="33" width="13" height="3" rx="1.5" fill="#FFAD00"/>
+<path id="Rectangle 494" d="M12.8339 18.5028C16.4135 21.8211 22 27 22 27C22 27 16.5253 32.0752 12.8339 35.4972C12.261 36.0283 11.4017 36.2938 10.5423 35.4972C9.68302 34.7006 9.96946 33.904 10.5423 33.3729C13.3389 30.7804 17.4169 27 17.4169 27C17.4169 27 13.227 23.1159 10.5423 20.6271C9.96946 20.096 9.68302 19.2994 10.5423 18.5028C11.4017 17.7062 12.261 17.9717 12.8339 18.5028Z" fill="#FFAD00"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_2056_1670" x1="62" y1="10" x2="1.52919" y2="53.3431" gradientUnits="userSpaceOnUse">
+<stop stop-color="#243C5F"/>
+<stop offset="1" stop-color="#102A4C"/>
+</linearGradient>
+<linearGradient id="paint1_linear_2056_1670" x1="62" y1="10" x2="1.52919" y2="53.3431" gradientUnits="userSpaceOnUse">
+<stop stop-color="#BEBEBE"/>
+<stop offset="1" stop-color="#9E9E9E"/>
+</linearGradient>
+</defs>
+</svg>

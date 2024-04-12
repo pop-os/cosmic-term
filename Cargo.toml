@@ -1,31 +1,37 @@
 [package]
 name = "cosmic-term"
 version = "0.1.0"
+authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2021"
+license = "GPL-3.0-only"
 rust-version = "1.71"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build-dependencies]
+vergen = { version = "8", features = ["git", "gitcl"] }
 
 [dependencies]
-alacritty_terminal = "0.20"
+alacritty_terminal = "0.23"
 env_logger = "0.10"
-lazy_static = "1"
+hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
+lazy_static = "1"
 lexical-sort = "0.3.1"
 log = "0.4"
+open = "5.0.2"
+palette = { version = "0.7", features = ["serde"] }
+paste = "1.0"
+ron = "0.8"
 serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
 tokio = { version = "1", features = ["sync"] }
 # Internationalization
-i18n-embed = { version = "0.13", features = ["fluent-system", "desktop-requester"] }
-i18n-embed-fl = "0.6"
-rust-embed = "6"
-paste = "1.0"
-palette = "0.7"
+i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester"] }
+i18n-embed-fl = "0.7"
+rust-embed = "8"
 
-[dependencies.smol_str]
-version = "0.2.1"
-features = ["serde"]
+[dependencies.cosmic-files]
+git = "https://github.com/pop-os/cosmic-files.git"
+default-features = false
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
@@ -34,19 +40,23 @@ features = ["shape-run-cache"]
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
-features = ["tokio", "winit"]
+features = ["multi-window", "tokio", "winit"]
 
-[features]
-default = ["wgpu"]
-wgpu = ["libcosmic/wgpu"]
+[dependencies.smol_str]
+version = "0.2.1"
+features = ["serde"]
 
 [patch.crates-io]
 # https://github.com/rust-lang/libc/pull/3512
 libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox_0.2.151" }
 
+[target.'cfg(unix)'.dependencies]
+fork = "0.1"
+
+[features]
+default = ["wgpu"]
+wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
+
 [profile.release-with-debug]
 inherits = "release"
 debug = true
-
-[target.'cfg(unix)'.dependencies]
-fork = "0.1"

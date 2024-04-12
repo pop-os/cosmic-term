@@ -1,4 +1,29 @@
+cosmic-terminal = Terminal COSMIC
+new-terminal = Nowy terminal
+
 # Context Pages
+
+## About
+git-description = Git commit {$hash} on {$date}
+
+## Color schemes
+color-schemes = Schemat kolorów
+rename = Zmień nazwę
+export = Eksportuj
+delete = Usuń
+import = Importuj
+import-errors = Importuj błędy
+
+## Profiles
+profiles = Profile
+name = Nazwa
+command-line = Wiersz poleceń
+tab-title = Nazwa karty
+tab-title-description = Nadpisz domyślną nazwę karty
+add-profile = Dodaj profil
+new-profile = Nowy profil
+make-default = Uczyń domyślnym
+
 
 ## Settings
 settings = Ustawienia
@@ -12,6 +37,7 @@ light = Jasny
 syntax-dark = Ciemna składnia
 syntax-light = Jasna składnia
 default-zoom-step = Domyślny poziom przybliżenia
+opacity = Przejrzystość Tła
 
 ### Font
 font = Czcionka
@@ -64,4 +90,6 @@ previous-tab = Poprzednia karta
 split-horizontal = Podziel w poziomie
 split-vertical = Podziel w pionie
 pane-toggle-maximize = Przełącznik maksymalizacji
+menu-color-schemes = Schemat kolorów...
 menu-settings = Ustawienia...
+menu-about = O Terminalu COSMIC...
