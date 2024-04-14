@@ -1494,7 +1494,7 @@ impl Application for App {
                             move |result| {
                                 Message::ColorSchemeExportResult(
                                     color_scheme_kind,
-                                    color_scheme_id.clone(),
+                                    color_scheme_id,
                                     result,
                                 )
                             },
