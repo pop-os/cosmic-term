@@ -26,7 +26,7 @@ pub fn context_menu<'a>(
     entity: segmented_button::Entity,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
-        for (key_bind, key_action) in key_binds.iter() {
+        for (key_bind, key_action) in key_binds {
             if action == key_action {
                 return key_bind.to_string();
             }

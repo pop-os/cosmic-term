@@ -746,7 +746,7 @@ impl App {
             .into(),
         );
 
-        for error in self.color_scheme_errors.iter() {
+        for error in &self.color_scheme_errors {
             sections.push(
                 widget::row::with_children(vec![
                     icon_cache_get("dialog-error-symbolic", 16)
@@ -1592,7 +1592,7 @@ impl Application for App {
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     self.color_scheme_errors.clear();
-                    for path in paths.iter() {
+                    for path in &paths {
                         let mut file = match fs::File::open(path) {
                             Ok(ok) => ok,
                             Err(err) => {
@@ -1831,7 +1831,7 @@ impl Application for App {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, key) => {
-                for (key_bind, action) in self.key_binds.iter() {
+                for (key_bind, action) in &self.key_binds {
                     if key_bind.matches(modifiers, &key) {
                         return self.update(action.message(None));
                     }

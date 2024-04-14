@@ -165,7 +165,7 @@ where
         // Calculate layout lines
         terminal.with_buffer(|buffer| {
             let mut layout_lines = 0;
-            for line in buffer.lines.iter() {
+            for line in &buffer.lines {
                 match line.layout_opt() {
                     Some(layout) => layout_lines += layout.len(),
                     None => (),
@@ -480,7 +480,7 @@ where
                     view_position,
                     metadata_set,
                 };
-                for glyph in run.glyphs.iter() {
+                for glyph in run.glyphs {
                     bg_rect.update(glyph, renderer, state.is_focused);
                 }
                 bg_rect.fill(renderer, state.is_focused);
@@ -598,7 +598,7 @@ where
                 modifiers,
                 ..
             }) if state.is_focused => {
-                for (key_bind, _) in self.key_binds.iter() {
+                for (key_bind, _) in &self.key_binds {
                     if key_bind.matches(modifiers, &Key::Named(named)) {
                         return Status::Captured;
                     }
@@ -741,7 +741,7 @@ where
                 key,
                 ..
             }) if state.is_focused => {
-                for (key_bind, _) in self.key_binds.iter() {
+                for (key_bind, _) in &self.key_binds {
                     if key_bind.matches(modifiers, &key) {
                         return Status::Captured;
                     }
