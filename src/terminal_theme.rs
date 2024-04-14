@@ -55,8 +55,8 @@ impl ColorDerive {
     fn color_adj(rgb: Rgb, saturation_adj: f32, lightness_adj: f32) -> Rgb {
         let mut okhsl = Self::rgb_to_okhsl(rgb);
 
-        okhsl.saturation = (okhsl.saturation + saturation_adj).max(0.0).min(1.0);
-        okhsl.lightness = (okhsl.lightness + lightness_adj).max(0.0).min(1.0);
+        okhsl.saturation = (okhsl.saturation + saturation_adj).clamp(0.0, 1.0);
+        okhsl.lightness = (okhsl.lightness + lightness_adj).clamp(0.0, 1.0);
 
         Self::okhsl_to_rgb(okhsl)
     }
