@@ -1260,7 +1260,7 @@ impl App {
                 log::warn!("tried to create new tab before having event channel");
             }
         }
-        return self.update_title(Some(pane));
+        self.update_title(Some(pane))
     }
 }
 
