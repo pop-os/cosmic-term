@@ -1,4 +1,28 @@
+cosmic-terminal = Терминал COSMIC
+new-terminal = Новый терминал
+
 # Context Pages
+
+## About
+git-description = Git-коммит {$hash} от {$date}
+
+## Color schemes
+color-schemes = Цветовые схемы
+rename = Переименовать
+export = Экспортировать
+delete = Удалить
+import = Импортировать
+import-errors = Ошибки при импорте
+
+## Profiles
+profiles = Профили
+name = Имя
+command-line = Командная строка
+tab-title = Заголовок вкладки
+tab-title-description = Переопределить заголовок вкладки по умолчанию
+add-profile = Добавить профиль
+new-profile = Новый профиль
+make-default = Установить по умолчанию
 
 ## Settings
 settings = Параметры
@@ -12,6 +36,7 @@ light = Светлая
 syntax-dark = Цветовая схема темная
 syntax-light = Цветовая схема светлая
 default-zoom-step = Шаги масштабирования
+opacity = Прозрачность фона
 
 ### Font
 font = Шрифт
@@ -44,6 +69,8 @@ find-next = Найти далее
 file = Файл
 new-tab = Новая вкладка
 new-window = Новое окно
+profile = Профиль
+menu-profiles = Профили...
 close-tab = Закрыть вкладку
 quit = Завершить
 
@@ -64,4 +91,6 @@ previous-tab = Предыдущая вкладка
 split-horizontal = Разделение по горизонтали
 split-vertical = Разделение по вертикали
 pane-toggle-maximize = Переключить на весь экран
+menu-color-schemes = Цветовые схемы...
 menu-settings = Параметры...
+menu-about = О Терминале COSMIC...
