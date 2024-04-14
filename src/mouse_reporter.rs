@@ -36,7 +36,7 @@ impl MouseReporter {
     ) -> Option<Vec<u8>> {
         //Buttons are handle slightly different between normal and sgr
         //for normal/utf8 the button release is always reported as button 3
-        let Some(mut button) = (match event {
+        let mut button = (match event {
             Event::Mouse(MouseEvent::ButtonPressed(b)) => {
                 self.button = Some(b);
                 self.button_number(b)
@@ -64,9 +64,7 @@ impl MouseReporter {
                     .map(|b| b + 32)
             }
             _ => None,
-        }) else {
-            return None;
-        };
+        })?;
 
         if modifiers.shift() {
             button += 4;
@@ -127,7 +125,7 @@ impl MouseReporter {
         x: u32,
         y: u32,
     ) -> Option<Vec<u8>> {
-        let Some((button_no, event_code)) = (match event {
+        let (button_no, event_code) = (match event {
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 //Button pressed is reported as button 0,1,2 and event code M
                 self.button = Some(button);
@@ -151,9 +149,7 @@ impl MouseReporter {
                     .map(|button| (self.button_number(button).map(|b| b + 32), "M"))
             }
             _ => None,
-        }) else {
-            return None;
-        };
+        })?;
 
         if let Some(mut button_no) = button_no {
             if modifiers.shift() {
