@@ -363,8 +363,7 @@ where
                         }
 
                         if !metadata.flags.is_empty() {
-                            let style_line_height =
-                                (self.glyph_font_size / 10.0).clamp(2.0, 16.0);
+                            let style_line_height = (self.glyph_font_size / 10.0).clamp(2.0, 16.0);
 
                             let line_color = cosmic_text_to_iced_color(metadata.underline_color);
 
