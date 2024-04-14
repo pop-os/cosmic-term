@@ -110,25 +110,25 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
             Some(rgb) => rgb,
-            None => match named_color {
-                NamedColor::Background => {
+            None => {
+                if named_color == NamedColor::Background {
                     // Allow using an unset background
                     return cosmic_text::Color(WINDOW_BG_COLOR.load(Ordering::SeqCst));
-                }
-                _ => {
+                } else {
                     log::warn!("missing named color {:?}", named_color);
                     Rgb::default()
                 }
-            },
+            }
         },
         Color::Spec(rgb) => rgb,
-        Color::Indexed(index) => match colors[index as usize] {
-            Some(rgb) => rgb,
-            None => {
+        Color::Indexed(index) => {
+            if let Some(rgb) = colors[index as usize] {
+                rgb
+            } else {
                 log::warn!("missing indexed color {}", index);
                 Rgb::default()
             }
-        },
+        }
     };
     cosmic_text::Color::rgb(rgb.r, rgb.g, rgb.b)
 }
