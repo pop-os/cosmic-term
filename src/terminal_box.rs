@@ -698,8 +698,7 @@ where
                 match named {
                     Named::Backspace => {
                         let code = if modifiers.control() { "\x08" } else { "\x7f" };
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     Named::Enter => {
@@ -728,8 +727,7 @@ where
                     }
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     _ => {}
@@ -1151,10 +1149,10 @@ fn calculate_modifier_number(state: &mut State) -> u8 {
 #[inline(always)]
 fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B[{}{}", code, suffix).as_bytes().to_vec())
+        Some(format!("\x1B[{code}{suffix}").as_bytes().to_vec())
     } else {
         Some(
-            format!("\x1B[{};{}{}", code, modifiers, suffix)
+            format!("\x1B[{code};{modifiers}{suffix}")
                 .as_bytes()
                 .to_vec(),
         )
@@ -1164,8 +1162,8 @@ fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B\x4F{}", code).as_bytes().to_vec())
+        Some(format!("\x1B\x4F{code}").as_bytes().to_vec())
     } else {
-        Some(format!("\x1B[1;{}{}", modifiers, code).as_bytes().to_vec())
+        Some(format!("\x1B[1;{modifiers}{code}").as_bytes().to_vec())
     }
 }
