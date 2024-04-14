@@ -291,7 +291,9 @@ pub enum Message {
     PasteValue(Option<segmented_button::Entity>, String),
     ProfileCollapse(ProfileId),
     ProfileCommand(ProfileId, String),
+    ProfileDirectory(ProfileId, String),
     ProfileExpand(ProfileId),
+    ProfileHold(ProfileId, bool),
     ProfileName(ProfileId, String),
     ProfileNew,
     ProfileOpen(ProfileId),
@@ -850,6 +852,16 @@ impl App {
                                 .spacing(space_xxxs)
                                 .into(),
                                 widget::column::with_children(vec![
+                                    widget::text(fl!("working-directory")).into(),
+                                    widget::text_input("", &profile.working_directory)
+                                        .on_input(move |text| {
+                                            Message::ProfileDirectory(profile_id, text)
+                                        })
+                                        .into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
                                     widget::text(fl!("tab-title")).into(),
                                     widget::text_input("", &profile.tab_title)
                                         .on_input(move |text| {
@@ -899,11 +911,28 @@ impl App {
                         .add(
                             widget::settings::item::builder(fl!("make-default")).control(
                                 widget::toggler(
-                                    "".to_string(),
+                                    None,
                                     self.get_default_profile().is_some_and(|p| p == profile_id),
                                     move |t| Message::UpdateDefaultProfile((t, profile_id)),
                                 ),
                             ),
+                        )
+                        .add(
+                            widget::row::with_children(vec![
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("hold")).into(),
+                                    widget::text::caption(fl!("remain-open")).into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::horizontal_space(Length::Fill).into(),
+                                widget::toggler(None, profile.hold, move |t| {
+                                    Message::ProfileHold(profile_id, t)
+                                })
+                                .into(),
+                            ])
+                            .align_items(Alignment::Center)
+                            .padding([0, space_s]),
                         );
 
                     let padding = Padding {
@@ -1152,12 +1181,13 @@ impl App {
                                             shell = Some(tty::Shell::new(command, args));
                                         }
                                     }
+                                    let working_directory = (!profile.working_directory.is_empty())
+                                        .then(|| profile.working_directory.clone().into());
+
                                     let options = tty::Options {
                                         shell,
-                                        //TODO: configurable working directory?
-                                        working_directory: None,
-                                        //TODO: configurable hold (keep open when child exits)?
-                                        hold: false,
+                                        working_directory,
+                                        hold: profile.hold,
                                         env: HashMap::new(),
                                     };
                                     let tab_title_override = if !profile.tab_title.is_empty() {
@@ -1879,8 +1909,20 @@ impl Application for App {
                     return self.save_profiles();
                 }
             }
+            Message::ProfileDirectory(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.working_directory = text;
+                    return self.save_profiles();
+                }
+            }
             Message::ProfileExpand(profile_id) => {
                 self.profile_expanded = Some(profile_id);
+            }
+            Message::ProfileHold(profile_id, hold) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.hold = hold;
+                    return self.save_profiles();
+                }
             }
             Message::ProfileName(profile_id, text) => {
                 if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
