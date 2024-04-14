@@ -1138,10 +1138,14 @@ impl App {
                 let colors = self
                     .themes
                     .get(&self.config.syntax_theme(profile_id_opt))
-                    .or_else(|| {
-                        let mut keys: Vec<_> = self.themes.keys().collect();
-                        keys.sort_by(|a, b| (&a.0).cmp(&b.0));
-                        keys.first().and_then(|key| self.themes.get(key))
+                    .or_else(|| match self.config.color_scheme_kind() {
+                        ColorSchemeKind::Dark => self
+                            .themes
+                            .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
+                        ColorSchemeKind::Light => self.themes.get(&(
+                            config::COSMIC_THEME_LIGHT.to_string(),
+                            ColorSchemeKind::Light,
+                        )),
                     });
                 match colors {
                     Some(colors) => {

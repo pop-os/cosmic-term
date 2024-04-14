@@ -14,6 +14,8 @@ use std::sync::OnceLock;
 use crate::fl;
 
 pub const CONFIG_VERSION: u64 = 1;
+pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
+pub const COSMIC_THEME_LIGHT: &str = "COSMIC Light";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum AppTheme {
@@ -193,8 +195,8 @@ impl Default for Profile {
         Self {
             name: fl!("new-profile"),
             command: String::new(),
-            syntax_theme_dark: "COSMIC Dark".to_string(),
-            syntax_theme_light: "COSMIC Light".to_string(),
+            syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
+            syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             tab_title: String::new(),
         }
     }
@@ -239,8 +241,8 @@ impl Default for Config {
             opacity: 100,
             profiles: BTreeMap::new(),
             show_headerbar: true,
-            syntax_theme_dark: "COSMIC Dark".to_string(),
-            syntax_theme_light: "COSMIC Light".to_string(),
+            syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
+            syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
         }
