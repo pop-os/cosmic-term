@@ -286,7 +286,7 @@ impl Config {
         let color_schemes = self.color_schemes(color_scheme_kind);
         let mut color_scheme_names =
             Vec::<(String, ColorSchemeId)>::with_capacity(color_schemes.len());
-        for (color_scheme_id, color_scheme) in color_schemes.iter() {
+        for (color_scheme_id, color_scheme) in color_schemes {
             let mut name = color_scheme.name.clone();
 
             let mut copies = 1;
@@ -322,7 +322,7 @@ impl Config {
     // Get a sorted and adjusted for duplicates list of profile names and ids
     pub fn profile_names(&self) -> Vec<(String, ProfileId)> {
         let mut profile_names = Vec::<(String, ProfileId)>::with_capacity(self.profiles.len());
-        for (profile_id, profile) in self.profiles.iter() {
+        for (profile_id, profile) in &self.profiles {
             let mut name = profile.name.clone();
 
             let mut copies = 1;
