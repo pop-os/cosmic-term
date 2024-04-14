@@ -290,7 +290,7 @@ impl Config {
             let mut name = color_scheme.name.clone();
 
             let mut copies = 1;
-            while color_scheme_names.iter().find(|x| x.0 == name).is_some() {
+            while color_scheme_names.iter().any(|x| x.0 == name) {
                 copies += 1;
                 name = format!("{} ({})", color_scheme.name, copies);
             }
@@ -326,7 +326,7 @@ impl Config {
             let mut name = profile.name.clone();
 
             let mut copies = 1;
-            while profile_names.iter().find(|x| x.0 == name).is_some() {
+            while profile_names.iter().any(|x| x.0 == name) {
                 copies += 1;
                 name = format!("{} ({})", profile.name, copies);
             }
