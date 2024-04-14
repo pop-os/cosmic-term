@@ -23,6 +23,9 @@ tab-title-description = Override the default tab title
 add-profile = Add profile
 new-profile = New profile
 make-default = Make default
+working-directory = Working directory
+hold = Hold
+remain-open = Remain open after child process exits.
 
 ## Settings
 settings = Settings
