@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(fork::Fork::Child) => (),
         Ok(fork::Fork::Parent(_child_pid)) => process::exit(0),
         Err(err) => {
-            eprintln!("failed to daemonize: {:?}", err);
+            eprintln!("failed to daemonize: {err:?}");
             process::exit(1);
         }
     }
@@ -656,7 +656,7 @@ impl App {
                     hash = short_hash.as_str(),
                     date = date
                 ))
-                    .on_press(Message::LaunchUrl(format!("{}/commits/{}", repository, hash)))
+                    .on_press(Message::LaunchUrl(format!("{repository}/commits/{hash}")))
                     .padding(0)
                 .into(),
             ])
@@ -1341,7 +1341,7 @@ impl Application for App {
         let mut font_size_names = Vec::new();
         let mut font_sizes = Vec::new();
         for font_size in 4..=32 {
-            font_size_names.push(format!("{}px", font_size));
+            font_size_names.push(format!("{font_size}px"));
             font_sizes.push(font_size);
         }
 
@@ -1597,7 +1597,7 @@ impl Application for App {
                             Ok(ok) => ok,
                             Err(err) => {
                                 self.color_scheme_errors
-                                    .push(format!("Failed to open {:?}: {}", path, err));
+                                    .push(format!("Failed to open {path:?}: {err}"));
                                 continue;
                             }
                         };
@@ -1616,7 +1616,7 @@ impl Application for App {
                             }
                             Err(err) => {
                                 self.color_scheme_errors
-                                    .push(format!("Failed to parse {:?}: {}", path, err));
+                                    .push(format!("Failed to parse {path:?}: {err}"));
                             }
                         }
                     }
