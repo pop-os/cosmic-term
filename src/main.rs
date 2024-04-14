@@ -2326,31 +2326,28 @@ impl Application for App {
                 }
 
                 // Extra work to do to prepare context pages
-                match self.context_page {
-                    ContextPage::ColorSchemes(color_scheme_kind) => {
-                        self.color_scheme_errors.clear();
-                        self.color_scheme_expanded = None;
-                        self.color_scheme_renaming = None;
-                        self.color_scheme_tab_model = widget::segmented_button::Model::default();
-                        let dark_entity = self
-                            .color_scheme_tab_model
-                            .insert()
-                            .text(fl!("dark"))
-                            .data(ColorSchemeKind::Dark)
-                            .id();
-                        let light_entity = self
-                            .color_scheme_tab_model
-                            .insert()
-                            .text(fl!("light"))
-                            .data(ColorSchemeKind::Light)
-                            .id();
-                        self.color_scheme_tab_model
-                            .activate(match color_scheme_kind {
-                                ColorSchemeKind::Dark => dark_entity,
-                                ColorSchemeKind::Light => light_entity,
-                            });
-                    }
-                    _ => {}
+                if let ContextPage::ColorSchemes(color_scheme_kind) = self.context_page {
+                    self.color_scheme_errors.clear();
+                    self.color_scheme_expanded = None;
+                    self.color_scheme_renaming = None;
+                    self.color_scheme_tab_model = widget::segmented_button::Model::default();
+                    let dark_entity = self
+                        .color_scheme_tab_model
+                        .insert()
+                        .text(fl!("dark"))
+                        .data(ColorSchemeKind::Dark)
+                        .id();
+                    let light_entity = self
+                        .color_scheme_tab_model
+                        .insert()
+                        .text(fl!("light"))
+                        .data(ColorSchemeKind::Light)
+                        .id();
+                    self.color_scheme_tab_model
+                        .activate(match color_scheme_kind {
+                            ColorSchemeKind::Dark => dark_entity,
+                            ColorSchemeKind::Light => light_entity,
+                        });
                 }
 
                 self.set_context_title(context_page.title());
@@ -2449,38 +2446,32 @@ impl Application for App {
                 .get(&pane)
                 .cloned()
                 .unwrap_or_else(widget::Id::unique);
-            match tab_model.data::<Mutex<Terminal>>(entity) {
-                Some(terminal) => {
-                    let mut terminal_box = terminal_box(terminal)
-                        .id(terminal_id)
-                        .on_context_menu(move |position_opt| {
-                            Message::TabContextMenu(pane, position_opt)
-                        })
-                        .opacity(self.config.opacity_ratio())
-                        .padding(space_xxs);
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal_box = terminal_box(terminal)
+                    .id(terminal_id)
+                    .on_context_menu(move |position_opt| {
+                        Message::TabContextMenu(pane, position_opt)
+                    })
+                    .opacity(self.config.opacity_ratio())
+                    .padding(space_xxs);
 
-                    if self.config.focus_follow_mouse {
-                        terminal_box =
-                            terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
-                    }
-
-                    let context_menu = {
-                        let terminal = terminal.lock().unwrap();
-                        terminal.context_menu
-                    };
-
-                    let tab_element: Element<'_, Message> = match context_menu {
-                        Some(point) => widget::popover(terminal_box.context_menu(point))
-                            .popup(menu::context_menu(&self.config, &self.key_binds, entity))
-                            .position(widget::popover::Position::Point(point))
-                            .into(),
-                        None => terminal_box.into(),
-                    };
-                    tab_column = tab_column.push(tab_element);
+                if self.config.focus_follow_mouse {
+                    terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
-                None => {
-                    //TODO
-                }
+
+                let context_menu = {
+                    let terminal = terminal.lock().unwrap();
+                    terminal.context_menu
+                };
+
+                let tab_element: Element<'_, Message> = match context_menu {
+                    Some(point) => widget::popover(terminal_box.context_menu(point))
+                        .popup(menu::context_menu(&self.config, &self.key_binds, entity))
+                        .position(widget::popover::Position::Point(point))
+                        .into(),
+                    None => terminal_box.into(),
+                };
+                tab_column = tab_column.push(tab_element);
             }
 
             //Only draw find in the currently focused pane
@@ -2538,6 +2529,8 @@ impl Application for App {
 
                 tab_column = tab_column
                     .push(widget::layer_container(find_widget).layer(cosmic_theme::Layer::Primary));
+            } else {
+                // TODO
             }
 
             pane_grid::Content::new(tab_column)
