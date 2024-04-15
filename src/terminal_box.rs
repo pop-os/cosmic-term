@@ -1092,8 +1092,8 @@ pub struct State {
 
 impl State {
     /// Creates a new [`State`].
-    pub fn new() -> State {
-        State {
+    pub fn new() -> Self {
+        Self {
             modifiers: Modifiers::empty(),
             click: None,
             dragging: None,

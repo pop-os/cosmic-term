@@ -206,43 +206,43 @@ impl MenuAction for Action {
 
     fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
-            Action::About => Message::ToggleContextPage(ContextPage::About),
-            Action::ColorSchemes(color_scheme_kind) => {
+            Self::About => Message::ToggleContextPage(ContextPage::About),
+            Self::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
-            Action::Copy => Message::Copy(entity_opt),
-            Action::Find => Message::Find(true),
-            Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
-            Action::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
-            Action::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
-            Action::PaneFocusUp => Message::PaneFocusAdjacent(pane_grid::Direction::Up),
-            Action::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
-            Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
-            Action::PaneToggleMaximized => Message::PaneToggleMaximized,
-            Action::Paste => Message::Paste(entity_opt),
-            Action::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
-            Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
-            Action::SelectAll => Message::SelectAll(entity_opt),
-            Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
-            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
-            Action::TabActivate0 => Message::TabActivateJump(0),
-            Action::TabActivate1 => Message::TabActivateJump(1),
-            Action::TabActivate2 => Message::TabActivateJump(2),
-            Action::TabActivate3 => Message::TabActivateJump(3),
-            Action::TabActivate4 => Message::TabActivateJump(4),
-            Action::TabActivate5 => Message::TabActivateJump(5),
-            Action::TabActivate6 => Message::TabActivateJump(6),
-            Action::TabActivate7 => Message::TabActivateJump(7),
-            Action::TabActivate8 => Message::TabActivateJump(8),
-            Action::TabClose => Message::TabClose(entity_opt),
-            Action::TabNew => Message::TabNew,
-            Action::TabNext => Message::TabNext,
-            Action::TabPrev => Message::TabPrev,
-            Action::WindowClose => Message::WindowClose,
-            Action::WindowNew => Message::WindowNew,
-            Action::ZoomIn => Message::ZoomIn,
-            Action::ZoomOut => Message::ZoomOut,
-            Action::ZoomReset => Message::ZoomReset,
+            Self::Copy => Message::Copy(entity_opt),
+            Self::Find => Message::Find(true),
+            Self::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
+            Self::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
+            Self::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
+            Self::PaneFocusUp => Message::PaneFocusAdjacent(pane_grid::Direction::Up),
+            Self::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
+            Self::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
+            Self::PaneToggleMaximized => Message::PaneToggleMaximized,
+            Self::Paste => Message::Paste(entity_opt),
+            Self::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
+            Self::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
+            Self::SelectAll => Message::SelectAll(entity_opt),
+            Self::Settings => Message::ToggleContextPage(ContextPage::Settings),
+            Self::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
+            Self::TabActivate0 => Message::TabActivateJump(0),
+            Self::TabActivate1 => Message::TabActivateJump(1),
+            Self::TabActivate2 => Message::TabActivateJump(2),
+            Self::TabActivate3 => Message::TabActivateJump(3),
+            Self::TabActivate4 => Message::TabActivateJump(4),
+            Self::TabActivate5 => Message::TabActivateJump(5),
+            Self::TabActivate6 => Message::TabActivateJump(6),
+            Self::TabActivate7 => Message::TabActivateJump(7),
+            Self::TabActivate8 => Message::TabActivateJump(8),
+            Self::TabClose => Message::TabClose(entity_opt),
+            Self::TabNew => Message::TabNew,
+            Self::TabNext => Message::TabNext,
+            Self::TabPrev => Message::TabPrev,
+            Self::WindowClose => Message::WindowClose,
+            Self::WindowNew => Message::WindowNew,
+            Self::ZoomIn => Message::ZoomIn,
+            Self::ZoomOut => Message::ZoomOut,
+            Self::ZoomReset => Message::ZoomReset,
         }
     }
 }
@@ -1387,7 +1387,7 @@ impl Application for App {
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focus, widget::Id::unique());
 
-        let mut app = App {
+        let mut app = Self {
             core,
             pane_model,
             config_handler: flags.config_handler,
