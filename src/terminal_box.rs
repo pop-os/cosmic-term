@@ -166,9 +166,8 @@ where
         terminal.with_buffer(|buffer| {
             let mut layout_lines = 0;
             for line in &buffer.lines {
-                match line.layout_opt() {
-                    Some(layout) => layout_lines += layout.len(),
-                    None => (),
+                if let Some(layout) = line.layout_opt() {
+                    layout_lines += layout.len()
                 }
             }
 
