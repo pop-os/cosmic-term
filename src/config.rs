@@ -316,7 +316,7 @@ impl Config {
     }
 
     pub fn opacity_ratio(&self) -> f32 {
-        (self.opacity as f32) / 100.0
+        f32::from(self.opacity) / 100.0
     }
 
     // Get a sorted and adjusted for duplicates list of profile names and ids

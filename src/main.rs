@@ -450,9 +450,9 @@ impl App {
         {
             let color = Color::from(theme.cosmic().background.base);
             let bytes = color.into_rgba8();
-            let data = (bytes[2] as u32)
-                | ((bytes[1] as u32) << 8)
-                | ((bytes[0] as u32) << 16)
+            let data = u32::from(bytes[2])
+                | (u32::from(bytes[1]) << 8)
+                | (u32::from(bytes[0]) << 16)
                 | 0xFF000000;
             terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
         }
@@ -909,8 +909,8 @@ impl App {
                     let padding = Padding {
                         top: 0.0,
                         bottom: 0.0,
-                        left: space_s as f32,
-                        right: space_s as f32,
+                        left: space_s.into(),
+                        right: space_s.into(),
                     };
                     profiles_section =
                         profiles_section.add(widget::container(expanded_section).padding(padding))
