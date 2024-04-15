@@ -787,9 +787,8 @@ impl App {
         if !self.config.profiles.is_empty() {
             let mut profiles_section = widget::settings::view_section("");
             for (profile_name, profile_id) in self.config.profile_names() {
-                let profile = match self.config.profiles.get(&profile_id) {
-                    Some(some) => some,
-                    None => continue,
+                let Some(profile) = self.config.profiles.get(&profile_id) else {
+                    continue;
                 };
 
                 let expanded = self.profile_expanded == Some(profile_id);

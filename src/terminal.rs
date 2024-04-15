@@ -437,9 +437,8 @@ impl Terminal {
                 }
             }
 
-            let search_regex = match &mut self.search_regex_opt {
-                Some(some) => some,
-                None => return,
+            let Some(search_regex) = &mut self.search_regex_opt else {
+                return;
             };
 
             // Determine search origin
