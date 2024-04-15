@@ -1171,10 +1171,10 @@ impl App {
                                         hold: false,
                                         env: HashMap::new(),
                                     };
-                                    let tab_title_override = if !profile.tab_title.is_empty() {
-                                        Some(profile.tab_title.clone())
-                                    } else {
+                                    let tab_title_override = if profile.tab_title.is_empty() {
                                         None
+                                    } else {
+                                        Some(profile.tab_title.clone())
                                     };
                                     (options, tab_title_override)
                                 }
@@ -1425,10 +1425,10 @@ impl Application for App {
     }
 
     fn on_context_drawer(&mut self) -> Command<Message> {
-        if !self.core.window.show_context {
-            self.update_focus()
-        } else {
+        if self.core.window.show_context {
             Command::none()
+        } else {
+            self.update_focus()
         }
     }
 
