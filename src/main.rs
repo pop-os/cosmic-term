@@ -1181,7 +1181,6 @@ impl App {
                                 .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
                                 Some(profile) => {
-                                    if !profile.tab_title.is_empty() {}
                                     let mut shell = None;
                                     if let Some(mut args) = shlex::split(&profile.command) {
                                         if !args.is_empty() {
