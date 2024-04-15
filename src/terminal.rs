@@ -852,7 +852,7 @@ impl Terminal {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
         if mode.contains(TermMode::SGR_MOUSE) {
-            self.mouse_reporter.report_sgr_mouse_wheel_scroll(
+            MouseReporter::report_sgr_mouse_wheel_scroll(
                 self,
                 self.size().cell_width,
                 self.size().cell_height,
@@ -862,7 +862,7 @@ impl Terminal {
                 y,
             );
         } else {
-            self.mouse_reporter.report_mouse_wheel_as_arrows(
+            MouseReporter::report_mouse_wheel_as_arrows(
                 self,
                 self.size().cell_width,
                 self.size().cell_height,
