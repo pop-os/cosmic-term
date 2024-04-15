@@ -598,7 +598,7 @@ where
                 modifiers,
                 ..
             }) if state.is_focused => {
-                for (key_bind, _) in &self.key_binds {
+                for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &Key::Named(named)) {
                         return Status::Captured;
                     }
@@ -741,7 +741,7 @@ where
                 key,
                 ..
             }) if state.is_focused => {
-                for (key_bind, _) in &self.key_binds {
+                for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &key) {
                         return Status::Captured;
                     }
