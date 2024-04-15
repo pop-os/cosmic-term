@@ -489,17 +489,14 @@ impl App {
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Command<Message> {
         // Optimized for just saving color_schemes
         if let Some(ref config_handler) = self.config_handler {
-            match config_handler.set(
+            if let Err(err) = config_handler.set(
                 match color_scheme_kind {
                     ColorSchemeKind::Dark => "color_schemes_dark",
                     ColorSchemeKind::Light => "color_schemes_light",
                 },
-                &self.config.color_schemes(color_scheme_kind),
+                self.config.color_schemes(color_scheme_kind),
             ) {
-                Ok(()) => {}
-                Err(err) => {
-                    log::error!("failed to save config: {}", err);
-                }
+                log::error!("failed to save config: {}", err);
             }
         }
         self.update_color_schemes();
@@ -1517,9 +1514,8 @@ impl Application for App {
                             &color_scheme,
                             ron::ser::PrettyConfig::new(),
                         ) {
-                            Ok(ron) => match fs::write(path, &ron) {
-                                Ok(()) => {}
-                                Err(err) => {
+                            Ok(ron) => {
+                                if let Err(err) = fs::write(path, ron) {
                                     log::error!(
                                         "failed to export {:?} to {:?}: {}",
                                         color_scheme_id,
@@ -1527,7 +1523,7 @@ impl Application for App {
                                         err
                                     );
                                 }
-                            },
+                            }
                             Err(err) => {
                                 log::error!(
                                     "failed to serialize color scheme {:?}: {}",
