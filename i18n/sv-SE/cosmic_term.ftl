@@ -1,9 +1,33 @@
-# Context sidor
+cosmic-terminal = COSMIC Terminal
+new-terminal = Ny terminal
 
-## Settings
+# Context Pages
+
+## Om
+git-description = Git commit {$hash} på {$date}
+
+## Färgscheman
+color-schemes = Färgscheman
+rename = Byt namn
+export = Exportera
+delete = Ta bort
+import = Importera
+import-errors = Fel vid import
+
+## Profiler
+profiles = Profiler
+name = Namn
+command-line = Kommandorad
+tab-title = Titel på flik
+tab-title-description = Åsidosätt standardtitel för flik
+add-profile = Lägg till profil
+new-profile = Ny profil
+make-default = Gör till standard
+
+## Inställningar
 settings = Inställningar
 
-### Appearance
+### Utseende
 appearance = Utseende
 theme = Tema
 match-desktop = Matcha skrivbordet
@@ -12,6 +36,7 @@ light = Ljust
 syntax-dark = Färgschema mörkt
 syntax-light = Färgschema ljust
 default-zoom-step = Zoom steg
+opacity = Bakgrundens opacitet
 
 ### Teckensnitt
 font = Teckensnitt
@@ -44,6 +69,8 @@ find-next = Hitta nästa
 file = Fil
 new-tab = Ny flik
 new-window = Nytt fönster
+profile = Profil
+menu-profiles = Profiler…
 close-tab = Stäng flik
 quit = Avsluta
 
@@ -64,4 +91,6 @@ previous-tab = Föregående flik
 split-horizontal = Dela horisontellt
 split-vertical = Dela vertikalt
 pane-toggle-maximize = Växla maximerad
+menu-color-schemes = Färgscheman…
 menu-settings = Inställningar…
+menu-about = Om COSMIC Terminal…
