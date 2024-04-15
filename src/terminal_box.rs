@@ -1128,7 +1128,7 @@ meta      0b100000    (32)
 caps_lock 0b1000000   (64)
 num_lock  0b10000000  (128)
 */
-fn calculate_modifier_number(state: &mut State) -> u8 {
+fn calculate_modifier_number(state: &State) -> u8 {
     let mut mod_no = 0;
     if state.modifiers.shift() {
         mod_no |= 1;
