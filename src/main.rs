@@ -1435,15 +1435,10 @@ impl Application for App {
             ($name: ident, $value: expr) => {
                 match &self.config_handler {
                     Some(config_handler) => {
-                        match paste::paste! { self.config.[<set_ $name>](config_handler, $value) } {
-                            Ok(_) => {}
-                            Err(err) => {
-                                log::warn!(
-                                    "failed to save config {:?}: {}",
-                                    stringify!($name),
-                                    err
-                                );
-                            }
+                        if let Err(err) =
+                            paste::paste! { self.config.[<set_ $name>](config_handler, $value) }
+                        {
+                            log::warn!("failed to save config {:?}: {}", stringify!($name), err);
                         }
                     }
                     None => {
@@ -1801,12 +1796,11 @@ impl Application for App {
                     }
                 }
             }
-            Message::LaunchUrl(url) => match open::that_detached(&url) {
-                Ok(()) => {}
-                Err(err) => {
+            Message::LaunchUrl(url) => {
+                if let Err(err) = open::that_detached(&url) {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
-            },
+            }
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
