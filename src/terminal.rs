@@ -572,10 +572,13 @@ impl Terminal {
                 }
             }
             if changed {
-                self.update_colors(config);
                 update = true;
             }
         }
+
+        //TODO: this is done on every set_config because the changed boolean above does not capture
+        // WINDOW_BG changes
+        self.update_colors(config);
 
         if update_cell_size {
             self.update_cell_size();

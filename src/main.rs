@@ -1143,7 +1143,19 @@ impl App {
         self.pane_model.focus = pane;
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
-                match self.themes.get(&self.config.syntax_theme(profile_id_opt)) {
+                let colors = self
+                    .themes
+                    .get(&self.config.syntax_theme(profile_id_opt))
+                    .or_else(|| match self.config.color_scheme_kind() {
+                        ColorSchemeKind::Dark => self
+                            .themes
+                            .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
+                        ColorSchemeKind::Light => self.themes.get(&(
+                            config::COSMIC_THEME_LIGHT.to_string(),
+                            ColorSchemeKind::Light,
+                        )),
+                    });
+                match colors {
                     Some(colors) => {
                         let current_pane = self.pane_model.focus;
                         if let Some(tab_model) = self.pane_model.active_mut() {

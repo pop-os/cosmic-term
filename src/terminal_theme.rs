@@ -6,7 +6,9 @@ use hex_color::HexColor;
 use palette::{encoding::Srgb, rgb::Rgb as PRgb, FromColor, Okhsl};
 use std::{collections::HashMap, fs};
 
-use crate::config::{ColorScheme, ColorSchemeAnsi, ColorSchemeKind};
+use crate::config::{
+    ColorScheme, ColorSchemeAnsi, ColorSchemeKind, COSMIC_THEME_DARK, COSMIC_THEME_LIGHT,
+};
 
 // Fill missing dim/bright colors with derived values from normal ones.
 #[allow(dead_code)]
@@ -338,11 +340,11 @@ fn cosmic_light() -> Colors {
 pub fn terminal_themes() -> HashMap<(String, ColorSchemeKind), Colors> {
     let mut themes = HashMap::new();
     themes.insert(
-        ("COSMIC Dark".to_string(), ColorSchemeKind::Dark),
+        (COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark),
         cosmic_dark(),
     );
     themes.insert(
-        ("COSMIC Light".to_string(), ColorSchemeKind::Light),
+        (COSMIC_THEME_LIGHT.to_string(), ColorSchemeKind::Light),
         cosmic_light(),
     );
     themes
