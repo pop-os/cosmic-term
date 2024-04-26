@@ -14,6 +14,7 @@ use cosmic::{
         clipboard, event,
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
+        mouse::{Button as MouseButton, Event as MouseEvent},
         subscription::{self, Subscription},
         window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
@@ -167,6 +168,7 @@ pub enum Action {
     About,
     ColorSchemes(ColorSchemeKind),
     Copy,
+    CopyPrimary,
     Find,
     PaneFocusDown,
     PaneFocusLeft,
@@ -176,6 +178,7 @@ pub enum Action {
     PaneSplitVertical,
     PaneToggleMaximized,
     Paste,
+    PastePrimary,
     ProfileOpen(ProfileId),
     Profiles,
     SelectAll,
@@ -211,6 +214,7 @@ impl MenuAction for Action {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
             Action::Copy => Message::Copy(entity_opt),
+            Action::CopyPrimary => Message::CopyPrimary(entity_opt),
             Action::Find => Message::Find(true),
             Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Action::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
@@ -220,6 +224,7 @@ impl MenuAction for Action {
             Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Action::PaneToggleMaximized => Message::PaneToggleMaximized,
             Action::Paste => Message::Paste(entity_opt),
+            Action::PastePrimary => Message::PastePrimary(entity_opt),
             Action::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
             Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
             Action::SelectAll => Message::SelectAll(entity_opt),
@@ -263,6 +268,7 @@ pub enum Message {
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
     Copy(Option<segmented_button::Entity>),
+    CopyPrimary(Option<segmented_button::Entity>),
     DefaultBoldFontWeight(usize),
     DefaultDimFontWeight(usize),
     DefaultFont(usize),
@@ -275,6 +281,7 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
+    MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
     Key(Modifiers, Key),
     LaunchUrl(String),
@@ -288,6 +295,7 @@ pub enum Message {
     PaneSplit(pane_grid::Axis),
     PaneToggleMaximized,
     Paste(Option<segmented_button::Entity>),
+    PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     ProfileCollapse(ProfileId),
     ProfileCommand(ProfileId, String),
@@ -1679,6 +1687,20 @@ impl Application for App {
                 }
                 return self.update_focus();
             }
+            Message::CopyPrimary(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        let term = terminal.term.lock();
+                        if let Some(text) = term.selection_to_string() {
+                            return Command::batch([clipboard::write_primary(text), self.update_focus()]);
+                        }
+                    }
+                } else {
+                    log::warn!("Failed to get focused pane");
+                }
+            }
             Message::DefaultFont(index) => {
                 match self.font_names.get(index) {
                     Some(font_name) => {
@@ -1827,6 +1849,16 @@ impl Application for App {
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
             }
+            Message::MiddleClick(pane, entity_opt) => {
+                self.pane_model.focus = pane;
+                return Command::batch([
+                    self.update_focus(),
+                    clipboard::read_primary(move |value_opt| match value_opt {
+                        Some(value) => message::app(Message::PasteValue(entity_opt, value)),
+                        None => message::none(),
+                    }),
+                ]);
+            }
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
@@ -1898,6 +1930,12 @@ impl Application for App {
             Message::PaneDragged(_) => {}
             Message::Paste(entity_opt) => {
                 return clipboard::read(move |value_opt| match value_opt {
+                    Some(value) => message::app(Message::PasteValue(entity_opt, value)),
+                    None => message::none(),
+                });
+            }
+            Message::PastePrimary(entity_opt) => {
+                return clipboard::read_primary(move |value_opt| match value_opt {
                     Some(value) => message::app(Message::PasteValue(entity_opt, value)),
                     None => message::none(),
                 });
@@ -2444,6 +2482,7 @@ impl Application for App {
             }
 
             let entity = tab_model.active();
+            let entity_middle_click = tab_model.active();
             let terminal_id = self
                 .terminal_ids
                 .get(&pane)
@@ -2455,6 +2494,9 @@ impl Application for App {
                         .id(terminal_id)
                         .on_context_menu(move |position_opt| {
                             Message::TabContextMenu(pane, position_opt)
+                        })
+                        .on_middle_click(move || {
+                            Message::MiddleClick(pane, Some(entity_middle_click))
                         })
                         .opacity(self.config.opacity_ratio())
                         .padding(space_xxs);
@@ -2565,6 +2607,9 @@ impl Application for App {
                 }
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
+                }
+                Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
+                    Some(Message::CopyPrimary(None))
                 }
                 _ => None,
             }),
