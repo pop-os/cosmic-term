@@ -110,25 +110,25 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
     let rgb = match color {
         Color::Named(named_color) => match colors[named_color] {
             Some(rgb) => rgb,
-            None => match named_color {
-                NamedColor::Background => {
+            None => {
+                if named_color == NamedColor::Background {
                     // Allow using an unset background
                     return cosmic_text::Color(WINDOW_BG_COLOR.load(Ordering::SeqCst));
-                }
-                _ => {
+                } else {
                     log::warn!("missing named color {:?}", named_color);
                     Rgb::default()
                 }
-            },
+            }
         },
         Color::Spec(rgb) => rgb,
-        Color::Indexed(index) => match colors[index as usize] {
-            Some(rgb) => rgb,
-            None => {
+        Color::Indexed(index) => {
+            if let Some(rgb) = colors[index as usize] {
+                rgb
+            } else {
                 log::warn!("missing indexed color {}", index);
                 Rgb::default()
             }
-        },
+        }
     };
     cosmic_text::Color::rgb(rgb.r, rgb.g, rgb.b)
 }
@@ -437,9 +437,8 @@ impl Terminal {
                 }
             }
 
-            let search_regex = match &mut self.search_regex_opt {
-                Some(some) => some,
-                None => return,
+            let Some(search_regex) = &mut self.search_regex_opt else {
+                return;
             };
 
             // Determine search origin
@@ -856,7 +855,7 @@ impl Terminal {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
         if mode.contains(TermMode::SGR_MOUSE) {
-            self.mouse_reporter.report_sgr_mouse_wheel_scroll(
+            MouseReporter::report_sgr_mouse_wheel_scroll(
                 self,
                 self.size().cell_width,
                 self.size().cell_height,
@@ -866,7 +865,7 @@ impl Terminal {
                 y,
             );
         } else {
-            self.mouse_reporter.report_mouse_wheel_as_arrows(
+            MouseReporter::report_mouse_wheel_as_arrows(
                 self,
                 self.size().cell_width,
                 self.size().cell_height,
