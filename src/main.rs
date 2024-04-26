@@ -1694,7 +1694,10 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
-                            return Command::batch([clipboard::write_primary(text), self.update_focus()]);
+                            return Command::batch([
+                                clipboard::write_primary(text),
+                                self.update_focus(),
+                            ]);
                         }
                     }
                 } else {
