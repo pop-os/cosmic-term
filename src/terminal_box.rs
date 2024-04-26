@@ -54,6 +54,7 @@ pub struct TerminalBox<'a, Message> {
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
+    on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
 }
 
@@ -73,6 +74,7 @@ where
             on_mouse_enter: None,
             opacity: None,
             mouse_inside_boundary: None,
+            on_middle_click: None,
             key_binds: key_binds(),
         }
     }
@@ -112,6 +114,11 @@ where
 
     pub fn on_mouse_enter(mut self, on_mouse_enter: impl Fn() -> Message + 'a) -> Self {
         self.on_mouse_enter = Some(Box::new(on_mouse_enter));
+        self
+    }
+
+    pub fn on_middle_click(mut self, on_middle_click: impl Fn() -> Message + 'a) -> Self {
+        self.on_middle_click = Some(Box::new(on_middle_click));
         self
     }
 
@@ -896,6 +903,10 @@ where
                                         });
                                     }
                                 }
+                            }
+                        } else if button == Button::Middle {
+                            if let Some(on_middle_click) = &self.on_middle_click {
+                                shell.publish(on_middle_click());
                             }
                         }
                         // Update context menu state
