@@ -15,7 +15,7 @@ pub struct MouseReporter {
 }
 
 impl MouseReporter {
-    fn button_number(&self, button: Button) -> Option<u8> {
+    fn button_number(button: Button) -> Option<u8> {
         match button {
             Button::Left => Some(0),
             Button::Middle => Some(1),
@@ -36,10 +36,10 @@ impl MouseReporter {
     ) -> Option<Vec<u8>> {
         //Buttons are handle slightly different between normal and sgr
         //for normal/utf8 the button release is always reported as button 3
-        let Some(mut button) = (match event {
+        let mut button = (match event {
             Event::Mouse(MouseEvent::ButtonPressed(b)) => {
                 self.button = Some(b);
-                self.button_number(b)
+                Self::button_number(b)
             }
             Event::Mouse(MouseEvent::ButtonReleased(_b)) => {
                 self.button = None;
@@ -59,14 +59,10 @@ impl MouseReporter {
                 //character, Cb).
                 //For example, motion into cell x,y with button 1 down is reported as
                 //CSI M @ CxCy ( @  = 32 + 0 (button 1) + 32 (motion indicator) ).
-                self.button
-                    .and_then(|button| self.button_number(button))
-                    .map(|b| b + 32)
+                self.button.and_then(Self::button_number).map(|b| b + 32)
             }
             _ => None,
-        }) else {
-            return None;
-        };
+        })?;
 
         if modifiers.shift() {
             button += 4;
@@ -127,16 +123,16 @@ impl MouseReporter {
         x: u32,
         y: u32,
     ) -> Option<Vec<u8>> {
-        let Some((button_no, event_code)) = (match event {
+        let (button_no, event_code) = (match event {
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 //Button pressed is reported as button 0,1,2 and event code M
                 self.button = Some(button);
-                Some((self.button_number(button), "M"))
+                Some((Self::button_number(button), "M"))
             }
             Event::Mouse(MouseEvent::ButtonReleased(button)) => {
                 //Button pressed is reported as button 0,1,2 and event code m
                 self.button = None;
-                Some((self.button_number(button), "m"))
+                Some((Self::button_number(button), "m"))
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 //Button pressed is reported as button 32 + 0,1,2 and event code M
@@ -148,12 +144,10 @@ impl MouseReporter {
                     self.last_movment_y = Some(y);
                 }
                 self.button
-                    .map(|button| (self.button_number(button).map(|b| b + 32), "M"))
+                    .map(|button| (Self::button_number(button).map(|b| b + 32), "M"))
             }
             _ => None,
-        }) else {
-            return None;
-        };
+        })?;
 
         if let Some(mut button_no) = button_no {
             if modifiers.shift() {
@@ -174,7 +168,6 @@ impl MouseReporter {
 
     #[allow(clippy::too_many_arguments)]
     pub fn report_sgr_mouse_wheel_scroll(
-        &self,
         terminal: &Terminal,
         term_cell_width: f32,
         term_cell_height: f32,
@@ -217,7 +210,6 @@ impl MouseReporter {
     //Emulate mouse wheel scroll with up/down arrows. Using mouse spec uses
     //scroll-back and scroll-forw actions, which moves whole windows like page up/page down.
     pub fn report_mouse_wheel_as_arrows(
-        &self,
         terminal: &Terminal,
         term_cell_width: f32,
         term_cell_height: f32,

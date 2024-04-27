@@ -4,7 +4,7 @@ new-terminal = Nowy terminal
 # Context Pages
 
 ## About
-git-description = Git commit {$hash} on {$date}
+git-description = Git commit {$hash} z {$date}
 
 ## Color schemes
 color-schemes = Schemat kolorów
@@ -23,7 +23,6 @@ tab-title-description = Nadpisz domyślną nazwę karty
 add-profile = Dodaj profil
 new-profile = Nowy profil
 make-default = Uczyń domyślnym
-
 
 ## Settings
 settings = Ustawienia
@@ -70,6 +69,8 @@ find-next = Szukaj następny
 file = Plik
 new-tab = Nowa karta
 new-window = Nowe okno
+profile = Profil
+menu-profiles = Profile...
 close-tab = Zamknij kartę
 quit = Zamknij
 

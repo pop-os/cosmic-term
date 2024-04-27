@@ -14,6 +14,8 @@ use std::sync::OnceLock;
 use crate::fl;
 
 pub const CONFIG_VERSION: u64 = 1;
+pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
+pub const COSMIC_THEME_LIGHT: &str = "COSMIC Light";
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum AppTheme {
@@ -186,6 +188,10 @@ pub struct Profile {
     pub syntax_theme_light: String,
     #[serde(default)]
     pub tab_title: String,
+    #[serde(default)]
+    pub working_directory: String,
+    #[serde(default)]
+    pub hold: bool,
 }
 
 impl Default for Profile {
@@ -193,9 +199,11 @@ impl Default for Profile {
         Self {
             name: fl!("new-profile"),
             command: String::new(),
-            syntax_theme_dark: "COSMIC Dark".to_string(),
-            syntax_theme_light: "COSMIC Light".to_string(),
+            syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
+            syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             tab_title: String::new(),
+            working_directory: String::new(),
+            hold: true,
         }
     }
 }
@@ -239,8 +247,8 @@ impl Default for Config {
             opacity: 100,
             profiles: BTreeMap::new(),
             show_headerbar: true,
-            syntax_theme_dark: "COSMIC Dark".to_string(),
-            syntax_theme_light: "COSMIC Light".to_string(),
+            syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
+            syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
         }
@@ -284,11 +292,11 @@ impl Config {
         let color_schemes = self.color_schemes(color_scheme_kind);
         let mut color_scheme_names =
             Vec::<(String, ColorSchemeId)>::with_capacity(color_schemes.len());
-        for (color_scheme_id, color_scheme) in color_schemes.iter() {
+        for (color_scheme_id, color_scheme) in color_schemes {
             let mut name = color_scheme.name.clone();
 
             let mut copies = 1;
-            while color_scheme_names.iter().find(|x| x.0 == name).is_some() {
+            while color_scheme_names.iter().any(|x| x.0 == name) {
                 copies += 1;
                 name = format!("{} ({})", color_scheme.name, copies);
             }
@@ -314,17 +322,17 @@ impl Config {
     }
 
     pub fn opacity_ratio(&self) -> f32 {
-        (self.opacity as f32) / 100.0
+        f32::from(self.opacity) / 100.0
     }
 
     // Get a sorted and adjusted for duplicates list of profile names and ids
     pub fn profile_names(&self) -> Vec<(String, ProfileId)> {
         let mut profile_names = Vec::<(String, ProfileId)>::with_capacity(self.profiles.len());
-        for (profile_id, profile) in self.profiles.iter() {
+        for (profile_id, profile) in &self.profiles {
             let mut name = profile.name.clone();
 
             let mut copies = 1;
-            while profile_names.iter().find(|x| x.0 == name).is_some() {
+            while profile_names.iter().any(|x| x.0 == name) {
                 copies += 1;
                 name = format!("{} ({})", profile.name, copies);
             }

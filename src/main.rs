@@ -14,6 +14,7 @@ use cosmic::{
         clipboard, event,
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
+        mouse::{Button as MouseButton, Event as MouseEvent},
         subscription::{self, Subscription},
         window, Alignment, Color, Event, Length, Limits, Padding, Point,
     },
@@ -75,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(fork::Fork::Child) => (),
         Ok(fork::Fork::Parent(_child_pid)) => process::exit(0),
         Err(err) => {
-            eprintln!("failed to daemonize: {:?}", err);
+            eprintln!("failed to daemonize: {err:?}");
             process::exit(1);
         }
     }
@@ -167,6 +168,7 @@ pub enum Action {
     About,
     ColorSchemes(ColorSchemeKind),
     Copy,
+    CopyPrimary,
     Find,
     PaneFocusDown,
     PaneFocusLeft,
@@ -176,6 +178,7 @@ pub enum Action {
     PaneSplitVertical,
     PaneToggleMaximized,
     Paste,
+    PastePrimary,
     ProfileOpen(ProfileId),
     Profiles,
     SelectAll,
@@ -206,43 +209,45 @@ impl MenuAction for Action {
 
     fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
-            Action::About => Message::ToggleContextPage(ContextPage::About),
-            Action::ColorSchemes(color_scheme_kind) => {
+            Self::About => Message::ToggleContextPage(ContextPage::About),
+            Self::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
-            Action::Copy => Message::Copy(entity_opt),
-            Action::Find => Message::Find(true),
-            Action::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
-            Action::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
-            Action::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
-            Action::PaneFocusUp => Message::PaneFocusAdjacent(pane_grid::Direction::Up),
-            Action::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
-            Action::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
-            Action::PaneToggleMaximized => Message::PaneToggleMaximized,
-            Action::Paste => Message::Paste(entity_opt),
-            Action::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
-            Action::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
-            Action::SelectAll => Message::SelectAll(entity_opt),
-            Action::Settings => Message::ToggleContextPage(ContextPage::Settings),
-            Action::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
-            Action::TabActivate0 => Message::TabActivateJump(0),
-            Action::TabActivate1 => Message::TabActivateJump(1),
-            Action::TabActivate2 => Message::TabActivateJump(2),
-            Action::TabActivate3 => Message::TabActivateJump(3),
-            Action::TabActivate4 => Message::TabActivateJump(4),
-            Action::TabActivate5 => Message::TabActivateJump(5),
-            Action::TabActivate6 => Message::TabActivateJump(6),
-            Action::TabActivate7 => Message::TabActivateJump(7),
-            Action::TabActivate8 => Message::TabActivateJump(8),
-            Action::TabClose => Message::TabClose(entity_opt),
-            Action::TabNew => Message::TabNew,
-            Action::TabNext => Message::TabNext,
-            Action::TabPrev => Message::TabPrev,
-            Action::WindowClose => Message::WindowClose,
-            Action::WindowNew => Message::WindowNew,
-            Action::ZoomIn => Message::ZoomIn,
-            Action::ZoomOut => Message::ZoomOut,
-            Action::ZoomReset => Message::ZoomReset,
+            Self::Copy => Message::Copy(entity_opt),
+            Self::CopyPrimary => Message::CopyPrimary(entity_opt),
+            Self::Find => Message::Find(true),
+            Self::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
+            Self::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
+            Self::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
+            Self::PaneFocusUp => Message::PaneFocusAdjacent(pane_grid::Direction::Up),
+            Self::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
+            Self::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
+            Self::PaneToggleMaximized => Message::PaneToggleMaximized,
+            Self::Paste => Message::Paste(entity_opt),
+            Self::PastePrimary => Message::PastePrimary(entity_opt),
+            Self::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
+            Self::Profiles => Message::ToggleContextPage(ContextPage::Profiles),
+            Self::SelectAll => Message::SelectAll(entity_opt),
+            Self::Settings => Message::ToggleContextPage(ContextPage::Settings),
+            Self::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
+            Self::TabActivate0 => Message::TabActivateJump(0),
+            Self::TabActivate1 => Message::TabActivateJump(1),
+            Self::TabActivate2 => Message::TabActivateJump(2),
+            Self::TabActivate3 => Message::TabActivateJump(3),
+            Self::TabActivate4 => Message::TabActivateJump(4),
+            Self::TabActivate5 => Message::TabActivateJump(5),
+            Self::TabActivate6 => Message::TabActivateJump(6),
+            Self::TabActivate7 => Message::TabActivateJump(7),
+            Self::TabActivate8 => Message::TabActivateJump(8),
+            Self::TabClose => Message::TabClose(entity_opt),
+            Self::TabNew => Message::TabNew,
+            Self::TabNext => Message::TabNext,
+            Self::TabPrev => Message::TabPrev,
+            Self::WindowClose => Message::WindowClose,
+            Self::WindowNew => Message::WindowNew,
+            Self::ZoomIn => Message::ZoomIn,
+            Self::ZoomOut => Message::ZoomOut,
+            Self::ZoomReset => Message::ZoomReset,
         }
     }
 }
@@ -263,6 +268,7 @@ pub enum Message {
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
     Copy(Option<segmented_button::Entity>),
+    CopyPrimary(Option<segmented_button::Entity>),
     DefaultBoldFontWeight(usize),
     DefaultDimFontWeight(usize),
     DefaultFont(usize),
@@ -275,6 +281,7 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
+    MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
     Key(Modifiers, Key),
     LaunchUrl(String),
@@ -288,10 +295,13 @@ pub enum Message {
     PaneSplit(pane_grid::Axis),
     PaneToggleMaximized,
     Paste(Option<segmented_button::Entity>),
+    PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
     ProfileCollapse(ProfileId),
     ProfileCommand(ProfileId, String),
+    ProfileDirectory(ProfileId, String),
     ProfileExpand(ProfileId),
+    ProfileHold(ProfileId, bool),
     ProfileName(ProfileId, String),
     ProfileNew,
     ProfileOpen(ProfileId),
@@ -450,9 +460,9 @@ impl App {
         {
             let color = Color::from(theme.cosmic().background.base);
             let bytes = color.into_rgba8();
-            let data = (bytes[2] as u32)
-                | ((bytes[1] as u32) << 8)
-                | ((bytes[0] as u32) << 16)
+            let data = u32::from(bytes[2])
+                | (u32::from(bytes[1]) << 8)
+                | (u32::from(bytes[0]) << 16)
                 | 0xFF000000;
             terminal::WINDOW_BG_COLOR.store(data, Ordering::SeqCst);
         }
@@ -489,17 +499,14 @@ impl App {
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Command<Message> {
         // Optimized for just saving color_schemes
         if let Some(ref config_handler) = self.config_handler {
-            match config_handler.set(
+            if let Err(err) = config_handler.set(
                 match color_scheme_kind {
                     ColorSchemeKind::Dark => "color_schemes_dark",
                     ColorSchemeKind::Light => "color_schemes_light",
                 },
-                &self.config.color_schemes(color_scheme_kind),
+                self.config.color_schemes(color_scheme_kind),
             ) {
-                Ok(()) => {}
-                Err(err) => {
-                    log::error!("failed to save config: {}", err);
-                }
+                log::error!("failed to save config: {}", err);
             }
         }
         self.update_color_schemes();
@@ -654,7 +661,7 @@ impl App {
                     hash = short_hash.as_str(),
                     date = date
                 ))
-                    .on_press(Message::LaunchUrl(format!("{}/commits/{}", repository, hash)))
+                    .on_press(Message::LaunchUrl(format!("{repository}/commits/{hash}")))
                     .padding(0)
                 .into(),
             ])
@@ -744,7 +751,7 @@ impl App {
             .into(),
         );
 
-        for error in self.color_scheme_errors.iter() {
+        for error in &self.color_scheme_errors {
             sections.push(
                 widget::row::with_children(vec![
                     icon_cache_get("dialog-error-symbolic", 16)
@@ -787,9 +794,8 @@ impl App {
         if !self.config.profiles.is_empty() {
             let mut profiles_section = widget::settings::view_section("");
             for (profile_name, profile_id) in self.config.profile_names() {
-                let profile = match self.config.profiles.get(&profile_id) {
-                    Some(some) => some,
-                    None => continue,
+                let Some(profile) = self.config.profiles.get(&profile_id) else {
+                    continue;
                 };
 
                 let expanded = self.profile_expanded == Some(profile_id);
@@ -850,6 +856,16 @@ impl App {
                                 .spacing(space_xxxs)
                                 .into(),
                                 widget::column::with_children(vec![
+                                    widget::text(fl!("working-directory")).into(),
+                                    widget::text_input("", &profile.working_directory)
+                                        .on_input(move |text| {
+                                            Message::ProfileDirectory(profile_id, text)
+                                        })
+                                        .into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
                                     widget::text(fl!("tab-title")).into(),
                                     widget::text_input("", &profile.tab_title)
                                         .on_input(move |text| {
@@ -899,18 +915,35 @@ impl App {
                         .add(
                             widget::settings::item::builder(fl!("make-default")).control(
                                 widget::toggler(
-                                    "".to_string(),
+                                    None,
                                     self.get_default_profile().is_some_and(|p| p == profile_id),
                                     move |t| Message::UpdateDefaultProfile((t, profile_id)),
                                 ),
                             ),
+                        )
+                        .add(
+                            widget::row::with_children(vec![
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("hold")).into(),
+                                    widget::text::caption(fl!("remain-open")).into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::horizontal_space(Length::Fill).into(),
+                                widget::toggler(None, profile.hold, move |t| {
+                                    Message::ProfileHold(profile_id, t)
+                                })
+                                .into(),
+                            ])
+                            .align_items(Alignment::Center)
+                            .padding([0, space_s]),
                         );
 
                     let padding = Padding {
                         top: 0.0,
                         bottom: 0.0,
-                        left: space_s as f32,
-                        right: space_s as f32,
+                        left: space_s.into(),
+                        right: space_s.into(),
                     };
                     profiles_section =
                         profiles_section.add(widget::container(expanded_section).padding(padding))
@@ -1135,7 +1168,19 @@ impl App {
         self.pane_model.focus = pane;
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
-                match self.themes.get(&self.config.syntax_theme(profile_id_opt)) {
+                let colors = self
+                    .themes
+                    .get(&self.config.syntax_theme(profile_id_opt))
+                    .or_else(|| match self.config.color_scheme_kind() {
+                        ColorSchemeKind::Dark => self
+                            .themes
+                            .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
+                        ColorSchemeKind::Light => self.themes.get(&(
+                            config::COSMIC_THEME_LIGHT.to_string(),
+                            ColorSchemeKind::Light,
+                        )),
+                    });
+                match colors {
                     Some(colors) => {
                         let current_pane = self.pane_model.focus;
                         if let Some(tab_model) = self.pane_model.active_mut() {
@@ -1144,7 +1189,6 @@ impl App {
                                 .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
                                 Some(profile) => {
-                                    if !profile.tab_title.is_empty() {}
                                     let mut shell = None;
                                     if let Some(mut args) = shlex::split(&profile.command) {
                                         if !args.is_empty() {
@@ -1152,18 +1196,19 @@ impl App {
                                             shell = Some(tty::Shell::new(command, args));
                                         }
                                     }
+                                    let working_directory = (!profile.working_directory.is_empty())
+                                        .then(|| profile.working_directory.clone().into());
+
                                     let options = tty::Options {
                                         shell,
-                                        //TODO: configurable working directory?
-                                        working_directory: None,
-                                        //TODO: configurable hold (keep open when child exits)?
-                                        hold: false,
+                                        working_directory,
+                                        hold: profile.hold,
                                         env: HashMap::new(),
                                     };
-                                    let tab_title_override = if !profile.tab_title.is_empty() {
-                                        Some(profile.tab_title.clone())
-                                    } else {
+                                    let tab_title_override = if profile.tab_title.is_empty() {
                                         None
+                                    } else {
+                                        Some(profile.tab_title.clone())
                                     };
                                     (options, tab_title_override)
                                 }
@@ -1218,7 +1263,7 @@ impl App {
                 log::warn!("tried to create new tab before having event channel");
             }
         }
-        return self.update_title(Some(pane));
+        self.update_title(Some(pane))
     }
 }
 
@@ -1299,7 +1344,7 @@ impl Application for App {
         let mut font_size_names = Vec::new();
         let mut font_sizes = Vec::new();
         for font_size in 4..=32 {
-            font_size_names.push(format!("{}px", font_size));
+            font_size_names.push(format!("{font_size}px"));
             font_sizes.push(font_size);
         }
 
@@ -1350,7 +1395,7 @@ impl Application for App {
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focus, widget::Id::unique());
 
-        let mut app = App {
+        let mut app = Self {
             core,
             pane_model,
             config_handler: flags.config_handler,
@@ -1414,10 +1459,10 @@ impl Application for App {
     }
 
     fn on_context_drawer(&mut self) -> Command<Message> {
-        if !self.core.window.show_context {
-            self.update_focus()
-        } else {
+        if self.core.window.show_context {
             Command::none()
+        } else {
+            self.update_focus()
         }
     }
 
@@ -1428,15 +1473,10 @@ impl Application for App {
             ($name: ident, $value: expr) => {
                 match &self.config_handler {
                     Some(config_handler) => {
-                        match paste::paste! { self.config.[<set_ $name>](config_handler, $value) } {
-                            Ok(_) => {}
-                            Err(err) => {
-                                log::warn!(
-                                    "failed to save config {:?}: {}",
-                                    stringify!($name),
-                                    err
-                                );
-                            }
+                        if let Err(err) =
+                            paste::paste! { self.config.[<set_ $name>](config_handler, $value) }
+                        {
+                            log::warn!("failed to save config {:?}: {}", stringify!($name), err);
                         }
                     }
                     None => {
@@ -1482,7 +1522,7 @@ impl Application for App {
                             move |result| {
                                 Message::ColorSchemeExportResult(
                                     color_scheme_kind,
-                                    color_scheme_id.clone(),
+                                    color_scheme_id,
                                     result,
                                 )
                             },
@@ -1506,9 +1546,8 @@ impl Application for App {
                             &color_scheme,
                             ron::ser::PrettyConfig::new(),
                         ) {
-                            Ok(ron) => match fs::write(path, &ron) {
-                                Ok(()) => {}
-                                Err(err) => {
+                            Ok(ron) => {
+                                if let Err(err) = fs::write(path, ron) {
                                     log::error!(
                                         "failed to export {:?} to {:?}: {}",
                                         color_scheme_id,
@@ -1516,7 +1555,7 @@ impl Application for App {
                                         err
                                     );
                                 }
-                            },
+                            }
                             Err(err) => {
                                 log::error!(
                                     "failed to serialize color scheme {:?}: {}",
@@ -1550,12 +1589,12 @@ impl Application for App {
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     self.color_scheme_errors.clear();
-                    for path in paths.iter() {
+                    for path in &paths {
                         let mut file = match fs::File::open(path) {
                             Ok(ok) => ok,
                             Err(err) => {
                                 self.color_scheme_errors
-                                    .push(format!("Failed to open {:?}: {}", path, err));
+                                    .push(format!("Failed to open {path:?}: {err}"));
                                 continue;
                             }
                         };
@@ -1574,7 +1613,7 @@ impl Application for App {
                             }
                             Err(err) => {
                                 self.color_scheme_errors
-                                    .push(format!("Failed to parse {:?}: {}", path, err));
+                                    .push(format!("Failed to parse {path:?}: {err}"));
                             }
                         }
                     }
@@ -1636,6 +1675,23 @@ impl Application for App {
                     log::warn!("Failed to get focused pane");
                 }
                 return self.update_focus();
+            }
+            Message::CopyPrimary(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        let term = terminal.term.lock();
+                        if let Some(text) = term.selection_to_string() {
+                            return Command::batch([
+                                clipboard::write_primary(text),
+                                self.update_focus(),
+                            ]);
+                        }
+                    }
+                } else {
+                    log::warn!("Failed to get focused pane");
+                }
             }
             Message::DefaultFont(index) => {
                 match self.font_names.get(index) {
@@ -1785,22 +1841,31 @@ impl Application for App {
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
             }
+            Message::MiddleClick(pane, entity_opt) => {
+                self.pane_model.focus = pane;
+                return Command::batch([
+                    self.update_focus(),
+                    clipboard::read_primary(move |value_opt| match value_opt {
+                        Some(value) => message::app(Message::PasteValue(entity_opt, value)),
+                        None => message::none(),
+                    }),
+                ]);
+            }
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, key) => {
-                for (key_bind, action) in self.key_binds.iter() {
+                for (key_bind, action) in &self.key_binds {
                     if key_bind.matches(modifiers, &key) {
                         return self.update(action.message(None));
                     }
                 }
             }
-            Message::LaunchUrl(url) => match open::that_detached(&url) {
-                Ok(()) => {}
-                Err(err) => {
+            Message::LaunchUrl(url) => {
+                if let Err(err) = open::that_detached(&url) {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
-            },
+            }
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
@@ -1860,6 +1925,12 @@ impl Application for App {
                     None => message::none(),
                 });
             }
+            Message::PastePrimary(entity_opt) => {
+                return clipboard::read_primary(move |value_opt| match value_opt {
+                    Some(value) => message::app(Message::PasteValue(entity_opt, value)),
+                    None => message::none(),
+                });
+            }
             Message::PasteValue(entity_opt, value) => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
@@ -1879,8 +1950,20 @@ impl Application for App {
                     return self.save_profiles();
                 }
             }
+            Message::ProfileDirectory(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.working_directory = text;
+                    return self.save_profiles();
+                }
+            }
             Message::ProfileExpand(profile_id) => {
                 self.profile_expanded = Some(profile_id);
+            }
+            Message::ProfileHold(profile_id, hold) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.hold = hold;
+                    return self.save_profiles();
+                }
             }
             Message::ProfileName(profile_id, text) => {
                 if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
@@ -2272,31 +2355,28 @@ impl Application for App {
                 }
 
                 // Extra work to do to prepare context pages
-                match self.context_page {
-                    ContextPage::ColorSchemes(color_scheme_kind) => {
-                        self.color_scheme_errors.clear();
-                        self.color_scheme_expanded = None;
-                        self.color_scheme_renaming = None;
-                        self.color_scheme_tab_model = widget::segmented_button::Model::default();
-                        let dark_entity = self
-                            .color_scheme_tab_model
-                            .insert()
-                            .text(fl!("dark"))
-                            .data(ColorSchemeKind::Dark)
-                            .id();
-                        let light_entity = self
-                            .color_scheme_tab_model
-                            .insert()
-                            .text(fl!("light"))
-                            .data(ColorSchemeKind::Light)
-                            .id();
-                        self.color_scheme_tab_model
-                            .activate(match color_scheme_kind {
-                                ColorSchemeKind::Dark => dark_entity,
-                                ColorSchemeKind::Light => light_entity,
-                            });
-                    }
-                    _ => {}
+                if let ContextPage::ColorSchemes(color_scheme_kind) = self.context_page {
+                    self.color_scheme_errors.clear();
+                    self.color_scheme_expanded = None;
+                    self.color_scheme_renaming = None;
+                    self.color_scheme_tab_model = widget::segmented_button::Model::default();
+                    let dark_entity = self
+                        .color_scheme_tab_model
+                        .insert()
+                        .text(fl!("dark"))
+                        .data(ColorSchemeKind::Dark)
+                        .id();
+                    let light_entity = self
+                        .color_scheme_tab_model
+                        .insert()
+                        .text(fl!("light"))
+                        .data(ColorSchemeKind::Light)
+                        .id();
+                    self.color_scheme_tab_model
+                        .activate(match color_scheme_kind {
+                            ColorSchemeKind::Dark => dark_entity,
+                            ColorSchemeKind::Light => light_entity,
+                        });
                 }
 
                 self.set_context_title(context_page.title());
@@ -2390,43 +2470,39 @@ impl Application for App {
             }
 
             let entity = tab_model.active();
+            let entity_middle_click = tab_model.active();
             let terminal_id = self
                 .terminal_ids
                 .get(&pane)
                 .cloned()
                 .unwrap_or_else(widget::Id::unique);
-            match tab_model.data::<Mutex<Terminal>>(entity) {
-                Some(terminal) => {
-                    let mut terminal_box = terminal_box(terminal)
-                        .id(terminal_id)
-                        .on_context_menu(move |position_opt| {
-                            Message::TabContextMenu(pane, position_opt)
-                        })
-                        .opacity(self.config.opacity_ratio())
-                        .padding(space_xxs);
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal_box = terminal_box(terminal)
+                    .id(terminal_id)
+                    .on_context_menu(move |position_opt| {
+                        Message::TabContextMenu(pane, position_opt)
+                    })
+                    .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
+                    .opacity(self.config.opacity_ratio())
+                    .padding(space_xxs);
 
-                    if self.config.focus_follow_mouse {
-                        terminal_box =
-                            terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
-                    }
-
-                    let context_menu = {
-                        let terminal = terminal.lock().unwrap();
-                        terminal.context_menu
-                    };
-
-                    let tab_element: Element<'_, Message> = match context_menu {
-                        Some(point) => widget::popover(terminal_box.context_menu(point))
-                            .popup(menu::context_menu(&self.config, &self.key_binds, entity))
-                            .position(widget::popover::Position::Point(point))
-                            .into(),
-                        None => terminal_box.into(),
-                    };
-                    tab_column = tab_column.push(tab_element);
+                if self.config.focus_follow_mouse {
+                    terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
-                None => {
-                    //TODO
-                }
+
+                let context_menu = {
+                    let terminal = terminal.lock().unwrap();
+                    terminal.context_menu
+                };
+
+                let tab_element: Element<'_, Message> = match context_menu {
+                    Some(point) => widget::popover(terminal_box.context_menu(point))
+                        .popup(menu::context_menu(&self.config, &self.key_binds, entity))
+                        .position(widget::popover::Position::Point(point))
+                        .into(),
+                    None => terminal_box.into(),
+                };
+                tab_column = tab_column.push(tab_element);
             }
 
             //Only draw find in the currently focused pane
@@ -2484,6 +2560,8 @@ impl Application for App {
 
                 tab_column = tab_column
                     .push(widget::layer_container(find_widget).layer(cosmic_theme::Layer::Primary));
+            } else {
+                // TODO
             }
 
             pane_grid::Content::new(tab_column)
@@ -2511,6 +2589,9 @@ impl Application for App {
                 }
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
+                }
+                Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
+                    Some(Message::CopyPrimary(None))
                 }
                 _ => None,
             }),

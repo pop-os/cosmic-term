@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::widget::menu::menu_tree::{menu_items, menu_root, MenuItem};
+use cosmic::widget::menu::{items as menu_items, root as menu_root, Item as MenuItem};
 use cosmic::{
     iced::{
         widget::{column, horizontal_rule, horizontal_space},
@@ -11,7 +11,7 @@ use cosmic::{
     menu_button, theme,
     widget::{
         self,
-        menu::{ItemHeight, ItemWidth, MenuBar, MenuTree},
+        menu::{ItemHeight, ItemWidth, MenuBar, Tree as MenuTree},
         segmented_button,
     },
     Element,
@@ -26,7 +26,7 @@ pub fn context_menu<'a>(
     entity: segmented_button::Entity,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
-        for (key_bind, key_action) in key_binds.iter() {
+        for (key_bind, key_action) in key_binds {
             if action == key_action {
                 return key_bind.to_string();
             }
