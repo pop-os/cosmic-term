@@ -21,7 +21,8 @@ use cosmic::{
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, Metrics, Shaping, Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, LineEnding, Metrics, Shaping,
+    Weight, Wrap,
 };
 use indexmap::IndexSet;
 use std::{
@@ -666,13 +667,18 @@ impl Terminal {
                         while line_i >= buffer.lines.len() {
                             buffer.lines.push(BufferLine::new(
                                 "",
+                                LineEnding::default(),
                                 AttrsList::new(self.default_attrs),
                                 Shaping::Advanced,
                             ));
                             buffer.set_redraw(true);
                         }
 
-                        if buffer.lines[line_i].set_text(text.clone(), attrs_list.clone()) {
+                        if buffer.lines[line_i].set_text(
+                            text.clone(),
+                            LineEnding::default(),
+                            attrs_list.clone(),
+                        ) {
                             buffer.set_redraw(true);
                         }
                         line_i += 1;
@@ -785,13 +791,14 @@ impl Terminal {
             while line_i >= buffer.lines.len() {
                 buffer.lines.push(BufferLine::new(
                     "",
+                    LineEnding::default(),
                     AttrsList::new(self.default_attrs),
                     Shaping::Advanced,
                 ));
                 buffer.set_redraw(true);
             }
 
-            if buffer.lines[line_i].set_text(text, attrs_list) {
+            if buffer.lines[line_i].set_text(text, LineEnding::default(), attrs_list) {
                 buffer.set_redraw(true);
             }
             line_i += 1;
