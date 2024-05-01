@@ -6,7 +6,9 @@ use hex_color::HexColor;
 use palette::{encoding::Srgb, rgb::Rgb as PRgb, FromColor, Okhsl};
 use std::{collections::HashMap, fs};
 
-use crate::config::{ColorScheme, ColorSchemeAnsi, ColorSchemeKind};
+use crate::config::{
+    ColorScheme, ColorSchemeAnsi, ColorSchemeKind, COSMIC_THEME_DARK, COSMIC_THEME_LIGHT,
+};
 
 // Fill missing dim/bright colors with derived values from normal ones.
 #[allow(dead_code)]
@@ -53,8 +55,8 @@ impl ColorDerive {
     fn color_adj(rgb: Rgb, saturation_adj: f32, lightness_adj: f32) -> Rgb {
         let mut okhsl = Self::rgb_to_okhsl(rgb);
 
-        okhsl.saturation = (okhsl.saturation + saturation_adj).max(0.0).min(1.0);
-        okhsl.lightness = (okhsl.lightness + lightness_adj).max(0.0).min(1.0);
+        okhsl.saturation = (okhsl.saturation + saturation_adj).clamp(0.0, 1.0);
+        okhsl.lightness = (okhsl.lightness + lightness_adj).clamp(0.0, 1.0);
 
         Self::okhsl_to_rgb(okhsl)
     }
@@ -338,11 +340,11 @@ fn cosmic_light() -> Colors {
 pub fn terminal_themes() -> HashMap<(String, ColorSchemeKind), Colors> {
     let mut themes = HashMap::new();
     themes.insert(
-        ("COSMIC Dark".to_string(), ColorSchemeKind::Dark),
+        (COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark),
         cosmic_dark(),
     );
     themes.insert(
-        ("COSMIC Light".to_string(), ColorSchemeKind::Light),
+        (COSMIC_THEME_LIGHT.to_string(), ColorSchemeKind::Light),
         cosmic_light(),
     );
     themes

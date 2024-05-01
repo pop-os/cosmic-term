@@ -5,6 +5,7 @@ use alacritty_terminal::{
     selection::{Selection, SelectionType},
     term::{cell::Flags, TermMode},
 };
+use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
     cosmic_theme::palette::{blend::Compose, WithAlpha},
     iced::{
@@ -40,11 +41,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    key_bind::{key_binds, KeyBind},
-    terminal::Metadata,
-    Action, Terminal, TerminalScroll,
-};
+use crate::{key_bind::key_binds, terminal::Metadata, Action, Terminal, TerminalScroll};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -57,6 +54,7 @@ pub struct TerminalBox<'a, Message> {
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
+    on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
 }
 
@@ -76,6 +74,7 @@ where
             on_mouse_enter: None,
             opacity: None,
             mouse_inside_boundary: None,
+            on_middle_click: None,
             key_binds: key_binds(),
         }
     }
@@ -115,6 +114,11 @@ where
 
     pub fn on_mouse_enter(mut self, on_mouse_enter: impl Fn() -> Message + 'a) -> Self {
         self.on_mouse_enter = Some(Box::new(on_mouse_enter));
+        self
+    }
+
+    pub fn on_middle_click(mut self, on_middle_click: impl Fn() -> Message + 'a) -> Self {
+        self.on_middle_click = Some(Box::new(on_middle_click));
         self
     }
 
@@ -168,10 +172,9 @@ where
         // Calculate layout lines
         terminal.with_buffer(|buffer| {
             let mut layout_lines = 0;
-            for line in buffer.lines.iter() {
-                match line.layout_opt() {
-                    Some(layout) => layout_lines += layout.len(),
-                    None => (),
+            for line in &buffer.lines {
+                if let Some(layout) = line.layout_opt() {
+                    layout_lines += layout.len()
                 }
             }
 
@@ -237,7 +240,7 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
-        let scrollbar_w = cosmic_theme.spacing.space_xxs as f32;
+        let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
         let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
@@ -274,12 +277,12 @@ where
                     ..Default::default()
                 },
                 Color::new(
-                    background_color.r() as f32 / 255.0,
-                    background_color.g() as f32 / 255.0,
-                    background_color.b() as f32 / 255.0,
+                    f32::from(background_color.r()) / 255.0,
+                    f32::from(background_color.g()) / 255.0,
+                    f32::from(background_color.b()) / 255.0,
                     match self.opacity {
                         Some(opacity) => opacity,
-                        None => background_color.a() as f32 / 255.0,
+                        None => f32::from(background_color.a()) / 255.0,
                     },
                 ),
             );
@@ -325,10 +328,10 @@ where
                     ) {
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::new(
-                                color.r() as f32 / 255.0,
-                                color.g() as f32 / 255.0,
-                                color.b() as f32 / 255.0,
-                                color.a() as f32 / 255.0,
+                                f32::from(color.r()) / 255.0,
+                                f32::from(color.g()) / 255.0,
+                                f32::from(color.b()) / 255.0,
+                                f32::from(color.a()) / 255.0,
                             )
                         };
 
@@ -366,8 +369,7 @@ where
                         }
 
                         if !metadata.flags.is_empty() {
-                            let style_line_height =
-                                (self.glyph_font_size / 10.0).max(2.0).min(16.0);
+                            let style_line_height = (self.glyph_font_size / 10.0).clamp(2.0, 16.0);
 
                             let line_color = cosmic_text_to_iced_color(metadata.underline_color);
 
@@ -484,7 +486,7 @@ where
                     view_position,
                     metadata_set,
                 };
-                for glyph in run.glyphs.iter() {
+                for glyph in run.glyphs {
                     bg_rect.update(glyph, renderer, state.is_focused);
                 }
                 bg_rect.fill(renderer, state.is_focused);
@@ -602,7 +604,7 @@ where
                 modifiers,
                 ..
             }) if state.is_focused => {
-                for (key_bind, _) in self.key_binds.iter() {
+                for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &Key::Named(named)) {
                         return Status::Captured;
                     }
@@ -611,8 +613,22 @@ where
                 let escape_code = match named {
                     Named::Insert => csi("2", "~", mod_no),
                     Named::Delete => csi("3", "~", mod_no),
-                    Named::PageUp => csi("5", "~", mod_no),
-                    Named::PageDown => csi("6", "~", mod_no),
+                    Named::PageUp => {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::PageUp);
+                            None
+                        } else {
+                            csi("5", "~", mod_no)
+                        }
+                    }
+                    Named::PageDown => {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::PageDown);
+                            None
+                        } else {
+                            csi("6", "~", mod_no)
+                        }
+                    }
                     Named::ArrowUp => {
                         if is_app_cursor {
                             ss3("A", mod_no)
@@ -642,14 +658,20 @@ where
                         }
                     }
                     Named::End => {
-                        if is_app_cursor {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::Bottom);
+                            None
+                        } else if is_app_cursor {
                             ss3("F", mod_no)
                         } else {
                             csi("F", "", mod_no)
                         }
                     }
                     Named::Home => {
-                        if is_app_cursor {
+                        if modifiers.shift() {
+                            terminal.scroll(TerminalScroll::Top);
+                            None
+                        } else if is_app_cursor {
                             ss3("H", mod_no)
                         } else {
                             csi("H", "", mod_no)
@@ -681,8 +703,7 @@ where
                 match named {
                     Named::Backspace => {
                         let code = if modifiers.control() { "\x08" } else { "\x7f" };
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     Named::Enter => {
@@ -711,8 +732,7 @@ where
                     }
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, code).as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
                         status = Status::Captured;
                     }
                     _ => {}
@@ -727,7 +747,7 @@ where
                 key,
                 ..
             }) if state.is_focused => {
-                for (key_bind, _) in self.key_binds.iter() {
+                for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &key) {
                         return Status::Captured;
                     }
@@ -879,6 +899,10 @@ where
                                         });
                                     }
                                 }
+                            }
+                        } else if button == Button::Middle {
+                            if let Some(on_middle_click) = &self.on_middle_click {
+                                shell.publish(on_middle_click());
                             }
                         }
                         // Update context menu state
@@ -1036,9 +1060,9 @@ fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
     } else {
         let shade = 0.92;
         cosmic_text::Color::rgba(
-            (color.r() as f32 * shade) as u8,
-            (color.g() as f32 * shade) as u8,
-            (color.b() as f32 * shade) as u8,
+            (f32::from(color.r()) * shade) as u8,
+            (f32::from(color.g()) * shade) as u8,
+            (f32::from(color.b()) * shade) as u8,
             color.a(),
         )
     }
@@ -1078,8 +1102,8 @@ pub struct State {
 
 impl State {
     /// Creates a new [`State`].
-    pub fn new() -> State {
-        State {
+    pub fn new() -> Self {
+        Self {
             modifiers: Modifiers::empty(),
             click: None,
             dragging: None,
@@ -1114,7 +1138,7 @@ meta      0b100000    (32)
 caps_lock 0b1000000   (64)
 num_lock  0b10000000  (128)
 */
-fn calculate_modifier_number(state: &mut State) -> u8 {
+fn calculate_modifier_number(state: &State) -> u8 {
     let mut mod_no = 0;
     if state.modifiers.shift() {
         mod_no |= 1;
@@ -1134,10 +1158,10 @@ fn calculate_modifier_number(state: &mut State) -> u8 {
 #[inline(always)]
 fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B[{}{}", code, suffix).as_bytes().to_vec())
+        Some(format!("\x1B[{code}{suffix}").as_bytes().to_vec())
     } else {
         Some(
-            format!("\x1B[{};{}{}", code, modifiers, suffix)
+            format!("\x1B[{code};{modifiers}{suffix}")
                 .as_bytes()
                 .to_vec(),
         )
@@ -1147,8 +1171,8 @@ fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B\x4F{}", code).as_bytes().to_vec())
+        Some(format!("\x1B\x4F{code}").as_bytes().to_vec())
     } else {
-        Some(format!("\x1B[1;{}{}", modifiers, code).as_bytes().to_vec())
+        Some(format!("\x1B[1;{modifiers}{code}").as_bytes().to_vec())
     }
 }
