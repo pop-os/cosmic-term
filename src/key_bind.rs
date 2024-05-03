@@ -23,6 +23,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     // Standard key bindings
     bind!([Ctrl, Shift], Key::Character("A".into()), SelectAll);
     bind!([Ctrl, Shift], Key::Character("C".into()), Copy);
+    bind!([Ctrl], Key::Character("c".into()), CopyOrSigint);
     bind!([Ctrl, Shift], Key::Character("F".into()), Find);
     bind!([Ctrl, Shift], Key::Character("N".into()), WindowNew);
     bind!([Ctrl, Shift], Key::Character("Q".into()), WindowClose);
