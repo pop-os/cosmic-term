@@ -23,6 +23,9 @@ tab-title-description = Nadpisz domyślną nazwę karty
 add-profile = Dodaj profil
 new-profile = Nowy profil
 make-default = Uczyń domyślnym
+working-directory = Katalog roboczy
+hold = Wstrzymaj
+remain-open = Pozostaw otwarty po zakończeniu procesu podrzędnego.
 
 ## Settings
 settings = Ustawienia
