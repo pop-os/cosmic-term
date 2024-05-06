@@ -47,10 +47,6 @@ features = ["multi-window", "tokio", "winit"]
 version = "0.2.1"
 features = ["serde"]
 
-[patch.crates-io]
-# https://github.com/rust-lang/libc/pull/3512
-libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox_0.2.151" }
-
 [target.'cfg(unix)'.dependencies]
 fork = "0.1"
 
@@ -61,3 +57,7 @@ wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+
+[patch.crates-io]
+# https://github.com/rust-lang/libc/pull/3686
+libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox-epoll-0.2" }
