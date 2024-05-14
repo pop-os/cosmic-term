@@ -1691,7 +1691,7 @@ impl Application for App {
                             // Drop the lock for term so that input_scroll doesn't block forever
                             drop(term);
                             // 0x03 is ^C
-                            terminal.input_scroll(&[0x03]);
+                            terminal.input_scroll(b"\x03".as_slice());
                         }
                     }
                 } else {
