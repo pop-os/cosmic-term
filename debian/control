@@ -8,6 +8,7 @@ Build-Depends:
     just (>= 1.13.0),
     pkg-config,
     rust-all,
+    libxkbcommon-dev,
 Standards-Version: 4.6.2
 Homepage: https://github.com/pop-os/cosmic-term
 
