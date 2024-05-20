@@ -205,9 +205,7 @@ pub enum Action {
     ZoomReset,
 }
 
-impl MenuAction for Action {
-    type Message = Message;
-
+impl Action {
     fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Self::About => Message::ToggleContextPage(ContextPage::About),
@@ -251,6 +249,14 @@ impl MenuAction for Action {
             Self::ZoomOut => Message::ZoomOut,
             Self::ZoomReset => Message::ZoomReset,
         }
+    }
+}
+
+impl MenuAction for Action {
+    type Message = Message;
+
+    fn message(&self) -> Message {
+        self.message(None)
     }
 }
 
