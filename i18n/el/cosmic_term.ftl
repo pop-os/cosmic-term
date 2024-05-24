@@ -40,7 +40,7 @@ light = Φωτεινό
 syntax-dark = Σκούρος χρωματικός συνδυασμός
 syntax-light = Φωτεινός χρωματικός συνδυασμός
 default-zoom-step = Βήματα μεγέθυνσης
-opacity = αδιαφάνια υπόβαθρου
+opacity = Αδιαφάνια υπόβαθρου
 
 ### Font
 font = Γραμματοσειρά
@@ -60,7 +60,7 @@ focus-follow-mouse = H πληκτρολόγηση να ακολουθεί το �
 ### Advanced
 advanced = Προχωρημένα
 show-headerbar = Εμφάνιση κεφαλίδας
-show-header-description = Αποκαλύψτε την κεφαλίδα από το μενού δεξιού κλικ.
+show-header-description = Εμφανήστε την κεφαλίδα από το μενού δεξιού κλικ.
 
 # Find
 find-placeholder = Εύρεση...
@@ -74,7 +74,7 @@ file = Αρχείο
 new-tab = Νέα ταμπέλα
 new-window = Νέο παράθυρο
 profile = Προφίλ
-menu-profiles = Άλλα Προφίλ...
+menu-profiles = Περισσότερα Προφίλ...
 close-tab = Κλείσιμο ταμπέλας
 quit = Τερματισμός
 
@@ -87,14 +87,14 @@ find = Εύρεση
 
 ## View
 view = Εμφάνιση
-zoom-in = Μεγαλύτερο κείμενο
-zoom-reset = Προεπιλεγμένο μέγεθος κειμένου
-zoom-out = Μικρότερο κείμενο
+zoom-in = Μεγέθυνση κείμενου
+zoom-reset = Προεπιλεγμένο μεγένθους κειμένου
+zoom-out = Σμίκρυνση κείμενου
 next-tab = Επόμενη ταμπέλα
 previous-tab = Προηγούμενη ταμπέλα
 split-horizontal = Οριζόντιος διαχωρισμός
 split-vertical = Κάθετος διαχωρισμός
-pane-toggle-maximize = Εναλλαγή μεγιστοποίησης
+pane-toggle-maximize = Εναλλαγή μεγέθυνσης 
 menu-color-schemes = Χρωματικοί συνδυασμοί...
 menu-settings = Ρυθμίσεις...
 menu-about = Σχετικά με τον τερματικό COSMIC...
