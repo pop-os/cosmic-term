@@ -34,7 +34,7 @@ settings = Ρυθμίσεις
 ### Appearance
 appearance = Εμφάνιση
 theme = Θέμα
-match-desktop = Ταίριασμα με την επιφάνεια εργασίας
+match-desktop = Αυτόματο
 dark = Σκούρο
 light = Φωτεινό
 syntax-dark = Σκούρος χρωματικός συνδυασμός
