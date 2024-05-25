@@ -29,6 +29,10 @@
               xorg.libX11
             ];
 
+            nativeBuildInputs = [
+              pkg-config
+            ];
+
             RUSTFLAGS = map (a: "-C link-arg=${a}") [
               "-Wl,--push-state,--no-as-needed"
               "-lEGL"
