@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::widget::menu::{items as menu_items, root as menu_root, Item as MenuItem};
+use cosmic::widget::menu::{items as menu_items, menu_button, root as menu_root, Item as MenuItem};
 use cosmic::{
     iced::{
         widget::{column, horizontal_rule, horizontal_space},
-        Alignment, Background, Length,
+        Background, Length,
     },
     iced_core::Border,
-    menu_button, theme,
+    theme,
     widget::{
         self,
         menu::{ItemHeight, ItemWidth, MenuBar, Tree as MenuTree},
@@ -36,23 +36,24 @@ pub fn context_menu<'a>(
 
     let menu_item = |label, action| {
         let key = find_key(&action);
-        menu_button!(
-            widget::text(label),
-            horizontal_space(Length::Fill),
-            widget::text(key)
-        )
+        menu_button(vec![
+            widget::text(label).into(),
+            horizontal_space(Length::Fill).into(),
+            widget::text(key).into(),
+        ])
         .on_press(Message::TabContextAction(entity, action))
     };
 
     let menu_checkbox = |label, value, action| {
-        menu_button!(
-            widget::text(label),
-            widget::horizontal_space(Length::Fill),
-            widget::toggler(None, value, move |_| Message::TabContextAction(
-                entity, action
-            ))
-            .size(16.0),
-        )
+        menu_button(vec![
+            widget::text(label).into(),
+            widget::horizontal_space(Length::Fill).into(),
+            widget::toggler(None, value, move |_| {
+                Message::TabContextAction(entity, action)
+            })
+            .size(16.0)
+            .into(),
+        ])
         .on_press(Message::TabContextAction(entity, action))
     };
 
@@ -99,7 +100,8 @@ pub fn color_scheme_menu<'a>(
     id: ColorSchemeId,
     name: &str,
 ) -> Element<'a, Message> {
-    let menu_item = |label, message| menu_button!(widget::text(label)).on_press(message);
+    let menu_item =
+        |label, message| menu_button(vec![widget::text(label).into()]).on_press(message);
 
     widget::container(column!(
         menu_item(
