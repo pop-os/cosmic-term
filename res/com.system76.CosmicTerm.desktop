@@ -1,6 +1,7 @@
 #TODO: more build-out, desktop actions, translations?
 [Desktop Entry]
 Name=COSMIC Terminal
+Name[pl]=Terminal COSMIC
 Exec=cosmic-term
 Terminal=false
 Type=Application
@@ -8,3 +9,4 @@ StartupNotify=true
 Icon=com.system76.CosmicTerm
 Categories=COSMIC;System;TerminalEmulator;
 Keywords=Command;Shell;Terminal;
+Keywords[pl]=Cli;WierszPoleceń;Powłoka;Terminal;
