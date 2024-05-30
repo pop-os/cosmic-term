@@ -27,8 +27,16 @@ pub enum AppTheme {
 impl AppTheme {
     pub fn theme(&self) -> theme::Theme {
         match self {
-            Self::Dark => theme::Theme::dark(),
-            Self::Light => theme::Theme::light(),
+            Self::Dark => {
+                let mut t = theme::system_dark();
+                t.theme_type.prefer_dark(Some(true));
+                t
+            }
+            Self::Light => {
+                let mut t = theme::system_light();
+                t.theme_type.prefer_dark(Some(false));
+                t
+            }
             Self::System => theme::system_preference(),
         }
     }
