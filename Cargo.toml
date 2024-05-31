@@ -25,7 +25,10 @@ serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
 tokio = { version = "1", features = ["sync"] }
 # Internationalization
-i18n-embed = { version = "0.14", features = ["fluent-system", "desktop-requester"] }
+i18n-embed = { version = "0.14", features = [
+    "fluent-system",
+    "desktop-requester",
+] }
 i18n-embed-fl = "0.7"
 rust-embed = "8"
 
@@ -60,3 +63,11 @@ debug = true
 [patch.crates-io]
 # https://github.com/rust-lang/libc/pull/3686
 libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox-epoll-0.2" }
+
+# [patch.'https://github.com/pop-os/libcosmic']
+# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
+# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
+# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
+# libcosmic = { path = "../libcosmic" }
+# cosmic-config = { path = "../libcosmic/cosmic-config" }
+# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
