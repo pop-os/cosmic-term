@@ -23,6 +23,9 @@ tab-title-description = Переопределить заголовок вкла
 add-profile = Добавить профиль
 new-profile = Новый профиль
 make-default = Установить по умолчанию
+working-directory = Рабочий каталог
+hold = Удержание
+remain-open = Остается открытым после завершения дочернего процесса.
 
 ## Settings
 settings = Параметры
