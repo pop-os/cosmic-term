@@ -248,7 +248,7 @@ impl From<(&str, &Colors)> for ColorScheme {
     }
 }
 
-fn cosmic_dark() -> Colors {
+pub fn cosmic_dark() -> Colors {
     let mut colors = auto_colors();
 
     let encode_rgb = |data: u32| -> Rgb {
@@ -289,7 +289,7 @@ fn cosmic_dark() -> Colors {
     colors
 }
 
-fn cosmic_light() -> Colors {
+pub fn cosmic_light() -> Colors {
     let mut colors = auto_colors();
 
     let encode_rgb = |data: u32| -> Rgb {

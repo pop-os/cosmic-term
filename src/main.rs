@@ -272,9 +272,9 @@ pub enum Message {
     AppTheme(AppTheme),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
-    ColorSchemeExpand(ColorSchemeKind, ColorSchemeId),
-    ColorSchemeExport(ColorSchemeKind, ColorSchemeId),
-    ColorSchemeExportResult(ColorSchemeKind, ColorSchemeId, DialogResult),
+    ColorSchemeExpand(ColorSchemeKind, Option<ColorSchemeId>),
+    ColorSchemeExport(ColorSchemeKind, Option<ColorSchemeId>),
+    ColorSchemeExportResult(ColorSchemeKind, Option<ColorSchemeId>, DialogResult),
     ColorSchemeImport(ColorSchemeKind),
     ColorSchemeImportResult(ColorSchemeKind, DialogResult),
     ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
@@ -401,7 +401,7 @@ pub struct App {
     startup_options: Option<tty::Options>,
     term_config: term::Config,
     color_scheme_errors: Vec<String>,
-    color_scheme_expanded: Option<(ColorSchemeKind, ColorSchemeId)>,
+    color_scheme_expanded: Option<(ColorSchemeKind, Option<ColorSchemeId>)>,
     color_scheme_renaming: Option<(ColorSchemeKind, ColorSchemeId, String)>,
     color_scheme_rename_id: widget::Id,
     color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
@@ -696,65 +696,67 @@ impl App {
                 .into(),
         );
 
-        if !self.config.color_schemes(color_scheme_kind).is_empty() {
-            let mut section = widget::settings::view_section("");
-            for (color_scheme_name, color_scheme_id) in
-                self.config.color_scheme_names(color_scheme_kind)
-            {
-                let expanded =
-                    self.color_scheme_expanded == Some((color_scheme_kind, color_scheme_id));
-                let renaming = match &self.color_scheme_renaming {
-                    Some((kind, id, value))
-                        if kind == &color_scheme_kind && id == &color_scheme_id =>
-                    {
-                        Some(value)
-                    }
-                    _ => None,
-                };
-
-                let button = if expanded {
-                    widget::button(icon_cache_get("view-more-symbolic", 16))
-                        .on_press(Message::ColorSchemeCollapse)
-                } else {
-                    widget::button(icon_cache_get("view-more-symbolic", 16)).on_press(
-                        Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id),
-                    )
+        let mut section = widget::settings::view_section("");
+        let builtin_name = format!("COSMIC {:?}", color_scheme_kind);
+        let color_scheme_names = self.config.color_scheme_names(color_scheme_kind);
+        for (color_scheme_name, color_scheme_id_opt) in std::iter::once((builtin_name, None)).chain(
+            color_scheme_names
+                .into_iter()
+                .map(|(name, id)| (name, Some(id))),
+        ) {
+            let expanded =
+                self.color_scheme_expanded == Some((color_scheme_kind, color_scheme_id_opt));
+            let renaming = match &self.color_scheme_renaming {
+                Some((kind, id, value))
+                    if kind == &color_scheme_kind && Some(id) == color_scheme_id_opt.as_ref() =>
+                {
+                    Some(value)
                 }
-                .style(style::Button::Icon);
+                _ => None,
+            };
 
-                let mut popover = widget::popover(button);
-                if expanded {
-                    let menu = menu::color_scheme_menu(
-                        color_scheme_kind,
-                        color_scheme_id,
-                        &color_scheme_name,
-                    );
-                    popover = popover
-                        .popup(menu)
-                        .position(widget::popover::Position::Bottom);
-                }
-
-                let item = match renaming {
-                    Some(value) => widget::settings::item_row(vec![
-                        widget::text_input("", value)
-                            .id(self.color_scheme_rename_id.clone())
-                            .on_input(move |value| {
-                                Message::ColorSchemeRename(
-                                    color_scheme_kind,
-                                    color_scheme_id,
-                                    value,
-                                )
-                            })
-                            .on_submit(Message::ColorSchemeRenameSubmit)
-                            .into(),
-                        popover.into(),
-                    ]),
-                    None => widget::settings::item::builder(color_scheme_name).control(popover),
-                };
-                section = section.add(item);
+            let button = if expanded {
+                widget::button(icon_cache_get("view-more-symbolic", 16))
+                    .on_press(Message::ColorSchemeCollapse)
+            } else {
+                widget::button(icon_cache_get("view-more-symbolic", 16)).on_press(
+                    Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id_opt),
+                )
             }
-            sections.push(section.into());
+            .style(style::Button::Icon);
+
+            let mut popover = widget::popover(button);
+            if expanded {
+                let menu = menu::color_scheme_menu(
+                    color_scheme_kind,
+                    color_scheme_id_opt,
+                    &color_scheme_name,
+                );
+                popover = popover
+                    .popup(menu)
+                    .position(widget::popover::Position::Bottom);
+            }
+
+            let item = match renaming {
+                Some(value) => widget::settings::item_row(vec![
+                    widget::text_input("", value)
+                        .id(self.color_scheme_rename_id.clone())
+                        .on_input(move |value| {
+                            Message::ColorSchemeRename(
+                                color_scheme_kind,
+                                color_scheme_id_opt.expect("trying to rename builtin color scheme"),
+                                value,
+                            )
+                        })
+                        .on_submit(Message::ColorSchemeRenameSubmit)
+                        .into(),
+                    popover.into(),
+                ]),
+                None => widget::settings::item::builder(color_scheme_name).control(popover),
+            };
+            section = section.add(item);
         }
+        sections.push(section.into());
 
         sections.push(
             widget::row::with_children(vec![
@@ -1520,24 +1522,27 @@ impl Application for App {
                     .remove(&color_scheme_id);
                 return self.save_color_schemes(color_scheme_kind);
             }
-            Message::ColorSchemeExport(color_scheme_kind, color_scheme_id) => {
+            Message::ColorSchemeExport(color_scheme_kind, color_scheme_id_opt) => {
                 self.color_scheme_expanded = None;
-                if let Some(color_scheme) = self
-                    .config
-                    .color_schemes(color_scheme_kind)
-                    .get(&color_scheme_id)
-                {
+                if let Some(color_scheme_name) = match color_scheme_id_opt {
+                    Some(color_scheme_id) => self
+                        .config
+                        .color_schemes(color_scheme_kind)
+                        .get(&color_scheme_id)
+                        .map(|color_scheme| color_scheme.name.clone()),
+                    None => Some(format!("COSMIC {:?}", color_scheme_kind)),
+                } {
                     if self.dialog_opt.is_none() {
                         let (dialog, command) = Dialog::new(
                             DialogKind::SaveFile {
-                                filename: format!("{}.ron", color_scheme.name),
+                                filename: format!("{}.ron", color_scheme_name),
                             },
                             None,
                             Message::DialogMessage,
                             move |result| {
                                 Message::ColorSchemeExportResult(
                                     color_scheme_kind,
-                                    color_scheme_id,
+                                    color_scheme_id_opt,
                                     result,
                                 )
                             },
@@ -1547,45 +1552,85 @@ impl Application for App {
                     }
                 }
             }
-            Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id, result) => {
+            Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id_opt, result) => {
                 //TODO: show errors in UI
                 self.dialog_opt = None;
                 if let DialogResult::Open(paths) = result {
                     let path = &paths[0];
-                    if let Some(color_scheme) = self
-                        .config
-                        .color_schemes(color_scheme_kind)
-                        .get(&color_scheme_id)
-                    {
-                        match ron::ser::to_string_pretty(
-                            &color_scheme,
-                            ron::ser::PrettyConfig::new(),
-                        ) {
-                            Ok(ron) => {
-                                if let Err(err) = fs::write(path, ron) {
+                    match color_scheme_id_opt {
+                        Some(color_scheme_id) => {
+                            if let Some(color_scheme) = self
+                                .config
+                                .color_schemes(color_scheme_kind)
+                                .get(&color_scheme_id)
+                            {
+                                match ron::ser::to_string_pretty(
+                                    &color_scheme,
+                                    ron::ser::PrettyConfig::new(),
+                                ) {
+                                    Ok(ron) => {
+                                        if let Err(err) = fs::write(path, ron) {
+                                            log::error!(
+                                                "failed to export {:?} to {:?}: {}",
+                                                color_scheme_id,
+                                                path,
+                                                err
+                                            );
+                                        }
+                                    }
+                                    Err(err) => {
+                                        log::error!(
+                                            "failed to serialize color scheme {:?}: {}",
+                                            color_scheme_id,
+                                            err
+                                        );
+                                    }
+                                }
+                            } else {
+                                log::error!("failed to find color scheme {:?}", color_scheme_id);
+                            }
+                        }
+                        None => {
+                            let name = format!("COSMIC {:?}", color_scheme_kind);
+                            let color_scheme = match color_scheme_kind {
+                                ColorSchemeKind::Dark => ColorScheme::from((
+                                    name.as_str(),
+                                    &terminal_theme::cosmic_dark(),
+                                )),
+                                ColorSchemeKind::Light => ColorScheme::from((
+                                    name.as_str(),
+                                    &terminal_theme::cosmic_light(),
+                                )),
+                            };
+                            //TODO: do not duplicate code
+                            match ron::ser::to_string_pretty(
+                                &color_scheme,
+                                ron::ser::PrettyConfig::new(),
+                            ) {
+                                Ok(ron) => {
+                                    if let Err(err) = fs::write(path, ron) {
+                                        log::error!(
+                                            "failed to export {:?} to {:?}: {}",
+                                            color_scheme.name,
+                                            path,
+                                            err
+                                        );
+                                    }
+                                }
+                                Err(err) => {
                                     log::error!(
-                                        "failed to export {:?} to {:?}: {}",
-                                        color_scheme_id,
-                                        path,
+                                        "failed to serialize color scheme {:?}: {}",
+                                        color_scheme.name,
                                         err
                                     );
                                 }
                             }
-                            Err(err) => {
-                                log::error!(
-                                    "failed to serialize color scheme {:?}: {}",
-                                    color_scheme_id,
-                                    err
-                                );
-                            }
                         }
-                    } else {
-                        log::error!("failed to find color scheme {:?}", color_scheme_id);
                     }
                 }
             }
-            Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id) => {
-                self.color_scheme_expanded = Some((color_scheme_kind, color_scheme_id));
+            Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id_opt) => {
+                self.color_scheme_expanded = Some((color_scheme_kind, color_scheme_id_opt));
             }
             Message::ColorSchemeImport(color_scheme_kind) => {
                 if self.dialog_opt.is_none() {

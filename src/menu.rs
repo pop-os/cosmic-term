@@ -97,39 +97,50 @@ pub fn context_menu<'a>(
 
 pub fn color_scheme_menu<'a>(
     kind: ColorSchemeKind,
-    id: ColorSchemeId,
+    id_opt: Option<ColorSchemeId>,
     name: &str,
 ) -> Element<'a, Message> {
     let menu_item =
         |label, message| menu_button(vec![widget::text(label).into()]).on_press(message);
 
-    widget::container(column!(
-        menu_item(
+    let mut column = widget::column::with_capacity(if id_opt.is_some() { 3 } else { 1 });
+    if let Some(id) = id_opt {
+        column = column.push(menu_item(
             fl!("rename"),
-            Message::ColorSchemeRename(kind, id, name.to_string())
-        ),
-        menu_item(fl!("export"), Message::ColorSchemeExport(kind, id)),
-        menu_item(fl!("delete"), Message::ColorSchemeDelete(kind, id)),
-    ))
-    .padding(1)
-    //TODO: move style to libcosmic
-    .style(theme::Container::custom(|theme| {
-        let cosmic = theme.cosmic();
-        let component = &cosmic.background.component;
-        widget::container::Appearance {
-            icon_color: Some(component.on.into()),
-            text_color: Some(component.on.into()),
-            background: Some(Background::Color(component.base.into())),
-            border: Border {
-                radius: 8.0.into(),
-                width: 1.0,
-                color: component.divider.into(),
-            },
-            ..Default::default()
-        }
-    }))
-    .width(Length::Fixed(120.0))
-    .into()
+            Message::ColorSchemeRename(kind, id, name.to_string()),
+        ));
+    }
+    column = column.push(menu_item(
+        fl!("export"),
+        Message::ColorSchemeExport(kind, id_opt),
+    ));
+    if let Some(id) = id_opt {
+        column = column.push(menu_item(
+            fl!("delete"),
+            Message::ColorSchemeDelete(kind, id),
+        ));
+    }
+
+    widget::container(column)
+        .padding(1)
+        //TODO: move style to libcosmic
+        .style(theme::Container::custom(|theme| {
+            let cosmic = theme.cosmic();
+            let component = &cosmic.background.component;
+            widget::container::Appearance {
+                icon_color: Some(component.on.into()),
+                text_color: Some(component.on.into()),
+                background: Some(Background::Color(component.base.into())),
+                border: Border {
+                    radius: 8.0.into(),
+                    width: 1.0,
+                    color: component.divider.into(),
+                },
+                ..Default::default()
+            }
+        }))
+        .width(Length::Fixed(120.0))
+        .into()
 }
 
 pub fn menu_bar<'a>(config: &Config, key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message> {

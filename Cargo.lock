@@ -1208,13 +1208,14 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.11.2"
-source = "git+https://github.com/pop-os/cosmic-text.git#5e82de11cf5c977ee82a5d631c05382f4acc7314"
+source = "git+https://github.com/pop-os/cosmic-text.git#89503b254fb6a2014d3712568054b32925ea9008"
 dependencies = [
  "bitflags 2.5.0",
  "fontdb",
  "libm",
  "log",
  "rangemap",
+ "rayon",
  "rustc-hash",
  "rustybuzz",
  "self_cell 1.0.4",
