@@ -217,7 +217,11 @@ where
 
             let x = p.x - self.padding.left;
             let y = p.y - self.padding.top;
-            if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
+            if x >= 0.0
+                && x < buffer_size.0.unwrap_or(0.0)
+                && y >= 0.0
+                && y < buffer_size.1.unwrap_or(0.0)
+            {
                 return mouse::Interaction::Text;
             }
         }
@@ -836,7 +840,11 @@ where
                         if let Button::Left = button {
                             let x = p.x - self.padding.left;
                             let y = p.y - self.padding.top;
-                            if x >= 0.0 && x < buffer_size.0 && y >= 0.0 && y < buffer_size.1 {
+                            if x >= 0.0
+                                && x < buffer_size.0.unwrap_or(0.0)
+                                && y >= 0.0
+                                && y < buffer_size.1.unwrap_or(0.0)
+                            {
                                 let click_kind =
                                     if let Some((click_kind, click_time)) = state.click.take() {
                                         if click_time.elapsed() < self.click_timing {
@@ -889,8 +897,8 @@ where
                                 && x < (scrollbar_rect.x + scrollbar_rect.width)
                             {
                                 if terminal.scrollbar().is_some() {
-                                    let scroll_ratio =
-                                        terminal.with_buffer(|buffer| y / buffer.size().1);
+                                    let scroll_ratio = terminal
+                                        .with_buffer(|buffer| y / buffer.size().1.unwrap_or(1.0));
                                     terminal.scroll_to(scroll_ratio);
                                     if let Some(start_scroll) = terminal.scrollbar() {
                                         state.dragging = Some(Dragging::Scrollbar {
@@ -995,8 +1003,9 @@ where
                                     start_y,
                                     start_scroll,
                                 } => {
-                                    let scroll_offset = terminal
-                                        .with_buffer(|buffer| ((y - start_y) / buffer.size().1));
+                                    let scroll_offset = terminal.with_buffer(|buffer| {
+                                        (y - start_y) / buffer.size().1.unwrap_or(1.0)
+                                    });
                                     terminal.scroll_to(start_scroll.0 + scroll_offset);
                                 }
                             }

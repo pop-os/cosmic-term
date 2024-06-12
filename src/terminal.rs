@@ -378,7 +378,7 @@ impl Terminal {
 
             self.with_buffer_mut(|buffer| {
                 let mut font_system = font_system().write().unwrap();
-                buffer.set_size(font_system.raw(), width as f32, height as f32);
+                buffer.set_size(font_system.raw(), Some(width as f32), Some(height as f32));
             });
 
             self.needs_update = true;
