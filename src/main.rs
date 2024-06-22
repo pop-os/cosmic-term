@@ -77,6 +77,38 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     icon_cache.get(name, size)
 }
 
+fn parse_flag<'a>(arg: &'a str) -> Option<(Arg<'a>, &'a str)> {
+    if let Some(arg) = arg.strip_prefix("--") {
+        return arg
+            .split_once('=')
+            .filter(|(flag, value)| !value.is_empty() && !flag.is_empty())
+            .map(|(flag, value)| (Arg::Long(flag), value));
+    } else if let Some(arg) = arg.strip_prefix('-') {
+        return arg
+            .is_char_boundary(1)
+            .then(|| arg.split_at(1))
+            .filter(|(_, value)| !value.is_empty())
+            .map(|(flag, value)| (Arg::Short(flag.as_bytes()[0]), value));
+    }
+    return None;
+}
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+enum Arg<'a> {
+    Long(&'a str),
+    Short(u8),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_flag() {
+        assert_eq!(parse_flag("--profile=0"), Some((Arg::Long("profile"), "0")));
+        assert_eq!(parse_flag("-P0"), Some((Arg::Short(b'P'), "0")));
+    }
+}
+
 /// Runs application with these settings
 #[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -84,6 +116,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut shell_args = Vec::new();
     let mut parse_flags = true;
     let mut daemonize = true;
+    let mut profile = None;
     for arg in env::args().skip(1) {
         if parse_flags {
             match arg.as_str() {
@@ -94,9 +127,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "--no-daemon" => {
                     daemonize = false;
                 }
-                _ => {
-                    //TODO: should this throw an error?
-                    log::warn!("ignored argument {:?}", arg);
+                arg => {
+                    match parse_flag(arg) {
+                        Some((Arg::Short(b'P') | Arg::Long("profile"), value)) => 
+                            profile = Some(value.to_string()),
+                        //TODO: should this throw an error?
+                        _ =>  eprintln!("ignored argument: {}", arg),
+                    }
                 }
             }
         } else if shell_program_opt.is_none() {
@@ -139,6 +176,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+
+    let mut profile_id: Option<ProfileId> = None;
+    if let Some(profile) = profile {
+        if let Some((id, _)) = config.profiles.iter().find(|(_, k)|&k.name == &profile) {
+            profile_id = Some(*id);
+        } else if let Ok(raw_id) = profile.parse::<u64>() {
+            if config.profiles.contains_key(&ProfileId(raw_id)){
+                profile_id = Some(ProfileId(raw_id))
+            }
+        } 
+    }
+
     let startup_options = if let Some(shell_program) = shell_program_opt {
         let options = tty::Options {
             shell: Some(tty::Shell::new(shell_program, shell_args)),
@@ -160,10 +209,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
     let flags = Flags {
+
+        startup_profile: profile_id,
         config_handler,
         config,
         startup_options,
         term_config,
+   
     };
     cosmic::app::run::<App>(settings, flags)?;
 
@@ -175,6 +227,7 @@ pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
     startup_options: Option<tty::Options>,
+    startup_profile: Option<ProfileId>,
     term_config: term::Config,
 }
 
@@ -404,6 +457,7 @@ pub struct App {
     term_event_tx_opt:
         Option<mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
+    startup_profile: Option<ProfileId>,
     term_config: term::Config,
     color_scheme_errors: Vec<String>,
     color_scheme_expanded: Option<(ColorSchemeKind, Option<ColorSchemeId>)>,
@@ -1513,6 +1567,7 @@ impl Application for App {
             find_search_id: widget::Id::unique(),
             find_search_value: String::new(),
             startup_options: flags.startup_options,
+            startup_profile: flags.startup_profile,
             term_config: flags.term_config,
             term_event_tx_opt: None,
             color_scheme_errors: Vec::new(),
@@ -2347,10 +2402,11 @@ impl Application for App {
                 return self.update_title(Some(pane));
             }
             Message::TabNew => {
+                let profile = self.startup_profile.take();
                 return self.create_and_focus_new_terminal(
                     self.pane_model.focus,
-                    self.get_default_profile(),
-                )
+                    profile.or_else(|| self.get_default_profile()),
+                );
             }
             Message::TabNewNoProfile => {
                 return self.create_and_focus_new_terminal(self.pane_model.focus, None)
