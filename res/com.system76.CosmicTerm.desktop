@@ -7,6 +7,6 @@ Terminal=false
 Type=Application
 StartupNotify=true
 Icon=com.system76.CosmicTerm
-Categories=COSMIC;System;TerminalEmulator;
+Categories=X-COSMIC;System;TerminalEmulator;
 Keywords=Command;Shell;Terminal;
 Keywords[pl]=Cli;WierszPoleceń;Powłoka;Terminal;
