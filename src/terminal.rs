@@ -746,6 +746,10 @@ impl Terminal {
                             if term.colors()[NamedColor::Cursor].is_some() {
                                 fg = bg;
                                 bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
+                            } else if self.colors[NamedColor::Cursor].is_some() {
+                                //Use specific theme cursor color if exists
+                                fg = bg;
+                                bg = convert_color(&self.colors, Color::Named(NamedColor::Cursor));
                             } else {
                                 mem::swap(&mut fg, &mut bg);
                             }
