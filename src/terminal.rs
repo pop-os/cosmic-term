@@ -44,6 +44,10 @@ use crate::{
     mouse_reporter::MouseReporter,
 };
 
+/// Minimum contrast between a fixed cursor color and the cell's background.
+/// Duplicated from alacritty
+pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
     pub width: u32,
@@ -738,7 +742,34 @@ impl Terminal {
                     if indexed.point == grid.cursor.point {
                         //TODO: better handling of cursor
                         if term.mode().contains(TermMode::SHOW_CURSOR) {
-                            mem::swap(&mut fg, &mut bg);
+                            //Use specific cursor color if requested
+                            if term.colors()[NamedColor::Cursor].is_some() {
+                                fg = bg;
+                                bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
+                            } else {
+                                mem::swap(&mut fg, &mut bg);
+                            }
+                            let fg_rgb = Rgb {
+                                r: fg.r(),
+                                g: fg.g(),
+                                b: fg.b(),
+                            };
+                            let bg_rgb = Rgb {
+                                r: bg.r(),
+                                g: bg.g(),
+                                b: bg.b(),
+                            };
+                            let contrast = fg_rgb.contrast(bg_rgb);
+                            if contrast < MIN_CURSOR_CONTRAST {
+                                fg = convert_color(
+                                    &self.colors,
+                                    Color::Named(NamedColor::Background),
+                                );
+                                bg = convert_color(
+                                    &self.colors,
+                                    Color::Named(NamedColor::Foreground),
+                                );
+                            }
                         } else {
                             fg = bg;
                         }
