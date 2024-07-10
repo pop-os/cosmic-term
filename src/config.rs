@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use crate::fl;
+use crate::{fl, localize::LANGUAGE_SORTER};
 
 pub const CONFIG_VERSION: u64 = 1;
 pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
@@ -311,7 +311,7 @@ impl Config {
 
             color_scheme_names.push((name, *color_scheme_id));
         }
-        color_scheme_names.sort_by(|a, b| lexical_sort::natural_lexical_cmp(&a.0, &b.0));
+        color_scheme_names.sort_by(|a, b| LANGUAGE_SORTER.compare(&a.0, &b.0));
         color_scheme_names
     }
 
@@ -347,7 +347,7 @@ impl Config {
 
             profile_names.push((name, *profile_id));
         }
-        profile_names.sort_by(|a, b| lexical_sort::natural_lexical_cmp(&a.0, &b.0));
+        profile_names.sort_by(|a, b| LANGUAGE_SORTER.compare(&a.0, &b.0));
         profile_names
     }
 

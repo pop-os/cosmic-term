@@ -15,7 +15,6 @@ env_logger = "0.10"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
 lazy_static = "1"
-lexical-sort = "0.3.1"
 log = "0.4"
 open = "5.0.2"
 palette = { version = "0.7", features = ["serde"] }
@@ -30,6 +29,8 @@ i18n-embed = { version = "0.14", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.7"
+icu_collator = "1.5"
+icu_provider = { version = "1.5", features = ["sync"] }
 rust-embed = "8"
 
 [dependencies.cosmic-files]
