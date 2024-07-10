@@ -24,6 +24,7 @@ use cosmic::{
 };
 use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult};
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
+use localize::LANGUAGE_SORTER;
 use std::{
     any::TypeId,
     cmp,
@@ -460,9 +461,9 @@ impl App {
             }
         }
         self.theme_names_dark
-            .sort_by(|a, b| lexical_sort::natural_lexical_cmp(a, b));
+            .sort_by(|a, b| LANGUAGE_SORTER.compare(a, b));
         self.theme_names_light
-            .sort_by(|a, b| lexical_sort::natural_lexical_cmp(a, b));
+            .sort_by(|a, b| LANGUAGE_SORTER.compare(a, b));
     }
 
     fn update_config(&mut self) -> Command<Message> {

@@ -64,7 +64,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl], Key::Character("-".into()), ZoomOut);
     bind!([Ctrl], Key::Character("=".into()), ZoomIn);
     bind!([Ctrl], Key::Character("+".into()), ZoomIn);
-    
+
     // Ctrl+Arrows and Ctrl+HJKL move between splits
     bind!([Ctrl, Shift], Key::Named(Named::ArrowLeft), PaneFocusLeft);
     bind!([Ctrl, Shift], Key::Character("H".into()), PaneFocusLeft);
