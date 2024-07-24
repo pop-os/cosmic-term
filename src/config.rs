@@ -229,6 +229,8 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub opacity: u8,
+    /// Open new terminal with the current working directory of the focused term
+    pub open_in_cwd: bool,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub use_bright_bold: bool,
@@ -253,6 +255,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
             opacity: 100,
+            open_in_cwd: true,
             profiles: BTreeMap::new(),
             show_headerbar: true,
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
