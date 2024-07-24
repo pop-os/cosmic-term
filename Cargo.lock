@@ -1553,6 +1553,7 @@ dependencies = [
  "paste",
  "ron 0.8.1",
  "rust-embed",
+ "rustix 0.38.44",
  "serde",
  "shlex",
  "tokio",
