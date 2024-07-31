@@ -39,7 +39,7 @@ default-features = false
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
-features = ["shape-run-cache"]
+features = ["monospace_fallback", "shape-run-cache"]
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
