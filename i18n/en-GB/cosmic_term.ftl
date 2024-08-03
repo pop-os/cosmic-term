@@ -6,7 +6,7 @@ new-terminal = New terminal
 ## About
 git-description = Git commit {$hash} on {$date}
 
-## Color schemes
+## Colour schemes
 color-schemes = Colour schemes
 rename = Rename
 export = Export
@@ -36,8 +36,8 @@ theme = Theme
 match-desktop = Match desktop
 dark = Dark
 light = Light
-syntax-dark = Color scheme dark
-syntax-light = Color scheme light
+syntax-dark = Colour scheme dark
+syntax-light = Colour scheme light
 default-zoom-step = Zoom steps
 opacity = Background opacity
 
