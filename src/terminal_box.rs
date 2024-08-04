@@ -600,7 +600,6 @@ where
 
         let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
         let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
-
         let mut status = Status::Ignored;
         match event {
             Event::Keyboard(KeyEvent::KeyPressed {
@@ -613,6 +612,7 @@ where
                         return Status::Captured;
                     }
                 }
+
                 let mod_no = calculate_modifier_number(state);
                 let escape_code = match named {
                     Named::Insert => csi("2", "~", mod_no),
@@ -637,28 +637,28 @@ where
                         if is_app_cursor {
                             ss3("A", mod_no)
                         } else {
-                            csi("A", "", mod_no)
+                            csi2("A", mod_no)
                         }
                     }
                     Named::ArrowDown => {
                         if is_app_cursor {
                             ss3("B", mod_no)
                         } else {
-                            csi("B", "", mod_no)
+                            csi2("B", mod_no)
                         }
                     }
                     Named::ArrowRight => {
                         if is_app_cursor {
                             ss3("C", mod_no)
                         } else {
-                            csi("C", "", mod_no)
+                            csi2("C", mod_no)
                         }
                     }
                     Named::ArrowLeft => {
                         if is_app_cursor {
                             ss3("D", mod_no)
                         } else {
-                            csi("D", "", mod_no)
+                            csi2("D", mod_no)
                         }
                     }
                     Named::End => {
@@ -668,7 +668,7 @@ where
                         } else if is_app_cursor {
                             ss3("F", mod_no)
                         } else {
-                            csi("F", "", mod_no)
+                            csi2("F", mod_no)
                         }
                     }
                     Named::Home => {
@@ -678,7 +678,7 @@ where
                         } else if is_app_cursor {
                             ss3("H", mod_no)
                         } else {
-                            csi("H", "", mod_no)
+                            csi2("H", mod_no)
                         }
                     }
                     Named::F1 => ss3("P", mod_no),
@@ -707,12 +707,11 @@ where
                 match named {
                     Named::Backspace => {
                         let code = if modifiers.control() { "\x08" } else { "\x7f" };
-                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
                         status = Status::Captured;
                     }
                     Named::Enter => {
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{}{}", alt_prefix, "\x0D").into_bytes());
                         status = Status::Captured;
                     }
                     Named::Escape => {
@@ -724,19 +723,17 @@ where
                         if had_selection {
                             terminal.update();
                         } else {
-                            terminal.input_scroll(
-                                format!("{}{}", alt_prefix, "\x1B").as_bytes().to_vec(),
-                            );
+                            terminal.input_scroll(format!("{}{}", alt_prefix, "\x1B").into_bytes());
                         }
                         status = Status::Captured;
                     }
                     Named::Space => {
-                        terminal.input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{}{}", alt_prefix, " ").into_bytes());
                         status = Status::Captured;
                     }
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
-                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
                         status = Status::Captured;
                     }
                     _ => {}
@@ -1167,21 +1164,28 @@ fn calculate_modifier_number(state: &State) -> u8 {
 #[inline(always)]
 fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B[{code}{suffix}").as_bytes().to_vec())
+        Some(format!("\x1B[{code}{suffix}").into_bytes())
     } else {
-        Some(
-            format!("\x1B[{code};{modifiers}{suffix}")
-                .as_bytes()
-                .to_vec(),
-        )
+        Some(format!("\x1B[{code};{modifiers}{suffix}").into_bytes())
+    }
+}
+// https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-functional-keys
+// CSI 1 ; modifier {ABCDEFHPQS}
+// code is ABCDEFHPQS
+#[inline(always)]
+fn csi2(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    if modifiers == 1 {
+        Some(format!("\x1B[{code}").into_bytes())
+    } else {
+        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
     }
 }
 
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B\x4F{code}").as_bytes().to_vec())
+        Some(format!("\x1B\x4F{code}").into_bytes())
     } else {
-        Some(format!("\x1B[1;{modifiers}{code}").as_bytes().to_vec())
+        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
     }
 }
