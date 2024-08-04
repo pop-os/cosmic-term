@@ -1231,6 +1231,7 @@ dependencies = [
  "shlex",
  "smol_str",
  "tokio",
+ "url",
  "vergen",
 ]
 
