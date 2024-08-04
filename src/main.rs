@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
+use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
+use cosmic::widget::DndDestination;
+use cosmic::Apply;
 use cosmic::{
-    app::{message, Command, Core, Settings},
+    app::{command, message, Command, Core, Settings},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
@@ -56,9 +59,13 @@ use terminal::{Terminal, TerminalPaneGrid, TerminalScroll};
 mod terminal;
 
 use terminal_box::terminal_box;
+
+use crate::dnd::DndDrop;
 mod terminal_box;
 
 mod terminal_theme;
+
+mod dnd;
 
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
@@ -97,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             shell_args.push(arg);
         }
     }
-    
+
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
         match fork::daemon(true, true) {
@@ -295,6 +302,7 @@ pub enum Message {
     DefaultFontWeight(usize),
     DefaultZoomStep(usize),
     DialogMessage(DialogMessage),
+    Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -1894,6 +1902,16 @@ impl Application for App {
                     return dialog.update(dialog_message);
                 }
             }
+            Message::Drop(Some((pane, entity, data))) => {
+                self.pane_model.focus = pane;
+                if let Ok(value) = shlex::try_join(data.paths.iter().filter_map(|p| p.to_str())) {
+                    return Command::batch([
+                        self.update_focus(),
+                        command::message::app(Message::PasteValue(Some(entity), value)),
+                    ]);
+                }
+            }
+            Message::Drop(None) => {}
             Message::Find(find) => {
                 self.find = find;
                 if find {
@@ -2673,7 +2691,19 @@ impl Application for App {
                 // TODO
             }
 
-            pane_grid::Content::new(tab_column)
+            DndDestination::for_data::<DndDrop>(tab_column, move |data, action| {
+                if let Some(data) = data {
+                    if action == DndAction::Move {
+                        Message::Drop(Some((pane, entity, data)))
+                    } else {
+                        log::warn!("unsuppported action: {:?}", action);
+                        Message::Drop(None)
+                    }
+                } else {
+                    Message::Drop(None)
+                }
+            })
+            .apply(pane_grid::Content::new)
         })
         .width(Length::Fill)
         .height(Length::Fill)

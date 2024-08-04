@@ -32,6 +32,7 @@ i18n-embed-fl = "0.7"
 icu_collator = "1.5"
 icu_provider = { version = "1.5", features = ["sync"] }
 rust-embed = "8"
+url = "2.5"
 
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
