@@ -321,11 +321,11 @@ pub enum Message {
     ProfileName(ProfileId, String),
     ProfileNew,
     ProfileOpen(ProfileId),
+    ProfileOpenInCWD(ProfileId, bool),
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
     SelectAll(Option<segmented_button::Entity>),
-    SetOpenInCWD(bool),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
     SyntaxTheme(ColorSchemeKind, usize),
@@ -956,6 +956,13 @@ impl App {
                             ])
                             .align_items(Alignment::Center)
                             .padding([0, space_s]),
+                        )
+                        .add(
+                            widget::settings::item::builder(fl!("open-in-cwd"))
+                                .description(fl!("open-in-cwd-description"))
+                                .toggler(profile.open_in_cwd, move |open_in_cwd| {
+                                    Message::ProfileOpenInCWD(profile_id, open_in_cwd)
+                                }),
                         );
 
                     let padding = Padding {
@@ -1161,17 +1168,11 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::view_section(fl!("advanced"))
-            .add(
-                widget::settings::item::builder(fl!("show-headerbar"))
-                    .description(fl!("show-header-description"))
-                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .add(
-                widget::settings::item::builder(fl!("open-in-cwd"))
-                    .description(fl!("open-in-cwd-description"))
-                    .toggler(self.config.open_in_cwd, Message::SetOpenInCWD),
-            );
+        let advanced_section = widget::settings::view_section(fl!("advanced")).add(
+            widget::settings::item::builder(fl!("show-headerbar"))
+                .description(fl!("show-header-description"))
+                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+        );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -1209,22 +1210,6 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focus;
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            // Current working directory of the selected tab/terminal
-                            #[cfg(not(windows))]
-                            let cwd = self
-                                .config
-                                .open_in_cwd
-                                .then(|| {
-                                    tab_model.active_data::<Mutex<Terminal>>().and_then(
-                                        |terminal| {
-                                            terminal.lock().unwrap().current_working_directory()
-                                        },
-                                    )
-                                })
-                                .flatten();
-                            #[cfg(windows)]
-                            let cwd: Option<std::path::PathBuf> = None;
-
                             // Use the profile options, startup options, or defaults
                             let (options, tab_title_override) = match profile_id_opt
                                 .and_then(|profile_id| self.config.profiles.get(&profile_id))
@@ -1237,8 +1222,27 @@ impl App {
                                             shell = Some(tty::Shell::new(command, args));
                                         }
                                     }
-                                    let working_directory = cwd
+
+                                    #[cfg(not(windows))]
+                                    let working_directory = profile
+                                        .open_in_cwd
+                                        // Evaluate current working working directory based on
+                                        // selected tab/terminal
+                                        .then(|| {
+                                            tab_model.active_data::<Mutex<Terminal>>().and_then(
+                                                |terminal| {
+                                                    terminal
+                                                        .lock()
+                                                        .unwrap()
+                                                        .current_working_directory()
+                                                },
+                                            )
+                                        })
+                                        .flatten()
                                         .or_else(|| Some(profile.working_directory.clone().into()));
+                                    #[cfg(windows)]
+                                    let working_directory = (!profile.working_directory.is_empty())
+                                        .then(|| profile.working_directory.clone().into());
 
                                     let options = tty::Options {
                                         shell,
@@ -1256,7 +1260,15 @@ impl App {
                                 None => {
                                     let mut options =
                                         self.startup_options.take().unwrap_or_default();
-                                    options.working_directory = cwd;
+                                    #[cfg(not(windows))]
+                                    {
+                                        // Eval CWD since it's the default option
+                                        options.working_directory = tab_model
+                                            .active_data::<Mutex<Terminal>>()
+                                            .and_then(|terminal| {
+                                                terminal.lock().unwrap().current_working_directory()
+                                            });
+                                    }
                                     (options, None)
                                 }
                             };
@@ -2095,6 +2107,12 @@ impl Application for App {
             Message::ProfileOpen(profile_id) => {
                 return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
             }
+            Message::ProfileOpenInCWD(profile_id, open_in_cwd) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.open_in_cwd = open_in_cwd;
+                    return self.save_profiles();
+                }
+            }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
                 for (_pane, tab_model) in self.pane_model.panes.iter() {
@@ -2152,12 +2170,6 @@ impl Application for App {
                     }
                 }
                 return self.update_focus();
-            }
-            Message::SetOpenInCWD(open_in_cwd) => {
-                if open_in_cwd != self.config.open_in_cwd {
-                    self.config.open_in_cwd = open_in_cwd;
-                    return self.save_config();
-                }
             }
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {

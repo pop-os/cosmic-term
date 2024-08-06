@@ -26,6 +26,8 @@ make-default = Make default
 working-directory = Working directory
 hold = Hold
 remain-open = Remain open after child process exits.
+open-in-cwd = Use parent CWD
+open-in-cwd-description = Open new terminals using the focused tab's working directory.
 
 ## Settings
 settings = Settings
@@ -60,8 +62,6 @@ focus-follow-mouse = Typing focus follows mouse
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
-open-in-cwd = Use parent CWD
-open-in-cwd-description = Start new terms using the focused tab's working directory.
 
 # Find
 find-placeholder = Find...
