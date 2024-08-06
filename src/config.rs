@@ -198,6 +198,9 @@ pub struct Profile {
     pub tab_title: String,
     #[serde(default)]
     pub working_directory: String,
+    /// Open new terminal with the current working directory of the focused term
+    #[serde(default = "cwd_default")]
+    pub open_in_cwd: bool,
     #[serde(default)]
     pub hold: bool,
 }
@@ -211,9 +214,14 @@ impl Default for Profile {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             tab_title: String::new(),
             working_directory: String::new(),
+            open_in_cwd: true,
             hold: true,
         }
     }
+}
+
+const fn cwd_default() -> bool {
+    true
 }
 
 #[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]

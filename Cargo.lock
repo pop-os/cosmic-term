@@ -1227,6 +1227,7 @@ dependencies = [
  "paste",
  "ron",
  "rust-embed",
+ "rustix 0.38.34",
  "serde",
  "shlex",
  "smol_str",
