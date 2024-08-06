@@ -198,6 +198,9 @@ pub struct Profile {
     pub tab_title: String,
     #[serde(default)]
     pub working_directory: String,
+    /// Open new terminal with the current working directory of the focused term
+    #[serde(default = "cwd_default")]
+    pub open_in_cwd: bool,
     #[serde(default)]
     pub hold: bool,
 }
@@ -212,8 +215,18 @@ impl Default for Profile {
             tab_title: String::new(),
             working_directory: String::new(),
             hold: false,
+            open_in_cwd: cwd_default(),
         }
     }
+}
+
+#[cfg(not(windows))]
+const fn cwd_default() -> bool {
+    true
+}
+#[cfg(windows)]
+const fn cwd_default() -> bool {
+    false
 }
 
 #[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -229,8 +242,6 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub opacity: u8,
-    /// Open new terminal with the current working directory of the focused term
-    pub open_in_cwd: bool,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub use_bright_bold: bool,
@@ -255,7 +266,6 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
             opacity: 100,
-            open_in_cwd: true,
             profiles: BTreeMap::new(),
             show_headerbar: true,
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),

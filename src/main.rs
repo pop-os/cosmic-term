@@ -374,12 +374,12 @@ pub enum Message {
     ProfileName(ProfileId, String),
     ProfileNew,
     ProfileOpen(ProfileId),
+    ProfileOpenInCWD(ProfileId, bool),
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
     Surface(surface::Action),
     SelectAll(Option<segmented_button::Entity>),
-    SetOpenInCWD(bool),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
     SyntaxTheme(ColorSchemeKind, usize),
@@ -1051,6 +1051,13 @@ impl App {
                             ])
                             .align_y(Alignment::Center)
                             .padding([0, space_s]),
+                        )
+                        .add(
+                            widget::settings::item::builder(fl!("open-in-cwd"))
+                                .description(fl!("open-in-cwd-description"))
+                                .toggler(profile.open_in_cwd, move |open_in_cwd| {
+                                    Message::ProfileOpenInCWD(profile_id, open_in_cwd)
+                                }),
                         );
 
                     let padding = Padding {
@@ -1258,18 +1265,11 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::section()
-            .title(fl!("advanced"))
-            .add(
-                widget::settings::item::builder(fl!("show-headerbar"))
-                    .description(fl!("show-header-description"))
-                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .add(
-                widget::settings::item::builder(fl!("open-in-cwd"))
-                    .description(fl!("open-in-cwd-description"))
-                    .toggler(self.config.open_in_cwd, Message::SetOpenInCWD),
-            );
+        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
+            widget::settings::item::builder(fl!("show-headerbar"))
+                .description(fl!("show-header-description"))
+                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+        );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -1310,65 +1310,73 @@ impl App {
                             // Use the startup options, profile options, or defaults
                             let (options, tab_title_override) = match self.startup_options.take() {
                                 Some(options) => (options, None),
-                                None => {
-                                    // Current working directory of the selected tab/terminal
-                                    #[cfg(not(windows))]
-                                    let cwd = self
-                                        .config
-                                        .open_in_cwd
-                                        .then(|| {
-                                            tab_model.active_data::<Mutex<Terminal>>().and_then(
-                                                |terminal| {
+                                None => match profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                                {
+                                    Some(profile) => {
+                                        let mut shell = None;
+                                        if let Some(mut args) = shlex::split(&profile.command) {
+                                            if !args.is_empty() {
+                                                let command = args.remove(0);
+                                                shell = Some(tty::Shell::new(command, args));
+                                            }
+                                        }
+                                        // Current working directory of the selected tab/terminal
+                                        #[cfg(not(windows))]
+                                        let cwd = profile
+                                            .open_in_cwd
+                                            .then(|| {
+                                                tab_model.active_data::<Mutex<Terminal>>().and_then(
+                                                    |terminal| {
+                                                        terminal
+                                                            .lock()
+                                                            .unwrap()
+                                                            .current_working_directory()
+                                                    },
+                                                )
+                                            })
+                                            .flatten();
+                                        // Or default to the profile working directory
+                                        #[cfg(windows)]
+                                        let cwd: Option<
+                                            std::path::PathBuf,
+                                        > = None;
+
+                                        let working_directory = cwd.or_else(|| {
+                                            Some(profile.working_directory.clone().into())
+                                        });
+                                        let options = tty::Options {
+                                            shell,
+                                            working_directory,
+                                            hold: profile.hold,
+                                            env: HashMap::new(),
+                                        };
+                                        let tab_title_override = if profile.tab_title.is_empty() {
+                                            None
+                                        } else {
+                                            Some(profile.tab_title.clone())
+                                        };
+                                        (options, tab_title_override)
+                                    }
+                                    None => {
+                                        let mut options =
+                                            self.startup_options.take().unwrap_or_default();
+                                        #[cfg(not(windows))]
+                                        {
+                                            // Default to opening new tabs in the CWD because
+                                            // it's the default setting
+                                            options.working_directory = tab_model
+                                                .active_data::<Mutex<Terminal>>()
+                                                .and_then(|terminal| {
                                                     terminal
                                                         .lock()
                                                         .unwrap()
                                                         .current_working_directory()
-                                                },
-                                            )
-                                        })
-                                        .flatten();
-                                    // Or default to the profile working directory
-                                    #[cfg(windows)]
-                                    let cwd: Option<
-                                        std::path::PathBuf,
-                                    > = None;
-
-                                    match profile_id_opt.and_then(|profile_id| {
-                                        self.config.profiles.get(&profile_id)
-                                    }) {
-                                        Some(profile) => {
-                                            let mut shell = None;
-                                            if let Some(mut args) = shlex::split(&profile.command) {
-                                                if !args.is_empty() {
-                                                    let command = args.remove(0);
-                                                    shell = Some(tty::Shell::new(command, args));
-                                                }
-                                            }
-                                            let working_directory = cwd.or_else(|| {
-                                                Some(profile.working_directory.clone().into())
-                                            });
-                                            let options = tty::Options {
-                                                shell,
-                                                working_directory,
-                                                hold: profile.hold,
-                                                env: HashMap::new(),
-                                            };
-                                            let tab_title_override = if profile.tab_title.is_empty()
-                                            {
-                                                None
-                                            } else {
-                                                Some(profile.tab_title.clone())
-                                            };
-                                            (options, tab_title_override)
+                                                });
                                         }
-                                        None => {
-                                            let mut options =
-                                                self.startup_options.take().unwrap_or_default();
-                                            options.working_directory = cwd;
-                                            (options, None)
-                                        }
+                                        (options, None)
                                     }
-                                }
+                                },
                             };
                             let entity = tab_model
                                 .insert()
@@ -2265,6 +2273,13 @@ impl Application for App {
                 return self
                     .create_and_focus_new_terminal(self.pane_model.focused(), Some(profile_id));
             }
+            Message::ProfileOpenInCWD(profile_id, open_in_cwd) => {
+                #[cfg(not(windows))]
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.open_in_cwd = open_in_cwd;
+                    return self.save_profiles();
+                }
+            }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
                 for (_pane, tab_model) in self.pane_model.panes.iter() {
@@ -2322,12 +2337,6 @@ impl Application for App {
                     }
                 }
                 return self.update_focus();
-            }
-            Message::SetOpenInCWD(open_in_cwd) => {
-                if open_in_cwd != self.config.open_in_cwd {
-                    self.config.open_in_cwd = open_in_cwd;
-                    return self.update_config();
-                }
             }
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {
