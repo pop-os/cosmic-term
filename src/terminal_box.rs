@@ -613,6 +613,9 @@ where
                         return Status::Captured;
                     }
                 }
+                if unicode_input_named(named, state, &terminal) {
+                    return Status::Captured;
+                }
                 let mod_no = calculate_modifier_number(state);
                 let escape_code = match named {
                     Named::Insert => csi("2", "~", mod_no),
@@ -757,6 +760,11 @@ where
                     }
                 }
                 let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
+
+                if unicode_input(character, state) {
+                    return Status::Captured;
+                }
+
                 match (
                     modifiers.logo(),
                     modifiers.control(),
@@ -1063,6 +1071,86 @@ where
     }
 }
 
+fn unicode_input_named(
+    key: Named,
+    state: &mut State,
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+) -> bool {
+    if !state.is_unicode_input {
+        return false;
+    }
+    match key {
+        //Space and Enter writes the entered unicode key
+        Named::Space | Named::Enter => {
+            if let Some(unicode_char) = unicode_input_to_char(state) {
+                let mut buf = [0, 0, 0, 0];
+                let str = unicode_char.encode_utf8(&mut buf);
+                terminal.input_scroll(str.as_bytes().to_vec());
+            }
+            state.is_unicode_input = false;
+            state.unicode_input.clear();
+        }
+        //Anything else cancels
+        _ => {
+            state.is_unicode_input = false;
+            state.unicode_input.clear();
+        }
+    }
+    true
+}
+
+fn unicode_input(character: char, state: &mut State) -> bool {
+    log::debug!("char {character:?} {character}");
+    match state.is_unicode_input {
+        //Should we enter unicode input mode
+        false => {
+            match (
+                state.modifiers.logo(),
+                state.modifiers.control(),
+                state.modifiers.alt(),
+                state.modifiers.shift(),
+            ) {
+                (false, true, false, true) if character == '\x15' => {
+                    state.is_unicode_input = true;
+                    true
+                }
+                _ => false,
+            }
+        }
+        //Hex input appends, everything else cancels
+        true if state.modifiers.is_empty() => {
+            if character.is_ascii_hexdigit() {
+                state.unicode_input.push(character);
+            } else if character == '\x1b' {
+                state.is_unicode_input = false;
+                state.unicode_input.clear();
+            }
+            true
+        }
+        //Exit unicode mode on any modifier
+        true => {
+            state.is_unicode_input = false;
+            state.unicode_input.clear();
+            true
+        }
+    }
+}
+
+fn unicode_input_to_char(state: &mut State) -> Option<char> {
+    if state.unicode_input.is_empty() {
+        return None;
+    }
+    let hex_str: String = state.unicode_input.iter().collect();
+    state.unicode_input.clear();
+    match u32::from_str_radix(&hex_str, 16) {
+        Ok(value) => char::from_u32(value),
+        Err(err) => {
+            log::error!("Failed to convert hex string {hex_str} to a u32 value {err}");
+            None
+        }
+    }
+}
+
 fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
     if is_focused {
         color
@@ -1107,6 +1195,8 @@ pub struct State {
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
+    unicode_input: Vec<char>,
+    is_unicode_input: bool,
 }
 
 impl State {
@@ -1119,6 +1209,8 @@ impl State {
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
+            unicode_input: Vec::with_capacity(6),
+            is_unicode_input: false,
         }
     }
 }
