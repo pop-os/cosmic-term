@@ -23,6 +23,9 @@ tab-title-description = デフォルトのタブタイトルを無効にしま�
 add-profile = プロファイルを追加
 new-profile = 新しいプロファイル
 make-default = デフォルトにする
+working-directory = 作業ディレクトリ
+hold = Hold
+remain-open = 子プロセスの終了後も閉じない
 
 ## Settings
 settings = 設定
