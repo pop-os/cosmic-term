@@ -410,7 +410,7 @@ where
                                 let bottom_offset = style_line_height * 2.0;
 
                                 let full_width = self.end_x - self.start_x;
-                                let mut accu_width = 0.0;
+                                let mut accu_width = -(self.start_x % 4.0);
                                 let mut dot_width = 2.0f32.min(full_width - accu_width);
 
                                 while accu_width < full_width {
@@ -427,24 +427,23 @@ where
                                 let bottom_offset = style_line_height * 2.0;
 
                                 let full_width = self.end_x - self.start_x;
-                                let mut accu_width = 0.0;
-                                let mut dash_width = 6.0f32.min(full_width - accu_width);
+                                let dash_width = 6.0f32;
                                 let gap_width = dash_width / 2.0;
 
-                                // gap-width dash first
-                                let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                let underline_quad =
-                                    mk_quad!(pos_offset, style_line_height, gap_width);
-                                renderer.fill_quad(underline_quad, line_color);
-                                accu_width += gap_width * 2.0;
+                                let mut accu_width = -(self.start_x % (gap_width + dash_width));
 
                                 while accu_width < full_width {
-                                    dash_width = dash_width.min(full_width - accu_width);
-                                    let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                    let underline_quad =
-                                        mk_quad!(pos_offset, style_line_height, dash_width);
+                                    let width = dash_width.min(full_width - accu_width);
+
+                                    let pos_offset =
+                                        mk_pos_offset!(accu_width.max(0.0), bottom_offset);
+                                    let underline_quad = mk_quad!(
+                                        pos_offset,
+                                        style_line_height,
+                                        width + (accu_width).min(0.0)
+                                    );
                                     renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += dash_width + gap_width;
+                                    accu_width += width + gap_width;
                                 }
                             }
 
@@ -453,18 +452,18 @@ where
                                 let bottom_offset = style_line_height * 1.5;
 
                                 let full_width = self.end_x - self.start_x;
-                                let mut accu_width = 0.0;
-                                let mut dot_width = 1.0f32.min(full_width - accu_width);
+                                let mut accu_width = -self.start_x.fract();
 
                                 while accu_width < full_width {
-                                    dot_width = dot_width.min(full_width - accu_width);
+                                    let dot_width = 1.0f32.min(full_width - accu_width);
 
-                                    let dot_bottom_offset = match accu_width as u32 % 8 {
-                                        3..=5 => bottom_offset + style_line_height,
-                                        2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
-                                        1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
-                                        _ => bottom_offset,
-                                    };
+                                    let dot_bottom_offset =
+                                        match (accu_width + self.start_x) as u32 % 8 {
+                                            3..=5 => bottom_offset + style_line_height,
+                                            2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
+                                            1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
+                                            _ => bottom_offset,
+                                        };
 
                                     let pos_offset = mk_pos_offset!(accu_width, dot_bottom_offset);
                                     let underline_quad =
