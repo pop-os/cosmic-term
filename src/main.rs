@@ -203,6 +203,7 @@ pub enum Action {
     TabActivate8,
     TabClose,
     TabNew,
+    TabNewNoProfile,
     TabNext,
     TabPrev,
     WindowClose,
@@ -248,6 +249,7 @@ impl Action {
             Self::TabActivate8 => Message::TabActivateJump(8),
             Self::TabClose => Message::TabClose(entity_opt),
             Self::TabNew => Message::TabNew,
+            Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
             Self::WindowClose => Message::WindowClose,
@@ -335,6 +337,7 @@ pub enum Message {
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(pane_grid::Pane, Option<Point>),
     TabNew,
+    TabNewNoProfile,
     TabNext,
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
@@ -1257,6 +1260,28 @@ impl App {
                                     terminal.set_config(&self.config, &self.themes, self.zoom_adj);
                                     tab_model
                                         .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                }
+                                Err(err) if profile_id_opt.is_some() => {
+                                    // Create a tab without a profile if the selected
+                                    // profile doesn't work
+                                    let name = profile_id_opt
+                                        .and_then(|id| self.config.profiles.get(&id))
+                                        .map(|profile| profile.name.as_str())
+                                        .unwrap_or_default();
+                                    log::error!(
+                                        "failed to open terminal with profile `{}`: {}",
+                                        name,
+                                        err
+                                    );
+
+                                    // TabClose focuses the nearest tab which would be incorrect
+                                    // in this specific case as it would unfocus the new tab
+                                    // created by TabNewNoProfile
+                                    // TabClose can also cause the terminal app to close if it
+                                    // closes the only open tab. This would close cosmic term
+                                    // if launched with an invalid profile (issue #274)
+                                    tab_model.remove(entity);
+                                    return self.update(Message::TabNewNoProfile);
                                 }
                                 Err(err) => {
                                     log::error!("failed to open terminal: {}", err);
@@ -2260,6 +2285,9 @@ impl Application for App {
                     self.pane_model.focus,
                     self.get_default_profile(),
                 )
+            }
+            Message::TabNewNoProfile => {
+                return self.create_and_focus_new_terminal(self.pane_model.focus, None)
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
