@@ -22,7 +22,10 @@ tab-title = Titre de l'onglet
 tab-title-description = Remplacer le titre d'onglet par défaut
 add-profile = Ajouter profil
 new-profile = Nouveau profil
-make-default = Rendre par défaut
+make-default = Définir par défaut
+working-directory = Répertoire de travail
+hold = Maintenir
+remain-open = Rester ouvert après la fermeture du processus enfant.
 
 ## Settings
 settings = Paramètres
