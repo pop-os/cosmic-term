@@ -19,8 +19,8 @@ profiles = 配置文件
 name = 名称
 command-line = 命令行
 tab-title = 标签标题
-tab-title-description = 覆盖默认标签标题
-add-profile = 添加配置文件
+tab-title-description = 覆盖默认标签页标题
+add-profile = 创建配置文件
 new-profile = 新建配置文件
 make-default = 设为默认配置
 working-directory = 工作目录
@@ -33,11 +33,11 @@ settings = 设置
 ### Appearance
 appearance = 外观
 theme = 主题
-match-desktop = 匹配主题颜色
+match-desktop = 与桌面保持一致
 dark = 深色
 light = 浅色
-syntax-dark = 深色配色方案
-syntax-light = 浅色配色方案
+syntax-dark = 深色模式
+syntax-light = 亮色模式
 default-zoom-step = 缩放步长
 opacity = 背景不透明度
 
@@ -47,10 +47,10 @@ advanced-font-settings = 高级字体设置
 default-font = 默认字体
 default-font-size = 字体大小
 default-font-stretch = 字体延伸
-default-font-weight = 普通字体粗细
-default-dim-font-weight = 淡字体粗细
-default-bold-font-weight = 粗字体粗细
-use-bright-bold = 使粗体更亮
+default-font-weight = 默认字体字重
+default-dim-font-weight = 细体字重
+default-bold-font-weight = 粗体字重
+use-bright-bold = 强调粗体
 
 ### Splits
 splits = 终端分割
@@ -86,9 +86,9 @@ find = 查找
 
 ## View
 view = 视图
-zoom-in = 放大文字
-zoom-reset = 默认文字大小
-zoom-out = 缩小文字
+zoom-in = 放大字体
+zoom-reset = 默认字体大小
+zoom-out = 缩小字体
 next-tab = 下一个标签页
 previous-tab = 上一个标签页
 split-horizontal = 水平分割
