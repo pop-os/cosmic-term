@@ -580,31 +580,39 @@ impl Terminal {
             }
         }
 
-        //TODO: this is done on every set_config because the changed boolean above does not capture
+        // NOTE: this is done on every set_config because the changed boolean above does not capture
         // WINDOW_BG changes
-        self.update_colors(config);
+        let default_colors_updated = self.update_default_colors(config);
 
         if update_cell_size {
             self.update_cell_size();
-        } else if update {
+        } else if update || default_colors_updated {
             self.update();
         }
     }
 
-    pub fn update_colors(&mut self, config: &AppConfig) {
-        self.metadata_set.clear();
+    pub fn update_default_colors(&mut self, config: &AppConfig) -> bool {
         let default_bg = convert_color(&self.colors, Color::Named(NamedColor::Background));
         let default_fg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
 
-        let default_metadata = Metadata::new(default_bg, default_fg);
-        let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
+        let new_default_metadata = Metadata::new(default_bg, default_fg);
+        let curr_metada_idx = self.default_attrs().metadata;
 
-        self.default_attrs = Attrs::new()
-            .family(Family::Monospace)
-            .weight(Weight(config.font_weight))
-            .stretch(config.typed_font_stretch())
-            .color(default_fg)
-            .metadata(default_metadata_idx);
+        let updated = new_default_metadata != self.metadata_set[curr_metada_idx];
+
+        if updated {
+            self.metadata_set.clear();
+            let (default_metadata_idx, _) = self.metadata_set.insert_full(new_default_metadata);
+
+            self.default_attrs = Attrs::new()
+                .family(Family::Monospace)
+                .weight(Weight(config.font_weight))
+                .stretch(config.typed_font_stretch())
+                .color(default_fg)
+                .metadata(default_metadata_idx);
+        }
+
+        updated
     }
 
     pub fn update_cell_size(&mut self) {
