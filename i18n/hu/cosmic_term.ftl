@@ -85,10 +85,10 @@ select-all = Minden kijelölése
 find = Keresés
 
 ## View
-view = Nézed
-zoom-in = Nagyobb szöveg
+view = Nézet
+zoom-in = Nagyobb szövegméret
 zoom-reset = Alapértelmezett szövegméret
-zoom-out = Kisebb szöveg
+zoom-out = Kisebb szövegméret
 next-tab = Következő lap
 previous-tab = Előző lap
 split-horizontal = Vízszintes felosztás
