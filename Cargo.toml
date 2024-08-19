@@ -36,6 +36,7 @@ rust-embed = "8"
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
 default-features = false
+features = ["winit"]
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
