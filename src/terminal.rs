@@ -139,6 +139,7 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
 }
 
 type TabModel = segmented_button::Model<segmented_button::SingleSelect>;
+
 pub struct TerminalPaneGrid {
     pub panes: pane_grid::State<TabModel>,
     pub panes_created: usize,
@@ -212,6 +213,7 @@ pub struct Terminal {
     search_value: String,
     size: Size,
     use_bright_bold: bool,
+    zoom_adj: i8
 }
 
 impl Terminal {
@@ -303,6 +305,7 @@ impl Terminal {
             tab_title_override,
             term,
             use_bright_bold,
+            zoom_adj: Default::default()
         })
     }
 
@@ -330,6 +333,14 @@ impl Terminal {
 
     pub fn size(&self) -> Size {
         self.size
+    }
+
+    pub fn zoom_adj(&self) -> i8 {
+        self.zoom_adj
+    }
+
+    pub fn set_zoom_adj(&mut self, value: i8) {
+        self.zoom_adj = value;
     }
 
     pub fn redraw(&self) -> bool {
@@ -528,11 +539,10 @@ impl Terminal {
         &mut self,
         config: &AppConfig,
         themes: &HashMap<(String, ColorSchemeKind), Colors>,
-        zoom_adj: i8,
     ) {
         let mut update_cell_size = false;
         let mut update = false;
-
+        let zoom_adj = self.zoom_adj;
         if self.default_attrs.stretch != config.typed_font_stretch() {
             self.default_attrs = self.default_attrs.stretch(config.typed_font_stretch());
             update_cell_size = true;
