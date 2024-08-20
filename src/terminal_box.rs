@@ -406,71 +406,69 @@ where
                                 renderer.fill_quad(underline2_quad, line_color);
                             }
 
+                            let mut draw_repeated = |rects: &[(f32, Option<f32>)]| {
+                                let full_width = self.end_x - self.start_x;
+                                let pattern_len: f32 = rects.iter().map(|x| x.0).sum();
+                                let mut pos = 0.0;
+                                let mut index = {
+                                    let in_pattern = (self.start_x) % pattern_len;
+
+                                    let mut sum = 0.0;
+                                    let mut index = 0;
+                                    for (i, rect) in rects.iter().enumerate() {
+                                        sum += rect.0;
+                                        if in_pattern < sum {
+                                            let width = sum - in_pattern;
+                                            if let Some(height) = rect.1 {
+                                                let pos_offset = mk_pos_offset!(pos, height);
+                                                let underline_quad =
+                                                    mk_quad!(pos_offset, style_line_height, width);
+                                                renderer.fill_quad(underline_quad, line_color);
+                                            }
+                                            index = i + 1;
+                                            pos += width;
+                                            break;
+                                        }
+                                    }
+                                    index
+                                };
+                                while pos < full_width {
+                                    let (width, x) = rects[index % rects.len()];
+                                    if let Some(height) = x {
+                                        let pos_offset = mk_pos_offset!(pos, height);
+                                        let underline_quad =
+                                            mk_quad!(pos_offset, style_line_height, width);
+                                        renderer.fill_quad(underline_quad, line_color);
+                                    }
+                                    pos += width;
+                                    index += 1;
+                                }
+                            };
+
                             if metadata.flags.contains(Flags::DOTTED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-
-                                let full_width = self.end_x - self.start_x;
-                                let mut accu_width = -(self.start_x % 4.0);
-                                let mut dot_width = 2.0f32.min(full_width - accu_width);
-
-                                while accu_width < full_width {
-                                    dot_width = dot_width.min(full_width - accu_width);
-                                    let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                    let underline_quad =
-                                        mk_quad!(pos_offset, style_line_height, dot_width);
-                                    renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += 2.0 * dot_width;
-                                }
+                                draw_repeated(&[(2.0, Some(bottom_offset)), (3.0, None)]);
                             }
 
                             if metadata.flags.contains(Flags::DASHED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-
-                                let full_width = self.end_x - self.start_x;
-                                let dash_width = 6.0f32;
-                                let gap_width = dash_width / 2.0;
-
-                                let mut accu_width = -(self.start_x % (gap_width + dash_width));
-
-                                while accu_width < full_width {
-                                    let width = dash_width.min(full_width - accu_width);
-
-                                    let pos_offset =
-                                        mk_pos_offset!(accu_width.max(0.0), bottom_offset);
-                                    let underline_quad = mk_quad!(
-                                        pos_offset,
-                                        style_line_height,
-                                        width + (accu_width).min(0.0)
-                                    );
-                                    renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += width + gap_width;
-                                }
+                                draw_repeated(&[(6.0, Some(bottom_offset)), (3.0, None)]);
                             }
 
                             if metadata.flags.contains(Flags::UNDERCURL) {
                                 let style_line_height = style_line_height.floor();
                                 let bottom_offset = style_line_height * 1.5;
 
-                                let full_width = self.end_x - self.start_x;
-                                let mut accu_width = -self.start_x.fract();
-
-                                while accu_width < full_width {
-                                    let dot_width = 1.0f32.min(full_width - accu_width);
-
-                                    let dot_bottom_offset =
-                                        match (accu_width + self.start_x) as u32 % 8 {
-                                            3..=5 => bottom_offset + style_line_height,
-                                            2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
-                                            1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
-                                            _ => bottom_offset,
-                                        };
-
-                                    let pos_offset = mk_pos_offset!(accu_width, dot_bottom_offset);
-                                    let underline_quad =
-                                        mk_quad!(pos_offset, style_line_height, dot_width);
-                                    renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += dot_width;
-                                }
+                                let pattern: Vec<_> = (0..8)
+                                    .map(|i| match i {
+                                        3..=5 => bottom_offset + style_line_height,
+                                        2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
+                                        1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
+                                        _ => bottom_offset,
+                                    })
+                                    .map(|h| (1.0, Some(h)))
+                                    .collect();
+                                draw_repeated(&pattern)
                             }
                         }
                     }
