@@ -397,7 +397,6 @@ pub struct App {
     curr_font_weights: Vec<u16>,
     curr_font_stretch_names: Vec<String>,
     curr_font_stretches: Vec<Stretch>,
-    zoom_adj: i8,
     zoom_step_names: Vec<String>,
     zoom_steps: Vec<u16>,
     theme_names_dark: Vec<String>,
@@ -477,6 +476,18 @@ impl App {
             .sort_by(|a, b| LANGUAGE_SORTER.compare(a, b));
     }
 
+
+    fn reset_terminal_panes_zoom(&mut self) {
+        for (_pane, tab_model) in self.pane_model.panes.iter() {
+            for entity in tab_model.iter() {
+                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                    let mut terminal = terminal.lock().unwrap();
+                    terminal.set_zoom_adj(0);
+                }
+            }
+        }
+    }
+
     fn update_config(&mut self) -> Command<Message> {
         let theme = self.config.app_theme.theme();
 
@@ -499,7 +510,7 @@ impl App {
             for entity in tab_model.iter() {
                 if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
-                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                    terminal.set_config(&self.config, &self.themes);
                 }
             }
         }
@@ -509,6 +520,29 @@ impl App {
 
         // Update application theme
         cosmic::app::command::set_theme(theme)
+    }
+
+    fn update_render_active_pane_zoom(&mut self, zoom_message: Message) -> Command<Message> {
+        // skip writing config to fs when zoom in/ out
+        // recalculate the pane due to the changes of zoom_adj value
+        // but only for the active pane/tab
+        if let Some(tab_model) = self.pane_model.active() {
+            for entity in tab_model.iter() {
+                if tab_model.is_active(entity) {
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        let current_zoom_adj = terminal.zoom_adj();
+                        match zoom_message {
+                            Message::ZoomIn => terminal.set_zoom_adj(current_zoom_adj.saturating_add(1)),
+                            Message::ZoomOut => terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1)),
+                            _ => {}
+                        }
+                        terminal.set_config(&self.config, &self.themes);
+                    }
+                }
+            }
+        }
+        Command::none()
     }
 
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Command<Message> {
@@ -1253,7 +1287,7 @@ impl App {
                                 tab_title_override,
                             ) {
                                 Ok(mut terminal) => {
-                                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                                    terminal.set_config(&self.config, &self.themes);
                                     tab_model
                                         .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
                                 }
@@ -1451,7 +1485,6 @@ impl Application for App {
             curr_font_weights: Vec::new(),
             curr_font_stretch_names: Vec::new(),
             curr_font_stretches: Vec::new(),
-            zoom_adj: 0,
             zoom_step_names,
             zoom_steps,
             theme_names_dark: Vec::new(),
@@ -1528,7 +1561,6 @@ impl Application for App {
                 }
             };
         }
-
         match message {
             Message::AppTheme(app_theme) => {
                 config_set!(app_theme, app_theme);
@@ -1831,7 +1863,7 @@ impl Application for App {
             Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
                 Some(font_size) => {
                     config_set!(font_size, *font_size);
-                    self.zoom_adj = 0; // reset zoom
+                    self.reset_terminal_panes_zoom(); // reset zoom
                     return self.update_config();
                 }
                 None => {
@@ -1878,7 +1910,7 @@ impl Application for App {
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
                     config_set!(font_size_zoom_step_mul_100, *zoom_step);
-                    self.zoom_adj = 0; // reset zoom
+                    self.reset_terminal_panes_zoom(); // reset zoom
                     return self.update_config();
                 }
                 None => {
@@ -2514,15 +2546,13 @@ impl Application for App {
                 }
             },
             Message::ZoomIn => {
-                self.zoom_adj = self.zoom_adj.saturating_add(1);
-                return self.update_config();
+                return self.update_render_active_pane_zoom(message);
             }
             Message::ZoomOut => {
-                self.zoom_adj = self.zoom_adj.saturating_sub(1);
-                return self.update_config();
+                return self.update_render_active_pane_zoom(message);
             }
             Message::ZoomReset => {
-                self.zoom_adj = 0;
+                self.reset_terminal_panes_zoom();
                 return self.update_config();
             }
         }
