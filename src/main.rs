@@ -511,18 +511,6 @@ impl App {
         cosmic::app::command::set_theme(theme)
     }
 
-    fn save_config(&mut self) -> Command<Message> {
-        if let Some(ref config_handler) = self.config_handler {
-            match self.config.write_entry(config_handler) {
-                Ok(()) => {}
-                Err(err) => {
-                    log::error!("failed to save config: {}", err);
-                }
-            }
-        }
-        self.update_config()
-    }
-
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Command<Message> {
         // Optimized for just saving color_schemes
         if let Some(ref config_handler) = self.config_handler {
@@ -1543,8 +1531,8 @@ impl Application for App {
 
         match message {
             Message::AppTheme(app_theme) => {
-                self.config.app_theme = app_theme;
-                return self.save_config();
+                config_set!(app_theme, app_theme);
+                return self.update_config();
             }
             Message::ColorSchemeCollapse => {
                 self.color_scheme_expanded = None;
@@ -1829,10 +1817,10 @@ impl Application for App {
                                 }
                             }
 
-                            self.config.font_name = font_name.to_string();
+                            config_set!(font_name, font_name.to_string());
                             self.set_curr_font_weights_and_stretches();
 
-                            return self.save_config();
+                            return self.update_config();
                         }
                     }
                     None => {
@@ -1842,9 +1830,9 @@ impl Application for App {
             }
             Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
                 Some(font_size) => {
-                    self.config.font_size = *font_size;
+                    config_set!(font_size, *font_size);
                     self.zoom_adj = 0; // reset zoom
-                    return self.save_config();
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find font with index {}", index);
@@ -1852,9 +1840,9 @@ impl Application for App {
             },
             Message::DefaultFontStretch(index) => match self.curr_font_stretches.get(index) {
                 Some(font_stretch) => {
-                    self.config.font_stretch = font_stretch.to_number();
+                    config_set!(font_stretch, font_stretch.to_number());
                     self.set_curr_font_weights_and_stretches();
-                    return self.save_config();
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find font weight with index {}", index);
@@ -1862,8 +1850,8 @@ impl Application for App {
             },
             Message::DefaultFontWeight(index) => match self.curr_font_weights.get(index) {
                 Some(font_weight) => {
-                    self.config.font_weight = *font_weight;
-                    return self.save_config();
+                    config_set!(font_weight, *font_weight);
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find font weight with index {}", index);
@@ -1871,8 +1859,8 @@ impl Application for App {
             },
             Message::DefaultDimFontWeight(index) => match self.curr_font_weights.get(index) {
                 Some(font_weight) => {
-                    self.config.dim_font_weight = *font_weight;
-                    return self.save_config();
+                    config_set!(dim_font_weight, *font_weight);
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find dim font weight with index {}", index);
@@ -1880,8 +1868,8 @@ impl Application for App {
             },
             Message::DefaultBoldFontWeight(index) => match self.curr_font_weights.get(index) {
                 Some(font_weight) => {
-                    self.config.bold_font_weight = *font_weight;
-                    return self.save_config();
+                    config_set!(bold_font_weight, *font_weight);
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find bold font weight with index {}", index);
@@ -1889,9 +1877,9 @@ impl Application for App {
             },
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
-                    self.config.font_size_zoom_step_mul_100 = *zoom_step;
+                    config_set!(font_size_zoom_step_mul_100, *zoom_step);
                     self.zoom_adj = 0; // reset zoom
-                    return self.save_config();
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find zoom step with index {}", index);
@@ -2170,14 +2158,14 @@ impl Application for App {
             }
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {
-                    self.config.show_headerbar = show_headerbar;
-                    return self.save_config();
+                    config_set!(show_headerbar, show_headerbar);
+                    return self.update_config();
                 }
             }
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
-                    self.config.use_bright_bold = use_bright_bold;
-                    return self.save_config();
+                    config_set!(use_bright_bold, use_bright_bold);
+                    return self.update_config();
                 }
             }
             Message::ShowAdvancedFontSettings(show) => {
@@ -2191,13 +2179,13 @@ impl Application for App {
                     Some(theme_name) => {
                         match color_scheme_kind {
                             ColorSchemeKind::Dark => {
-                                self.config.syntax_theme_dark = theme_name.to_string();
+                                config_set!(syntax_theme_dark, theme_name.to_string());
                             }
                             ColorSchemeKind::Light => {
-                                self.config.syntax_theme_light = theme_name.to_string();
+                                config_set!(syntax_theme_light, theme_name.to_string());
                             }
                         }
-                        return self.save_config();
+                        return self.update_config();
                     }
                     None => {
                         log::warn!("failed to find syntax theme with index {}", index);
@@ -2527,15 +2515,15 @@ impl Application for App {
             },
             Message::ZoomIn => {
                 self.zoom_adj = self.zoom_adj.saturating_add(1);
-                return self.save_config();
+                return self.update_config();
             }
             Message::ZoomOut => {
                 self.zoom_adj = self.zoom_adj.saturating_sub(1);
-                return self.save_config();
+                return self.update_config();
             }
             Message::ZoomReset => {
                 self.zoom_adj = 0;
-                return self.save_config();
+                return self.update_config();
             }
         }
 
