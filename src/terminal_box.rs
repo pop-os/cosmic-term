@@ -34,6 +34,7 @@ use cosmic::{
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
 use std::{
+    array,
     cell::Cell,
     cmp,
     collections::HashMap,
@@ -406,12 +407,13 @@ where
                                 renderer.fill_quad(underline2_quad, line_color);
                             }
 
+                            // rects is a slice of (width, Option<y>), `None` means a gap.
                             let mut draw_repeated = |rects: &[(f32, Option<f32>)]| {
                                 let full_width = self.end_x - self.start_x;
-                                let pattern_len: f32 = rects.iter().map(|x| x.0).sum();
-                                let mut pos = 0.0;
+                                let pattern_len: f32 = rects.iter().map(|x| x.0).sum(); // total length of the pattern
+                                let mut accu_width = 0.0;
                                 let mut index = {
-                                    let in_pattern = (self.start_x) % pattern_len;
+                                    let in_pattern = self.start_x % pattern_len;
 
                                     let mut sum = 0.0;
                                     let mut index = 0;
@@ -420,54 +422,63 @@ where
                                         if in_pattern < sum {
                                             let width = sum - in_pattern;
                                             if let Some(height) = rect.1 {
-                                                let pos_offset = mk_pos_offset!(pos, height);
+                                                // draw first rect cropped to span
+                                                let pos_offset = mk_pos_offset!(accu_width, height);
                                                 let underline_quad =
                                                     mk_quad!(pos_offset, style_line_height, width);
                                                 renderer.fill_quad(underline_quad, line_color);
                                             }
                                             index = i + 1;
-                                            pos += width;
+                                            accu_width += width;
                                             break;
                                         }
                                     }
-                                    index
+                                    index // index of first full rect
                                 };
-                                while pos < full_width {
+                                while accu_width < full_width {
                                     let (width, x) = rects[index % rects.len()];
+                                    let cropped_width = width.min(full_width - accu_width);
                                     if let Some(height) = x {
-                                        let pos_offset = mk_pos_offset!(pos, height);
+                                        let pos_offset = mk_pos_offset!(accu_width, height);
                                         let underline_quad =
-                                            mk_quad!(pos_offset, style_line_height, width);
+                                            mk_quad!(pos_offset, style_line_height, cropped_width);
                                         renderer.fill_quad(underline_quad, line_color);
                                     }
-                                    pos += width;
+                                    accu_width += cropped_width;
                                     index += 1;
                                 }
                             };
 
                             if metadata.flags.contains(Flags::DOTTED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-                                draw_repeated(&[(2.0, Some(bottom_offset)), (3.0, None)]);
+                                let dot = (2.0, Some(bottom_offset));
+                                let gap = (2.0, None);
+                                draw_repeated(&[dot, gap]);
                             }
 
                             if metadata.flags.contains(Flags::DASHED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-                                draw_repeated(&[(6.0, Some(bottom_offset)), (3.0, None)]);
+                                let dot = (2.0, Some(bottom_offset));
+                                let gap = (3.0, None);
+                                draw_repeated(&[dot, gap]);
                             }
 
                             if metadata.flags.contains(Flags::UNDERCURL) {
                                 let style_line_height = style_line_height.floor();
                                 let bottom_offset = style_line_height * 1.5;
-
-                                let pattern: Vec<_> = (0..8)
-                                    .map(|i| match i {
-                                        3..=5 => bottom_offset + style_line_height,
-                                        2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
-                                        1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
-                                        _ => bottom_offset,
-                                    })
-                                    .map(|h| (1.0, Some(h)))
-                                    .collect();
+                                let pattern: [(f32, Option<f32>); 8] =
+                                    array::from_fn(|i| match i {
+                                        3..=5 => (1.0, Some(bottom_offset + style_line_height)),
+                                        2 | 6 => (
+                                            1.0,
+                                            Some(bottom_offset + 2.0 * style_line_height / 3.0),
+                                        ),
+                                        1 | 7 => (
+                                            1.0,
+                                            Some(bottom_offset + 1.0 * style_line_height / 3.0),
+                                        ),
+                                        _ => (1.0, Some(bottom_offset)),
+                                    });
                                 draw_repeated(&pattern)
                             }
                         }
