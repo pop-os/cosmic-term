@@ -458,9 +458,9 @@ where
 
                             if metadata.flags.contains(Flags::DASHED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-                                let dot = (2.0, Some(bottom_offset));
+                                let dash = (6.0, Some(bottom_offset));
                                 let gap = (3.0, None);
-                                draw_repeated(&[dot, gap]);
+                                draw_repeated(&[dash, gap]);
                             }
 
                             if metadata.flags.contains(Flags::UNDERCURL) {
@@ -477,7 +477,8 @@ where
                                             1.0,
                                             Some(bottom_offset + 1.0 * style_line_height / 3.0),
                                         ),
-                                        _ => (1.0, Some(bottom_offset)),
+                                        0 => (1.0, Some(bottom_offset)),
+                                        _ => unreachable!(),
                                     });
                                 draw_repeated(&pattern)
                             }
