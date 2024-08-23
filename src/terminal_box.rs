@@ -4,6 +4,7 @@ use alacritty_terminal::{
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
     term::{cell::Flags, TermMode},
+    vte::ansi::CursorShape,
 };
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
@@ -586,6 +587,30 @@ where
         } else {
             state.scrollbar_rect.set(Rectangle::default())
         }
+
+        // Draw cursor
+        terminal.with_buffer(|buffer| {
+            let cursor = terminal.term.lock().renderable_content().cursor;
+            let col = cursor.point.column.0;
+            let line = cursor.point.line.0;
+            match cursor.shape {
+                CursorShape::Beam => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(
+                            view_position
+                                + Vector::new(
+                                    (col as f32 * terminal.size().cell_width).floor(),
+                                    line as f32 * terminal.size().cell_height,
+                                ),
+                            Size::new(1.0, buffer.metrics().line_height),
+                        ),
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, Color::WHITE);
+                }
+                _ => {}
+            }
+        });
 
         let duration = instant.elapsed();
         log::trace!("redraw {}, {}: {:?}", view_w, view_h, duration);

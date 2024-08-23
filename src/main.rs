@@ -476,7 +476,6 @@ impl App {
             .sort_by(|a, b| LANGUAGE_SORTER.compare(a, b));
     }
 
-
     fn reset_terminal_panes_zoom(&mut self) {
         for (_pane, tab_model) in self.pane_model.panes.iter() {
             for entity in tab_model.iter() {
@@ -533,8 +532,12 @@ impl App {
                         let mut terminal = terminal.lock().unwrap();
                         let current_zoom_adj = terminal.zoom_adj();
                         match zoom_message {
-                            Message::ZoomIn => terminal.set_zoom_adj(current_zoom_adj.saturating_add(1)),
-                            Message::ZoomOut => terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1)),
+                            Message::ZoomIn => {
+                                terminal.set_zoom_adj(current_zoom_adj.saturating_add(1))
+                            }
+                            Message::ZoomOut => {
+                                terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1))
+                            }
                             _ => {}
                         }
                         terminal.set_config(&self.config, &self.themes);
