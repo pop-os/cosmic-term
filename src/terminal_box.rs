@@ -4,7 +4,7 @@ use alacritty_terminal::{
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
     term::{cell::Flags, TermMode},
-    vte::ansi::CursorShape,
+    vte::ansi::{CursorShape, NamedColor},
 };
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
@@ -593,7 +593,10 @@ where
             let cursor = terminal.term.lock().renderable_content().cursor;
             let col = cursor.point.column.0;
             let line = cursor.point.line.0;
-            let color = Color::WHITE; // TODO
+            let color = terminal.term.lock().colors()[NamedColor::Cursor]
+                .or(terminal.colors()[NamedColor::Cursor])
+                .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
+                .unwrap_or(Color::WHITE); // TODO default color from theme?
             let width = terminal.size().cell_width;
             let height = terminal.size().cell_height;
             let top_left = view_position
