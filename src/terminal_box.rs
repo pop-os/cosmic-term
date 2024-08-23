@@ -589,28 +589,41 @@ where
         }
 
         // Draw cursor
-        terminal.with_buffer(|buffer| {
+        {
             let cursor = terminal.term.lock().renderable_content().cursor;
             let col = cursor.point.column.0;
             let line = cursor.point.line.0;
+            let color = Color::WHITE; // TODO
+            let width = terminal.size().cell_width;
+            let height = terminal.size().cell_height;
+            let top_left = view_position
+                + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
             match cursor.shape {
                 CursorShape::Beam => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(top_left, Size::new(1.0, height)),
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, color);
+                }
+                CursorShape::Underline => {
                     let quad = Quad {
                         bounds: Rectangle::new(
                             view_position
                                 + Vector::new(
-                                    (col as f32 * terminal.size().cell_width).floor(),
-                                    line as f32 * terminal.size().cell_height,
+                                    (col as f32 * width).floor(),
+                                    ((line + 1) as f32 * height).floor(),
                                 ),
-                            Size::new(1.0, buffer.metrics().line_height),
+                            Size::new(width, 1.0),
                         ),
                         ..Default::default()
                     };
-                    renderer.fill_quad(quad, Color::WHITE);
+                    renderer.fill_quad(quad, color);
                 }
-                _ => {}
+                CursorShape::HollowBlock => {} // TODO not sure when this would even be activated
+                CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
             }
-        });
+        }
 
         let duration = instant.elapsed();
         log::trace!("redraw {}, {}: {:?}", view_w, view_h, duration);

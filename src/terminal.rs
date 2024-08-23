@@ -12,7 +12,7 @@ use alacritty_terminal::{
         viewport_to_point, Config, TermDamage, TermMode,
     },
     tty::{self, Options},
-    vte::ansi::{Color, NamedColor, Rgb},
+    vte::ansi::{Color, CursorShape, NamedColor, Rgb},
     Term,
 };
 use cosmic::{
@@ -757,43 +757,34 @@ impl Terminal {
                     }
 
                     // Change color if cursor
-                    if indexed.point == grid.cursor.point {
-                        //TODO: better handling of cursor
-                        if term.mode().contains(TermMode::SHOW_CURSOR) {
-                            //Use specific cursor color if requested
-                            if term.colors()[NamedColor::Cursor].is_some() {
-                                fg = bg;
-                                bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
-                            } else if self.colors[NamedColor::Cursor].is_some() {
-                                //Use specific theme cursor color if exists
-                                fg = bg;
-                                bg = convert_color(&self.colors, Color::Named(NamedColor::Cursor));
-                            } else {
-                                mem::swap(&mut fg, &mut bg);
-                            }
-                            let fg_rgb = Rgb {
-                                r: fg.r(),
-                                g: fg.g(),
-                                b: fg.b(),
-                            };
-                            let bg_rgb = Rgb {
-                                r: bg.r(),
-                                g: bg.g(),
-                                b: bg.b(),
-                            };
-                            let contrast = fg_rgb.contrast(bg_rgb);
-                            if contrast < MIN_CURSOR_CONTRAST {
-                                fg = convert_color(
-                                    &self.colors,
-                                    Color::Named(NamedColor::Background),
-                                );
-                                bg = convert_color(
-                                    &self.colors,
-                                    Color::Named(NamedColor::Foreground),
-                                );
-                            }
-                        } else {
+                    if indexed.point == grid.cursor.point
+                        && term.cursor_style().shape == CursorShape::Block
+                    {
+                        //Use specific cursor color if requested
+                        if term.colors()[NamedColor::Cursor].is_some() {
                             fg = bg;
+                            bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
+                        } else if self.colors[NamedColor::Cursor].is_some() {
+                            //Use specific theme cursor color if exists
+                            fg = bg;
+                            bg = convert_color(&self.colors, Color::Named(NamedColor::Cursor));
+                        } else {
+                            mem::swap(&mut fg, &mut bg);
+                        }
+                        let fg_rgb = Rgb {
+                            r: fg.r(),
+                            g: fg.g(),
+                            b: fg.b(),
+                        };
+                        let bg_rgb = Rgb {
+                            r: bg.r(),
+                            g: bg.g(),
+                            b: bg.b(),
+                        };
+                        let contrast = fg_rgb.contrast(bg_rgb);
+                        if contrast < MIN_CURSOR_CONTRAST {
+                            fg = convert_color(&self.colors, Color::Named(NamedColor::Background));
+                            bg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
                         }
                     }
 
