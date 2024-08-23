@@ -213,7 +213,7 @@ pub struct Terminal {
     search_value: String,
     size: Size,
     use_bright_bold: bool,
-    zoom_adj: i8
+    zoom_adj: i8,
 }
 
 impl Terminal {
@@ -305,7 +305,7 @@ impl Terminal {
             tab_title_override,
             term,
             use_bright_bold,
-            zoom_adj: Default::default()
+            zoom_adj: Default::default(),
         })
     }
 
