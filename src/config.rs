@@ -211,7 +211,7 @@ impl Default for Profile {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             tab_title: String::new(),
             working_directory: String::new(),
-            hold: true,
+            hold: false,
         }
     }
 }
