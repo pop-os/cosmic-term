@@ -64,6 +64,8 @@ inherits = "release"
 debug = true
 
 [patch.crates-io]
+# https://github.com/alexcrichton/filetime/pull/104
+filetime = { git = "https://github.com/jackpot51/filetime" }
 # https://github.com/rust-lang/libc/pull/3686
 libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox-epoll-0.2" }
 
