@@ -758,7 +758,7 @@ impl Terminal {
 
                     // Change color if cursor
                     if indexed.point == grid.cursor.point
-                        && term.cursor_style().shape == CursorShape::Block
+                        && term.renderable_content().cursor.shape == CursorShape::Block
                     {
                         //Use specific cursor color if requested
                         if term.colors()[NamedColor::Cursor].is_some() {
