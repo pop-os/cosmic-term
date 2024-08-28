@@ -10,7 +10,7 @@ git-description = Commit do git {$hash} em {$date}
 color-schemes = Esquemas de cores
 rename = Renomear
 export = Exportar
-delete = Deletar
+delete = Excluir
 import = Importar
 import-errors = Erros de Importação
 
@@ -23,6 +23,9 @@ tab-title-description = Sobrescrever o título da aba padrão
 add-profile = Adicionar perfil
 new-profile = Novo perfil
 make-default = Tornar padrão
+working-directory = Diretório de trabalho
+hold = Manter
+remain-open = Continuar aberto depois que o processo secundário terminar.
 
 ## Settings
 settings = Configurações
@@ -45,7 +48,7 @@ default-font = Fonte
 default-font-size = Tamanho da fonte
 default-font-stretch = Esticamento da fonte
 default-font-weight = Peso padrão da fonte
-default-dim-font-weight = Peso da fonte clareara
+default-dim-font-weight = Peso da fonte fraca
 default-bold-font-weight = Peso da fonte em negrito
 use-bright-bold = Usar negrito brilhante
 
@@ -56,7 +59,7 @@ focus-follow-mouse = Foco de digitação segue o mouse
 ### Advanced
 advanced = Avançado
 show-headerbar = Mostrar barra de título
-show-header-description = Mostrar a barra de título na janela no menu do botão direito
+show-header-description = Mostrar a barra de título pela janela no menu de contexto
 
 # Find
 find-placeholder = Pesquisar...
@@ -78,7 +81,7 @@ quit = Sair
 edit = Editar
 copy = Copiar
 paste = Colar
-select-all = Selecione tudo
+select-all = Selecionar tudo
 find = Pesquisar
 
 ## View
@@ -93,4 +96,4 @@ split-vertical = Dividir verticalmente
 pane-toggle-maximize = Alternar maximização
 menu-color-schemes = Esquemas de cores...
 menu-settings = Configurações...
-menu-about = Sobre COSMIC Terminal...
+menu-about = Sobre o COSMIC Terminal...
