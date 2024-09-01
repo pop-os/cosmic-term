@@ -23,6 +23,9 @@ tab-title-description = Substitui o título do separador predefinido
 add-profile = Adicionar perfil
 new-profile = Novo perfil
 make-default = Tornar predefinido
+working-directory = Pasta de trabalho
+hold = Manter
+remain-open = Permanecer aberto após o processo filho terminar
 
 ## Settings
 settings = Definições
