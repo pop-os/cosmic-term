@@ -1415,6 +1415,13 @@ impl Application for App {
             });
             font_name_faces_map
         };
+
+        if font_name_faces_map.is_empty() {
+            log::error!("at least one monospace font with normal/bold weights and default stretch is required");
+            log::error!("no monospace fonts to select from, exiting");
+            process::exit(1);
+        }
+
         let font_names = font_name_faces_map.keys().cloned().collect();
 
         let mut font_size_names = Vec::new();
