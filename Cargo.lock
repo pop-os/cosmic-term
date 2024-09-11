@@ -1222,7 +1222,7 @@ source = "git+https://github.com/pop-os/libcosmic.git#c497c227ce806dec84cf66ffca
 dependencies = [
  "atomicwrites",
  "cosmic-config-derive",
- "dirs 5.0.1",
+ "dirs",
  "iced_futures",
  "known-folders",
  "notify",
@@ -1246,10 +1246,10 @@ dependencies = [
 [[package]]
 name = "cosmic-files"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/cosmic-files.git#c8eb2b30249d8ea87fa679a4d914cb71b866f292"
+source = "git+https://github.com/pop-os/cosmic-files.git#329c0d3d4e57e6bed7a8554b9a57ed4fb344d8b3"
 dependencies = [
  "chrono",
- "dirs 5.0.1",
+ "dirs",
  "env_logger 0.11.5",
  "flate2",
  "fork",
@@ -1286,7 +1286,6 @@ dependencies = [
  "uzers",
  "vergen",
  "walkdir",
- "xdg",
  "xdg-mime",
  "zip",
 ]
@@ -1353,7 +1352,7 @@ dependencies = [
  "almost",
  "cosmic-config",
  "csscolorparser",
- "dirs 5.0.1",
+ "dirs",
  "lazy_static",
  "palette",
  "ron",
@@ -1599,20 +1598,11 @@ dependencies = [
 
 [[package]]
 name = "dirs"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
-dependencies = [
- "dirs-sys 0.3.7",
-]
-
-[[package]]
-name = "dirs"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
 dependencies = [
- "dirs-sys 0.4.1",
+ "dirs-sys",
 ]
 
 [[package]]
@@ -1623,17 +1613,6 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if",
  "dirs-sys-next",
-]
-
-[[package]]
-name = "dirs-sys"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
-dependencies = [
- "libc",
- "redox_users",
- "winapi",
 ]
 
 [[package]]
@@ -2157,25 +2136,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "freedesktop-desktop-entry"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c201444ddafb5506fe85265b48421664ff4617e3b7090ef99e42a0070c1aead0"
-dependencies = [
- "dirs 3.0.2",
- "gettext-rs",
- "memchr",
- "thiserror",
- "xdg",
-]
-
-[[package]]
 name = "freedesktop-icons"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8ef34245e0540c9a3ce7a28340b98d2c12b75da0d446da4e8224923fcaa0c16"
 dependencies = [
- "dirs 5.0.1",
+ "dirs",
  "once_cell",
  "rust-ini",
  "thiserror",
@@ -2353,26 +2319,6 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi",
-]
-
-[[package]]
-name = "gettext-rs"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a6716b8a0db461a2720b850ba1623e5b69e4b1aa0224cf5e1fb23a0fe49e65c"
-dependencies = [
- "gettext-sys",
- "locale_config",
-]
-
-[[package]]
-name = "gettext-sys"
-version = "0.21.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b8797f28f2dabfbe2caadb6db4f7fd739e251b5ede0a2ba49e506071edcf67"
-dependencies = [
- "cc",
- "temp-dir",
 ]
 
 [[package]]
@@ -3478,7 +3424,6 @@ dependencies = [
  "css-color",
  "derive_setters",
  "fraction",
- "freedesktop-desktop-entry",
  "freedesktop-icons",
  "iced",
  "iced_accessibility",
@@ -3493,13 +3438,9 @@ dependencies = [
  "iced_widget",
  "iced_winit",
  "lazy_static",
- "libc",
- "mime 0.3.17",
  "palette",
  "rfd",
- "rustix 0.38.37",
  "serde",
- "shlex",
  "slotmap",
  "taffy",
  "thiserror",
@@ -4712,7 +4653,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "079a81183e41e5cf17fd9ec55db30d6be6cddfad7fd619862efac27f1be28c9b"
 dependencies = [
  "chrono",
- "dirs 5.0.1",
+ "dirs",
  "infer",
  "mime_guess",
  "quick-xml",
@@ -5481,12 +5422,6 @@ dependencies = [
  "libc",
  "xattr",
 ]
-
-[[package]]
-name = "temp-dir"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f227968ec00f0e5322f9b8173c7a0cbcff6181a0a5b28e9892491c286277231"
 
 [[package]]
 name = "tempfile"
