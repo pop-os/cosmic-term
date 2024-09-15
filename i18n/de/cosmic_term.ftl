@@ -83,6 +83,7 @@ copy = Kopieren
 paste = Einfügen
 select-all = Alles auswählen
 find = Suchen
+clear-scrollback = Scrollverlauf löschen
 
 ## Ansicht
 view = Ansicht

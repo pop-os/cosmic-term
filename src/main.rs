@@ -180,6 +180,7 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
     About,
+    ClearScrollback,
     ColorSchemes(ColorSchemeKind),
     Copy,
     CopyOrSigint,
@@ -224,6 +225,7 @@ impl Action {
     fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Self::About => Message::ToggleContextPage(ContextPage::About),
+            Self::ClearScrollback => Message::ClearScrollback(entity_opt),
             Self::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
@@ -280,6 +282,7 @@ impl MenuAction for Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
+    ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
     ColorSchemeExpand(ColorSchemeKind, Option<ColorSchemeId>),
@@ -1575,6 +1578,16 @@ impl Application for App {
             Message::AppTheme(app_theme) => {
                 config_set!(app_theme, app_theme);
                 return self.update_config();
+            }
+            Message::ClearScrollback(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        let mut term = terminal.term.lock();
+                        term.grid_mut().clear_history();
+                    }
+                }
             }
             Message::ColorSchemeCollapse => {
                 self.color_scheme_expanded = None;
