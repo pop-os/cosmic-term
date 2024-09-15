@@ -75,5 +75,8 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl, Shift], Key::Named(Named::ArrowRight), PaneFocusRight);
     bind!([Ctrl, Shift], Key::Character("L".into()), PaneFocusRight);
 
+    // CTRL+Alt+L clears the scrollback.
+    bind!([Ctrl, Alt], Key::Character("L".into()), ClearScrollback);
+
     key_binds
 }
