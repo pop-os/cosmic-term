@@ -83,6 +83,7 @@ copy = Copia
 paste = Incolla
 select-all = Seleziona tutto
 find = Trova
+clear-scrollback = Cancella lo scrollback
 
 ## View
 view = Visualizza
