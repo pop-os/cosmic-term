@@ -756,10 +756,10 @@ impl App {
             };
 
             let button = if expanded {
-                widget::button(icon_cache_get("view-more-symbolic", 16))
+                widget::button::custom(icon_cache_get("view-more-symbolic", 16))
                     .on_press(Message::ColorSchemeCollapse)
             } else {
-                widget::button(icon_cache_get("view-more-symbolic", 16)).on_press(
+                widget::button::custom(icon_cache_get("view-more-symbolic", 16)).on_press(
                     Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id_opt),
                 )
             }
@@ -860,15 +860,15 @@ impl App {
                 profiles_section = profiles_section.add(
                     widget::settings::item::builder(profile_name).control(
                         widget::row::with_children(vec![
-                            widget::button(icon_cache_get("edit-delete-symbolic", 16))
+                            widget::button::custom(icon_cache_get("edit-delete-symbolic", 16))
                                 .on_press(Message::ProfileRemove(profile_id))
                                 .style(style::Button::Icon)
                                 .into(),
                             if expanded {
-                                widget::button(icon_cache_get("go-up-symbolic", 16))
+                                widget::button::custom(icon_cache_get("go-up-symbolic", 16))
                                     .on_press(Message::ProfileCollapse(profile_id))
                             } else {
-                                widget::button(icon_cache_get("go-down-symbolic", 16))
+                                widget::button::custom(icon_cache_get("go-down-symbolic", 16))
                                     .on_press(Message::ProfileExpand(profile_id))
                             }
                             .style(style::Button::Icon)
@@ -1129,10 +1129,10 @@ impl App {
             .add(
                 widget::settings::item::builder(fl!("advanced-font-settings")).control(
                     if self.show_advanced_font_settings {
-                        widget::button(icon_cache_get("go-up-symbolic", 16))
+                        widget::button::custom(icon_cache_get("go-up-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(false))
                     } else {
-                        widget::button(icon_cache_get("go-down-symbolic", 16))
+                        widget::button::custom(icon_cache_get("go-down-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(true))
                     }
                     .style(style::Button::Icon),
@@ -2602,11 +2602,13 @@ impl Application for App {
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-        vec![widget::button(icon_cache_get("list-add-symbolic", 16))
-            .on_press(Message::TabNew)
-            .padding(space_xxs)
-            .style(style::Button::Icon)
-            .into()]
+        vec![
+            widget::button::custom(icon_cache_get("list-add-symbolic", 16))
+                .on_press(Message::TabNew)
+                .padding(space_xxs)
+                .style(style::Button::Icon)
+                .into(),
+        ]
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<Message> {
@@ -2690,7 +2692,7 @@ impl Application for App {
                 })
                 .width(Length::Fixed(320.0))
                 .trailing_icon(
-                    button(icon_cache_get("edit-clear-symbolic", 16))
+                    button::custom(icon_cache_get("edit-clear-symbolic", 16))
                         .on_press(Message::FindSearchValueChanged(String::new()))
                         .style(style::Button::Icon)
                         .into(),
@@ -2698,7 +2700,7 @@ impl Application for App {
                 let find_widget = widget::row::with_children(vec![
                     find_input.into(),
                     widget::tooltip(
-                        button(icon_cache_get("go-up-symbolic", 16))
+                        button::custom(icon_cache_get("go-up-symbolic", 16))
                             .on_press(Message::FindPrevious)
                             .padding(space_xxs)
                             .style(style::Button::Icon),
@@ -2707,7 +2709,7 @@ impl Application for App {
                     )
                     .into(),
                     widget::tooltip(
-                        button(icon_cache_get("go-down-symbolic", 16))
+                        button::custom(icon_cache_get("go-down-symbolic", 16))
                             .on_press(Message::FindNext)
                             .padding(space_xxs)
                             .style(style::Button::Icon),
@@ -2716,7 +2718,7 @@ impl Application for App {
                     )
                     .into(),
                     widget::horizontal_space(Length::Fill).into(),
-                    button(icon_cache_get("window-close-symbolic", 16))
+                    button::custom(icon_cache_get("window-close-symbolic", 16))
                         .on_press(Message::Find(false))
                         .padding(space_xxs)
                         .style(style::Button::Icon)
