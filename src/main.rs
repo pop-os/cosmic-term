@@ -2601,11 +2601,10 @@ impl Application for App {
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
         vec![
             widget::button::custom(icon_cache_get("list-add-symbolic", 16))
                 .on_press(Message::TabNew)
-                .padding(space_xxs)
+                .padding(8)
                 .style(style::Button::Icon)
                 .into(),
         ]
