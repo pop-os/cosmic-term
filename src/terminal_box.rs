@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
+    grid::Dimensions,
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
     term::{cell::Flags, TermMode},
@@ -235,14 +236,17 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
-                let col = x / terminal.size().cell_width;
+                let mut col = x / terminal.size().cell_width;
                 let row = y / terminal.size().cell_height;
+                // Fix panic on the left edge of the scroll bar
+                col = col.min(terminal.size().columns().saturating_sub(1) as f32);
                 let location = terminal
                     .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
                 let term = terminal.term.lock();
+
                 let hyperlink = term.grid()[location].hyperlink();
                 drop(term);
-                dbg!(&hyperlink);
+                // dbg!(&hyperlink);
                 if hyperlink.is_some() {
                     return mouse::Interaction::Pointer;
                 }
