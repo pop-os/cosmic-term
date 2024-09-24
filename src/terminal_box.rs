@@ -229,11 +229,24 @@ where
 
             let x = p.x - self.padding.left;
             let y = p.y - self.padding.top;
+
             if x >= 0.0
                 && x < buffer_size.0.unwrap_or(0.0)
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
+                let col = x / terminal.size().cell_width;
+                let row = y / terminal.size().cell_height;
+                let location = terminal
+                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                let term = terminal.term.lock();
+                let hyperlink = term.grid()[location].hyperlink();
+                drop(term);
+                dbg!(&hyperlink);
+                if hyperlink.is_some() {
+                    return mouse::Interaction::Pointer;
+                }
+
                 return mouse::Interaction::Text;
             }
         }
