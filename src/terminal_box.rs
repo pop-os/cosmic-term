@@ -55,6 +55,8 @@ pub struct TerminalBox<'a, Message> {
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
+    on_open_hyperlink:
+        Option<Box<dyn Fn(alacritty_terminal::term::cell::Hyperlink) -> Message + 'a>>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
@@ -75,6 +77,7 @@ where
             on_context_menu: None,
             on_mouse_enter: None,
             opacity: None,
+            on_open_hyperlink: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
             key_binds: key_binds(),
@@ -121,6 +124,13 @@ where
 
     pub fn on_middle_click(mut self, on_middle_click: impl Fn() -> Message + 'a) -> Self {
         self.on_middle_click = Some(Box::new(on_middle_click));
+        self
+    }
+    pub fn on_open_hyperlink(
+        mut self,
+        on_open_hyperlink: impl Fn(alacritty_terminal::term::cell::Hyperlink) -> Message + 'a,
+    ) -> Self {
+        self.on_open_hyperlink = Some(Box::new(on_open_hyperlink));
         self
     }
 
@@ -374,7 +384,7 @@ where
                             );
                         }
 
-                        if !metadata.flags.is_empty() {
+                        if !metadata.flags.is_empty() || metadata.hyperlink.is_some() {
                             let style_line_height = (self.glyph_font_size / 10.0).clamp(2.0, 16.0);
 
                             let line_color = cosmic_text_to_iced_color(metadata.underline_color);
@@ -450,7 +460,9 @@ where
                                 }
                             };
 
-                            if metadata.flags.contains(Flags::DOTTED_UNDERLINE) {
+                            if metadata.flags.contains(Flags::DOTTED_UNDERLINE)
+                                || metadata.hyperlink.is_some()
+                            {
                                 let bottom_offset = style_line_height * 2.0;
                                 let dot = (2.0, Some(bottom_offset));
                                 let gap = (2.0, None);
@@ -982,6 +994,19 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    let term = terminal.term.lock();
+                    let hyperlink = term.grid()[location].hyperlink();
+                    drop(term);
+                    dbg!(&hyperlink);
+                    if let Some(hyperlink) = hyperlink {
+                        if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
+                            shell.publish((on_open_hyperlink)(hyperlink));
+                            status = Status::Captured;
+                        }
+                    }
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {

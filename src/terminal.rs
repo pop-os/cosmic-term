@@ -31,7 +31,7 @@ use std::{
     io, mem,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Weak,
+        Arc, LazyLock, Mutex, Weak,
     },
     time::Instant,
 };
@@ -47,6 +47,13 @@ use crate::{
 /// Minimum contrast between a fixed cursor color and the cell's background.
 /// Duplicated from alacritty
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
+
+/// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/config/ui_config.rs#L36-L39
+static URL_REGEX_SEARCH: LazyLock<Mutex<RegexSearch>> = LazyLock::new(|| {
+    let url_regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
+                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
+    Mutex::new(RegexSearch::new(url_regex).unwrap())
+});
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -171,6 +178,7 @@ pub struct Metadata {
     pub bg: cosmic_text::Color,
     pub underline_color: cosmic_text::Color,
     pub flags: Flags,
+    pub hyperlink: Option<alacritty_terminal::term::cell::Hyperlink>,
 }
 
 impl Metadata {
@@ -180,6 +188,7 @@ impl Metadata {
             bg,
             underline_color,
             flags,
+            hyperlink: None,
         }
     }
 
@@ -192,6 +201,9 @@ impl Metadata {
 
     fn with_flags(self, flags: Flags) -> Self {
         Self { flags, ..self }
+    }
+    fn with_hyperlink(self, hyperlink: Option<alacritty_terminal::term::cell::Hyperlink>) -> Self {
+        Self { hyperlink, ..self }
     }
 }
 
@@ -806,9 +818,11 @@ impl Terminal {
                         .underline_color()
                         .map(|c| convert_color(&self.colors, c))
                         .unwrap_or(fg);
+
                     let metadata = Metadata::new(bg, fg)
                         .with_flags(indexed.cell.flags)
-                        .with_underline_color(underline_color);
+                        .with_underline_color(underline_color)
+                        .with_hyperlink(indexed.cell.hyperlink());
                     let (meta_idx, _) = self.metadata_set.insert_full(metadata);
                     attrs = attrs.metadata(meta_idx);
 

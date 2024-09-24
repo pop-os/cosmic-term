@@ -317,6 +317,7 @@ pub enum Message {
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
+    OpenHyperlink(term::cell::Hyperlink),
     PaneClicked(pane_grid::Pane),
     PaneDragged(pane_grid::DragEvent),
     PaneFocusAdjacent(pane_grid::Direction),
@@ -2578,6 +2579,9 @@ impl Application for App {
                 self.reset_terminal_panes_zoom();
                 return self.update_config();
             }
+            Message::OpenHyperlink(hyperlink) => {
+                return self.update(Message::LaunchUrl(hyperlink.uri().to_string()))
+            }
         }
 
         Command::none()
@@ -2653,6 +2657,7 @@ impl Application for App {
                         Message::TabContextMenu(pane, position_opt)
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
+                    .on_open_hyperlink(Message::OpenHyperlink)
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs);
 
