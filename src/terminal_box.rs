@@ -83,7 +83,7 @@ pub struct TerminalBox<'a, Message> {
     on_context_menu: Option<Box<dyn Fn(Option<ContextMenuData>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
-    on_hover_hyperlink: Option<Box<dyn Fn(term::cell::Hyperlink) -> Message + 'a>>,
+    on_hover_hyperlink: Option<Box<dyn Fn(Option<term::cell::Hyperlink>) -> Message + 'a>>,
     on_open_hyperlink: Option<Box<dyn Fn(term::cell::Hyperlink) -> Message + 'a>>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
@@ -164,7 +164,7 @@ where
     }
     pub fn on_hover_hyperlink(
         mut self,
-        on_hover_hyperlink: impl Fn(term::cell::Hyperlink) -> Message + 'a,
+        on_hover_hyperlink: impl Fn(Option<term::cell::Hyperlink>) -> Message + 'a,
     ) -> Self {
         self.on_hover_hyperlink = Some(Box::new(on_hover_hyperlink));
         self
@@ -1124,8 +1124,10 @@ where
                             location
                         };
                         let hyperlink = terminal.term.lock().grid()[location].hyperlink();
-                        if let Some(hyperlink) = hyperlink {
-                            shell.publish((on_hover_hyperlink)(hyperlink));
+
+                        if hyperlink != state.hyperlink_hovered {
+                            shell.publish((on_hover_hyperlink)(hyperlink.clone()));
+                            state.hyperlink_hovered = hyperlink;
                         }
                     }
 
@@ -1260,6 +1262,7 @@ pub struct State {
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
+    hyperlink_hovered: Option<term::cell::Hyperlink>,
 }
 
 impl State {
@@ -1272,6 +1275,7 @@ impl State {
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
+            hyperlink_hovered: None,
         }
     }
 }

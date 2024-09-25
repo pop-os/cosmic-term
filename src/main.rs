@@ -281,7 +281,7 @@ impl MenuAction for Action {
 /// Messages that are used specifically by our [`App`].
 #[derive(Clone, Debug)]
 pub enum Message {
-    HoverHyperlink(term::cell::Hyperlink),
+    HoverHyperlink(Option<term::cell::Hyperlink>),
     CopyHyperlinkAddress(term::cell::Hyperlink, Option<segmented_button::Entity>),
     CloseContextMenu(Option<segmented_button::Entity>),
     AppTheme(AppTheme),
@@ -2613,7 +2613,7 @@ impl Application for App {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.hyperlink_tooltip = Some(hyperlink);
+                        terminal.hyperlink_tooltip = hyperlink;
                     }
                 }
             }
