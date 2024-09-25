@@ -6,6 +6,7 @@ use alacritty_terminal::{
     selection::{Selection, SelectionType},
     sync::FairMutex,
     term::{
+        self,
         cell::Flags,
         color::{self, Colors},
         search::RegexSearch,
@@ -209,6 +210,7 @@ impl Metadata {
 
 pub struct Terminal {
     pub context_menu: Option<crate::terminal_box::ContextMenuData>,
+    pub hyperlink_tooltip: Option<term::cell::Hyperlink>,
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,
@@ -318,6 +320,7 @@ impl Terminal {
             term,
             use_bright_bold,
             zoom_adj: Default::default(),
+            hyperlink_tooltip: None,
         })
     }
 

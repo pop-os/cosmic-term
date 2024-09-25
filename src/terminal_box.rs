@@ -83,6 +83,7 @@ pub struct TerminalBox<'a, Message> {
     on_context_menu: Option<Box<dyn Fn(Option<ContextMenuData>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
+    on_hover_hyperlink: Option<Box<dyn Fn(term::cell::Hyperlink) -> Message + 'a>>,
     on_open_hyperlink: Option<Box<dyn Fn(term::cell::Hyperlink) -> Message + 'a>>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
@@ -104,6 +105,7 @@ where
             on_context_menu: None,
             on_mouse_enter: None,
             opacity: None,
+            on_hover_hyperlink: None,
             on_open_hyperlink: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
@@ -158,6 +160,13 @@ where
         on_open_hyperlink: impl Fn(term::cell::Hyperlink) -> Message + 'a,
     ) -> Self {
         self.on_open_hyperlink = Some(Box::new(on_open_hyperlink));
+        self
+    }
+    pub fn on_hover_hyperlink(
+        mut self,
+        on_hover_hyperlink: impl Fn(term::cell::Hyperlink) -> Message + 'a,
+    ) -> Self {
+        self.on_hover_hyperlink = Some(Box::new(on_hover_hyperlink));
         self
     }
 
@@ -1101,6 +1110,25 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+
+                    if let Some(on_hover_hyperlink) = &self.on_hover_hyperlink {
+                        let location = {
+                            let col = col.min(terminal.size().columns().saturating_sub(1) as f32);
+                            let row =
+                                row.min(terminal.size().screen_lines().saturating_sub(1) as f32);
+
+                            let location = terminal.viewport_to_point(TermPoint::new(
+                                row as usize,
+                                TermColumn(col as usize),
+                            ));
+                            location
+                        };
+                        let hyperlink = terminal.term.lock().grid()[location].hyperlink();
+                        if let Some(hyperlink) = hyperlink {
+                            shell.publish((on_hover_hyperlink)(hyperlink));
+                        }
+                    }
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {

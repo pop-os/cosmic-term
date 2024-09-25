@@ -281,6 +281,7 @@ impl MenuAction for Action {
 /// Messages that are used specifically by our [`App`].
 #[derive(Clone, Debug)]
 pub enum Message {
+    HoverHyperlink(term::cell::Hyperlink),
     CopyHyperlinkAddress(term::cell::Hyperlink, Option<segmented_button::Entity>),
     CloseContextMenu(Option<segmented_button::Entity>),
     AppTheme(AppTheme),
@@ -2607,6 +2608,15 @@ impl Application for App {
                     self.update_focus(),
                 ])
             }
+            Message::HoverHyperlink(hyperlink) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.hyperlink_tooltip = Some(hyperlink);
+                    }
+                }
+            }
         }
 
         Command::none()
@@ -2683,42 +2693,42 @@ impl Application for App {
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(|link| Message::OpenHyperlink(link, None))
+                    .on_hover_hyperlink(Message::HoverHyperlink)
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs);
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
-
+                let hyperlink_tooltip;
                 let context_menu_opt = {
                     let terminal = terminal.lock().unwrap();
+                    hyperlink_tooltip = terminal.hyperlink_tooltip.clone();
                     terminal.context_menu.clone()
                 };
 
-                let tab_element: Element<'_, Message> = match context_menu_opt {
-                    Some(context_menu) => 'b: {
-                        let popover =
-                            widget::popover(terminal_box.context_menu(context_menu.point))
-                                .popup(menu::context_menu(
-                                    &self.config,
-                                    &self.key_binds,
-                                    entity,
-                                    context_menu.clone(),
-                                ))
-                                .position(widget::popover::Position::Point(context_menu.point));
-
-                        let tooltip = match context_menu.hyperlink_uri() {
-                            Some(hyperlink) => widget::tooltip(
-                                popover,
-                                hyperlink.to_string(),
-                                widget::tooltip::Position::FollowCursor,
-                            ),
-                            None => break 'b popover.into(),
-                        };
-                        tooltip.into()
+                let mut tab_element: Element<'_, Message> = match context_menu_opt {
+                    Some(context_menu) => {
+                        widget::popover(terminal_box.context_menu(context_menu.point))
+                            .popup(menu::context_menu(
+                                &self.config,
+                                &self.key_binds,
+                                entity,
+                                context_menu.clone(),
+                            ))
+                            .position(widget::popover::Position::Point(context_menu.point))
+                            .into()
                     }
                     None => terminal_box.into(),
                 };
+                if let Some(hyperlink_tooltip) = hyperlink_tooltip {
+                    tab_element = widget::tooltip(
+                        tab_element,
+                        hyperlink_tooltip.uri().to_string(),
+                        widget::tooltip::Position::FollowCursor,
+                    )
+                    .into()
+                }
                 tab_column = tab_column.push(tab_element);
             }
 
