@@ -208,7 +208,7 @@ impl Metadata {
 }
 
 pub struct Terminal {
-    pub context_menu: Option<cosmic::iced::Point>,
+    pub context_menu: Option<crate::terminal_box::ContextMenuData>,
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,

@@ -58,7 +58,7 @@ mod menu;
 use terminal::{Terminal, TerminalPaneGrid, TerminalScroll};
 mod terminal;
 
-use terminal_box::terminal_box;
+use terminal_box::{terminal_box, ContextMenuData};
 
 use crate::dnd::DndDrop;
 mod terminal_box;
@@ -281,6 +281,8 @@ impl MenuAction for Action {
 /// Messages that are used specifically by our [`App`].
 #[derive(Clone, Debug)]
 pub enum Message {
+    CopyHyperlinkAddress(term::cell::Hyperlink, Option<segmented_button::Entity>),
+    CloseContextMenu(Option<segmented_button::Entity>),
     AppTheme(AppTheme),
     ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
@@ -317,7 +319,7 @@ pub enum Message {
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
-    OpenHyperlink(term::cell::Hyperlink),
+    OpenHyperlink(term::cell::Hyperlink, Option<segmented_button::Entity>),
     PaneClicked(pane_grid::Pane),
     PaneDragged(pane_grid::DragEvent),
     PaneFocusAdjacent(pane_grid::Direction),
@@ -347,7 +349,7 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(pane_grid::Pane, Option<Point>),
+    TabContextMenu(pane_grid::Pane, Option<ContextMenuData>),
     TabNew,
     TabNewNoProfile,
     TabNext,
@@ -2316,7 +2318,7 @@ impl Application for App {
                     }
                 }
             }
-            Message::TabContextMenu(pane, position_opt) => {
+            Message::TabContextMenu(pane, context_menu_opt) => {
                 // Close any existing context menues
                 let panes: Vec<_> = self.pane_model.panes.iter().collect();
                 for (_pane, tab_model) in panes {
@@ -2333,7 +2335,7 @@ impl Application for App {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = position_opt;
+                        terminal.context_menu = context_menu_opt;
                     }
                 }
 
@@ -2579,8 +2581,31 @@ impl Application for App {
                 self.reset_terminal_panes_zoom();
                 return self.update_config();
             }
-            Message::OpenHyperlink(hyperlink) => {
-                return self.update(Message::LaunchUrl(hyperlink.uri().to_string()))
+            Message::OpenHyperlink(hyperlink, entity) => {
+                return cosmic::Command::batch([
+                    cosmic::command::message(Message::LaunchUrl(hyperlink.uri().to_string())),
+                    cosmic::command::message(Message::CloseContextMenu(entity)),
+                ])
+            }
+            Message::CloseContextMenu(entity_opt) => {
+                if let Some(entity) = entity_opt {
+                    if let Some(tab_model) = self.pane_model.active() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            // Close context menu
+                            {
+                                let mut terminal = terminal.lock().unwrap();
+                                terminal.context_menu = None;
+                            }
+                        }
+                    }
+                }
+            }
+            Message::CopyHyperlinkAddress(hyperlink, entity) => {
+                return cosmic::Command::batch([
+                    clipboard::write(hyperlink.uri().to_string()),
+                    cosmic::command::message(Message::CloseContextMenu(entity)),
+                    self.update_focus(),
+                ])
             }
         }
 
@@ -2653,11 +2678,11 @@ impl Application for App {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal_box = terminal_box(terminal)
                     .id(terminal_id)
-                    .on_context_menu(move |position_opt| {
-                        Message::TabContextMenu(pane, position_opt)
+                    .on_context_menu(move |context_menu_opt| {
+                        Message::TabContextMenu(pane, context_menu_opt)
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
-                    .on_open_hyperlink(Message::OpenHyperlink)
+                    .on_open_hyperlink(|link| Message::OpenHyperlink(link, None))
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs);
 
@@ -2665,16 +2690,23 @@ impl Application for App {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
 
-                let context_menu = {
+                let context_menu_opt = {
                     let terminal = terminal.lock().unwrap();
-                    terminal.context_menu
+                    terminal.context_menu.clone()
                 };
 
-                let tab_element: Element<'_, Message> = match context_menu {
-                    Some(point) => widget::popover(terminal_box.context_menu(point))
-                        .popup(menu::context_menu(&self.config, &self.key_binds, entity))
-                        .position(widget::popover::Position::Point(point))
-                        .into(),
+                let tab_element: Element<'_, Message> = match context_menu_opt {
+                    Some(context_menu) => {
+                        widget::popover(terminal_box.context_menu(context_menu.point))
+                            .popup(menu::context_menu(
+                                &self.config,
+                                &self.key_binds,
+                                entity,
+                                context_menu.clone(),
+                            ))
+                            .position(widget::popover::Position::Point(context_menu.point))
+                            .into()
+                    }
                     None => terminal_box.into(),
                 };
                 tab_column = tab_column.push(tab_element);

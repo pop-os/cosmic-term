@@ -4,7 +4,7 @@ use alacritty_terminal::{
     grid::Dimensions,
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
-    term::{cell::Flags, TermMode},
+    term::{self, cell::Flags, TermMode},
     vte::ansi::{CursorShape, NamedColor},
 };
 use cosmic::widget::menu::key_bind::KeyBind;
@@ -46,6 +46,33 @@ use std::{
 
 use crate::{key_bind::key_binds, terminal::Metadata, Action, Terminal, TerminalScroll};
 
+#[derive(Clone, Debug)]
+pub struct ContextMenuData {
+    pub point: Point,
+    hyperlink: Option<term::cell::Hyperlink>,
+}
+impl ContextMenuData {
+    pub fn new(point: Point) -> Self {
+        Self {
+            point,
+            hyperlink: None,
+        }
+    }
+    pub fn with_hyperlink(self, hyperlink: Option<term::cell::Hyperlink>) -> Self {
+        Self { hyperlink, ..self }
+    }
+    pub fn hyperlink_uri(&self) -> Option<&str> {
+        self.hyperlink.as_ref().map(|link| link.uri())
+    }
+    pub fn hyperlink(&self) -> &Option<term::cell::Hyperlink> {
+        &self.hyperlink
+    }
+
+    pub fn has_hyperlink(&self) -> bool {
+        self.hyperlink.is_some()
+    }
+}
+
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
     id: Option<Id>,
@@ -53,11 +80,10 @@ pub struct TerminalBox<'a, Message> {
     padding: Padding,
     click_timing: Duration,
     context_menu: Option<Point>,
-    on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_context_menu: Option<Box<dyn Fn(Option<ContextMenuData>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
-    on_open_hyperlink:
-        Option<Box<dyn Fn(alacritty_terminal::term::cell::Hyperlink) -> Message + 'a>>,
+    on_open_hyperlink: Option<Box<dyn Fn(term::cell::Hyperlink) -> Message + 'a>>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
@@ -112,7 +138,7 @@ where
 
     pub fn on_context_menu(
         mut self,
-        on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
+        on_context_menu: impl Fn(Option<ContextMenuData>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
         self
@@ -129,7 +155,7 @@ where
     }
     pub fn on_open_hyperlink(
         mut self,
-        on_open_hyperlink: impl Fn(alacritty_terminal::term::cell::Hyperlink) -> Message + 'a,
+        on_open_hyperlink: impl Fn(term::cell::Hyperlink) -> Message + 'a,
     ) -> Self {
         self.on_open_hyperlink = Some(Box::new(on_open_hyperlink));
         self
@@ -230,16 +256,18 @@ where
 
             let x = p.x - self.padding.left;
             let y = p.y - self.padding.top;
-
             if x >= 0.0
                 && x < buffer_size.0.unwrap_or(0.0)
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
                 let mut col = x / terminal.size().cell_width;
-                let row = y / terminal.size().cell_height;
+                let mut row = y / terminal.size().cell_height;
                 // Fix panic on the left edge of the scroll bar
                 col = col.min(terminal.size().columns().saturating_sub(1) as f32);
+                // Same for buttom edge
+                row = row.min(terminal.size().screen_lines().saturating_sub(1) as f32);
+
                 let location = terminal
                     .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
                 let term = terminal.term.lock();
@@ -899,9 +927,9 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
-                if let Some(p) = cursor_position.position_in(layout.bounds()) {
-                    let x = p.x - self.padding.left;
-                    let y = p.y - self.padding.top;
+                if let Some(point) = cursor_position.position_in(layout.bounds()) {
+                    let x = point.x - self.padding.left;
+                    let y = point.y - self.padding.top;
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
@@ -914,8 +942,8 @@ where
                         // Handle left click drag
                         #[allow(clippy::collapsible_if)]
                         if let Button::Left = button {
-                            let x = p.x - self.padding.left;
-                            let y = p.y - self.padding.top;
+                            let x = point.x - self.padding.left;
+                            let y = point.y - self.padding.top;
                             if x >= 0.0
                                 && x < buffer_size.0.unwrap_or(0.0)
                                 && y >= 0.0
@@ -994,7 +1022,15 @@ where
                             shell.publish((on_context_menu)(match self.context_menu {
                                 Some(_) => None,
                                 None => match button {
-                                    Button::Right => Some(p),
+                                    Button::Right => {
+                                        let location = terminal.viewport_to_point(TermPoint::new(
+                                            row as usize,
+                                            TermColumn(col as usize),
+                                        ));
+                                        let hyperlink =
+                                            terminal.term.lock().grid()[location].hyperlink();
+                                        Some(ContextMenuData::new(point).with_hyperlink(hyperlink))
+                                    }
                                     _ => None,
                                 },
                             }));
