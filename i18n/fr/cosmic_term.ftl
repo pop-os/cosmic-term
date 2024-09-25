@@ -83,6 +83,7 @@ copy = Copier
 paste = Coller
 select-all = Sélectionner tout
 find = Rechercher
+clear-scrollback = Effacer le défilement
 
 ## View
 view = Affichage
