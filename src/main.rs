@@ -2583,8 +2583,8 @@ impl Application for App {
             }
             Message::OpenHyperlink(hyperlink, entity) => {
                 return cosmic::Command::batch([
-                    cosmic::command::message(Message::LaunchUrl(hyperlink.uri().to_string())),
                     cosmic::command::message(Message::CloseContextMenu(entity)),
+                    cosmic::command::message(Message::LaunchUrl(hyperlink.uri().to_string())),
                 ])
             }
             Message::CloseContextMenu(entity_opt) => {
@@ -2602,8 +2602,8 @@ impl Application for App {
             }
             Message::CopyHyperlinkAddress(hyperlink, entity) => {
                 return cosmic::Command::batch([
-                    clipboard::write(hyperlink.uri().to_string()),
                     cosmic::command::message(Message::CloseContextMenu(entity)),
+                    clipboard::write(hyperlink.uri().to_string()),
                     self.update_focus(),
                 ])
             }
@@ -2696,16 +2696,26 @@ impl Application for App {
                 };
 
                 let tab_element: Element<'_, Message> = match context_menu_opt {
-                    Some(context_menu) => {
-                        widget::popover(terminal_box.context_menu(context_menu.point))
-                            .popup(menu::context_menu(
-                                &self.config,
-                                &self.key_binds,
-                                entity,
-                                context_menu.clone(),
-                            ))
-                            .position(widget::popover::Position::Point(context_menu.point))
-                            .into()
+                    Some(context_menu) => 'b: {
+                        let popover =
+                            widget::popover(terminal_box.context_menu(context_menu.point))
+                                .popup(menu::context_menu(
+                                    &self.config,
+                                    &self.key_binds,
+                                    entity,
+                                    context_menu.clone(),
+                                ))
+                                .position(widget::popover::Position::Point(context_menu.point));
+
+                        let tooltip = match context_menu.hyperlink_uri() {
+                            Some(hyperlink) => widget::tooltip(
+                                popover,
+                                hyperlink.to_string(),
+                                widget::tooltip::Position::FollowCursor,
+                            ),
+                            None => break 'b popover.into(),
+                        };
+                        tooltip.into()
                     }
                     None => terminal_box.into(),
                 };
