@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
-    grid::Dimensions,
+    grid::{BidirectionalIterator, Dimensions},
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
     term::{self, cell::Flags, TermMode},
@@ -450,7 +450,9 @@ where
                                 renderer.fill_quad(underline_quad, line_color);
                             }
 
-                            if metadata.flags.contains(Flags::UNDERLINE) {
+                            if metadata.flags.contains(Flags::UNDERLINE)
+                                || metadata.hyperlink_hovered
+                            {
                                 let bottom_offset = style_line_height * 2.0;
                                 let pos_offset = mk_pos_offset!(0.0, bottom_offset);
                                 let underline_quad = mk_quad!(pos_offset, style_line_height);
@@ -515,7 +517,7 @@ where
                             };
 
                             if metadata.flags.contains(Flags::DOTTED_UNDERLINE)
-                                || metadata.hyperlink.is_some()
+                                || (metadata.hyperlink.is_some() && !metadata.hyperlink_hovered)
                             {
                                 let bottom_offset = style_line_height * 2.0;
                                 let dot = (2.0, Some(bottom_offset));
@@ -1127,7 +1129,14 @@ where
 
                         if hyperlink != state.hyperlink_hovered {
                             shell.publish((on_hover_hyperlink)(hyperlink.clone()));
-                            state.hyperlink_hovered = hyperlink;
+                            state.hyperlink_hovered = hyperlink.clone();
+                        }
+                        if terminal.hyperlink_hovered.as_ref().map(|x| &x.0) != hyperlink.as_ref() {
+                            let term = terminal.term.lock();
+                            let hyperlink_hovered = hyperlink_at(&term, location);
+                            drop(term);
+                            terminal.hyperlink_hovered = hyperlink_hovered;
+                            terminal.needs_update = true;
                         }
                     }
 
@@ -1348,4 +1357,40 @@ fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
     } else {
         Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
     }
+}
+/// Each cell cointains an copy of the hyperlink, so for highlighting the hovered cell, you need to determine all adjacent cells.
+///
+/// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/display/hint.rs#L403-L431
+///
+/// Retrieve the hyperlink with its range, if there is one at the specified point.
+///
+/// This will only return contiguous cells, even if another hyperlink with the same ID exists.
+fn hyperlink_at<T>(
+    term: &alacritty_terminal::Term<T>,
+    point: TermPoint,
+) -> Option<(term::cell::Hyperlink, term::search::Match)> {
+    let hyperlink = term.grid()[point].hyperlink()?;
+
+    let grid = term.grid();
+
+    let mut match_end = point;
+    for cell in grid.iter_from(point) {
+        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+            match_end = cell.point;
+        } else {
+            break;
+        }
+    }
+
+    let mut match_start = point;
+    let mut iter = grid.iter_from(point);
+    while let Some(cell) = iter.prev() {
+        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+            match_start = cell.point;
+        } else {
+            break;
+        }
+    }
+
+    Some((hyperlink, match_start..=match_end))
 }

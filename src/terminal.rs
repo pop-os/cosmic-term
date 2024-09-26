@@ -180,6 +180,7 @@ pub struct Metadata {
     pub underline_color: cosmic_text::Color,
     pub flags: Flags,
     pub hyperlink: Option<alacritty_terminal::term::cell::Hyperlink>,
+    pub hyperlink_hovered: bool,
 }
 
 impl Metadata {
@@ -190,6 +191,7 @@ impl Metadata {
             underline_color,
             flags,
             hyperlink: None,
+            hyperlink_hovered: false,
         }
     }
 
@@ -203,14 +205,23 @@ impl Metadata {
     fn with_flags(self, flags: Flags) -> Self {
         Self { flags, ..self }
     }
-    fn with_hyperlink(self, hyperlink: Option<alacritty_terminal::term::cell::Hyperlink>) -> Self {
-        Self { hyperlink, ..self }
+    fn with_hyperlink(
+        self,
+        hyperlink: Option<alacritty_terminal::term::cell::Hyperlink>,
+        hyperlink_hovered: bool,
+    ) -> Self {
+        Self {
+            hyperlink,
+            hyperlink_hovered,
+            ..self
+        }
     }
 }
 
 pub struct Terminal {
     pub context_menu: Option<crate::terminal_box::ContextMenuData>,
     pub hyperlink_tooltip: Option<term::cell::Hyperlink>,
+    pub hyperlink_hovered: Option<(term::cell::Hyperlink, term::search::Match)>,
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,
@@ -321,6 +332,7 @@ impl Terminal {
             use_bright_bold,
             zoom_adj: Default::default(),
             hyperlink_tooltip: None,
+            hyperlink_hovered: None,
         })
     }
 
@@ -822,10 +834,20 @@ impl Terminal {
                         .map(|c| convert_color(&self.colors, c))
                         .unwrap_or(fg);
 
+                    let hyperlink_hovered = self.hyperlink_hovered.clone();
+                    let hyperlink_hovered_match = 'b: {
+                        if let Some((_, hyperlink_hovered_match)) = hyperlink_hovered {
+                            if hyperlink_hovered_match.contains(&indexed.point) {
+                                break 'b true;
+                            }
+                        }
+                        false
+                    };
+
                     let metadata = Metadata::new(bg, fg)
                         .with_flags(indexed.cell.flags)
                         .with_underline_color(underline_color)
-                        .with_hyperlink(indexed.cell.hyperlink());
+                        .with_hyperlink(indexed.cell.hyperlink(), hyperlink_hovered_match);
                     let (meta_idx, _) = self.metadata_set.insert_full(metadata);
                     attrs = attrs.metadata(meta_idx);
 
