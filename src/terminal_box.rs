@@ -783,7 +783,7 @@ where
                             terminal.input_scroll(b"\x00".to_vec());
                         } else {
                             terminal.input_scroll(format!("{}{}", alt_prefix, " ").into_bytes());
-                        }                        
+                        }
                         status = Status::Captured;
                     }
                     Named::Tab => {
