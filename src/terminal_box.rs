@@ -655,6 +655,7 @@ where
             Event::Keyboard(KeyEvent::KeyPressed {
                 key: Key::Named(named),
                 modifiers,
+                text,
                 ..
             }) if state.is_focused => {
                 for key_bind in self.key_binds.keys() {
@@ -778,11 +779,15 @@ where
                         status = Status::Captured;
                     }
                     Named::Space => {
+                        // Keep this instead of hardcoding the space to allow for dead keys
+                        let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
+
                         if modifiers.control() {
                             // Send NUL character (\x00) for Ctrl + Space
                             terminal.input_scroll(b"\x00".to_vec());
                         } else {
-                            terminal.input_scroll(format!("{}{}", alt_prefix, " ").into_bytes());
+                            terminal
+                                .input_scroll(format!("{}{}", alt_prefix, character).into_bytes());
                         }
                         status = Status::Captured;
                     }
