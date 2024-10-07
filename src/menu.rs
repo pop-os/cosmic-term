@@ -18,12 +18,14 @@ use cosmic::{
 };
 use std::collections::HashMap;
 
+use crate::terminal_box::ContextMenuData;
 use crate::{fl, Action, ColorSchemeId, ColorSchemeKind, Config, Message};
 
 pub fn context_menu<'a>(
     config: &Config,
     key_binds: &HashMap<KeyBind, Action>,
     entity: segmented_button::Entity,
+    context_menu_data: ContextMenuData,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
         for (key_bind, key_action) in key_binds {
@@ -44,6 +46,14 @@ pub fn context_menu<'a>(
         .on_press(Message::TabContextAction(entity, action))
     };
 
+    let menu_item_with_data = |label, message| {
+        menu_button(vec![
+            widget::text(label).into(),
+            horizontal_space(Length::Fill).into(),
+        ])
+        .on_press(message)
+    };
+
     let menu_checkbox = |label, value, action| {
         menu_button(vec![
             widget::text(label).into(),
@@ -57,44 +67,65 @@ pub fn context_menu<'a>(
         .on_press(Message::TabContextAction(entity, action))
     };
 
-    widget::container(column!(
-        menu_item(fl!("copy"), Action::Copy),
-        menu_item(fl!("paste"), Action::Paste),
-        menu_item(fl!("select-all"), Action::SelectAll),
-        horizontal_rule(1),
-        menu_item(fl!("clear-scrollback"), Action::ClearScrollback),
-        horizontal_rule(1),
-        menu_item(fl!("split-horizontal"), Action::PaneSplitHorizontal),
-        menu_item(fl!("split-vertical"), Action::PaneSplitVertical),
-        menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
-        horizontal_rule(1),
-        menu_item(fl!("new-tab"), Action::TabNew),
-        menu_item(fl!("menu-settings"), Action::Settings),
+    let mut menu_items: Vec<Element<_>> = Vec::new();
+    if let Some(hyperlink) = context_menu_data.hyperlink() {
+        menu_items.push(
+            menu_item_with_data(
+                "Open Hyperlink".to_string(),
+                Message::OpenHyperlink(hyperlink.clone(), Some(entity)),
+            )
+            .into(),
+        );
+        menu_items.push(
+            menu_item_with_data(
+                "Copy Hyperlink Address".to_string(),
+                Message::CopyHyperlinkAddress(hyperlink.clone(), Some(entity)),
+            )
+            .into(),
+        );
+        menu_items.push(horizontal_rule(1).into())
+    }
+    menu_items.extend(vec![
+        menu_item(fl!("copy"), Action::Copy).into(),
+        menu_item(fl!("paste"), Action::Paste).into(),
+        menu_item(fl!("select-all"), Action::SelectAll).into(),
+        horizontal_rule(1).into(),
+        menu_item(fl!("clear-scrollback"), Action::ClearScrollback).into(),
+        horizontal_rule(1).into(),
+        menu_item(fl!("split-horizontal"), Action::PaneSplitHorizontal).into(),
+        menu_item(fl!("split-vertical"), Action::PaneSplitVertical).into(),
+        menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized).into(),
+        horizontal_rule(1).into(),
+        menu_item(fl!("new-tab"), Action::TabNew).into(),
+        menu_item(fl!("menu-settings"), Action::Settings).into(),
         menu_checkbox(
             fl!("show-headerbar"),
             config.show_headerbar,
-            Action::ShowHeaderBar(!config.show_headerbar)
-        ),
-    ))
-    .padding(1)
-    //TODO: move style to libcosmic
-    .style(theme::Container::custom(|theme| {
-        let cosmic = theme.cosmic();
-        let component = &cosmic.background.component;
-        widget::container::Appearance {
-            icon_color: Some(component.on.into()),
-            text_color: Some(component.on.into()),
-            background: Some(Background::Color(component.base.into())),
-            border: Border {
-                radius: 8.0.into(),
-                width: 1.0,
-                color: component.divider.into(),
-            },
-            ..Default::default()
-        }
-    }))
-    .width(Length::Fixed(240.0))
-    .into()
+            Action::ShowHeaderBar(!config.show_headerbar),
+        )
+        .into(),
+    ]);
+
+    widget::container(widget::column::with_children(menu_items))
+        .padding(1)
+        //TODO: move style to libcosmic
+        .style(theme::Container::custom(|theme| {
+            let cosmic = theme.cosmic();
+            let component = &cosmic.background.component;
+            widget::container::Appearance {
+                icon_color: Some(component.on.into()),
+                text_color: Some(component.on.into()),
+                background: Some(Background::Color(component.base.into())),
+                border: Border {
+                    radius: 8.0.into(),
+                    width: 1.0,
+                    color: component.divider.into(),
+                },
+                ..Default::default()
+            }
+        }))
+        .width(Length::Fixed(240.0))
+        .into()
 }
 
 pub fn color_scheme_menu<'a>(
