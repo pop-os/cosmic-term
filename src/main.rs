@@ -334,6 +334,7 @@ pub enum Message {
     ProfileName(ProfileId, String),
     ProfileNew,
     ProfileOpen(ProfileId),
+    ProfileOpenInCWD(ProfileId, bool),
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
@@ -994,6 +995,13 @@ impl App {
                             ])
                             .align_items(Alignment::Center)
                             .padding([0, space_s]),
+                        )
+                        .add(
+                            widget::settings::item::builder(fl!("open-in-cwd"))
+                                .description(fl!("open-in-cwd-description"))
+                                .toggler(profile.open_in_cwd, move |open_in_cwd| {
+                                    Message::ProfileOpenInCWD(profile_id, open_in_cwd)
+                                }),
                         );
 
                     let padding = Padding {
@@ -1253,6 +1261,25 @@ impl App {
                                             shell = Some(tty::Shell::new(command, args));
                                         }
                                     }
+
+                                    #[cfg(not(windows))]
+                                    let working_directory = profile
+                                        .open_in_cwd
+                                        // Evaluate current working working directory based on
+                                        // selected tab/terminal
+                                        .then(|| {
+                                            tab_model.active_data::<Mutex<Terminal>>().and_then(
+                                                |terminal| {
+                                                    terminal
+                                                        .lock()
+                                                        .unwrap()
+                                                        .current_working_directory()
+                                                },
+                                            )
+                                        })
+                                        .flatten()
+                                        .or_else(|| Some(profile.working_directory.clone().into()));
+                                    #[cfg(windows)]
                                     let working_directory = (!profile.working_directory.is_empty())
                                         .then(|| profile.working_directory.clone().into());
 
@@ -1269,7 +1296,20 @@ impl App {
                                     };
                                     (options, tab_title_override)
                                 }
-                                None => (self.startup_options.take().unwrap_or_default(), None),
+                                None => {
+                                    let mut options =
+                                        self.startup_options.take().unwrap_or_default();
+                                    #[cfg(not(windows))]
+                                    {
+                                        // Eval CWD since it's the default option
+                                        options.working_directory = tab_model
+                                            .active_data::<Mutex<Terminal>>()
+                                            .and_then(|terminal| {
+                                                terminal.lock().unwrap().current_working_directory()
+                                            });
+                                    }
+                                    (options, None)
+                                }
                             };
                             let entity = tab_model
                                 .insert()
@@ -2152,6 +2192,13 @@ impl Application for App {
             }
             Message::ProfileOpen(profile_id) => {
                 return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
+            }
+            Message::ProfileOpenInCWD(profile_id, open_in_cwd) => {
+                #[cfg(not(windows))]
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.open_in_cwd = open_in_cwd;
+                    return self.save_profiles();
+                }
             }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
