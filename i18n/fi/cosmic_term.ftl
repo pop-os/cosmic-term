@@ -5,7 +5,7 @@ new-terminal = Uusi terminaali
 
 ## About
 
-git-description = Git versio {$hash} päivänä {$date}
+git-description = Git-versio {$hash} päivänä {$date}
 
 ## Color schemes
 
