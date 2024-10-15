@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
+    grid::{BidirectionalIterator, Dimensions},
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
-    term::{cell::Flags, TermMode},
+    term::{self, cell::Flags, TermMode},
     vte::ansi::{CursorShape, NamedColor},
 };
 use cosmic::widget::menu::key_bind::KeyBind;
@@ -45,6 +46,33 @@ use std::{
 
 use crate::{key_bind::key_binds, terminal::Metadata, Action, Terminal, TerminalScroll};
 
+#[derive(Clone, Debug)]
+pub struct ContextMenuData {
+    pub point: Point,
+    hyperlink: Option<term::cell::Hyperlink>,
+}
+impl ContextMenuData {
+    pub fn new(point: Point) -> Self {
+        Self {
+            point,
+            hyperlink: None,
+        }
+    }
+    pub fn with_hyperlink(self, hyperlink: Option<term::cell::Hyperlink>) -> Self {
+        Self { hyperlink, ..self }
+    }
+    pub fn hyperlink_uri(&self) -> Option<&str> {
+        self.hyperlink.as_ref().map(|link| link.uri())
+    }
+    pub fn hyperlink(&self) -> &Option<term::cell::Hyperlink> {
+        &self.hyperlink
+    }
+
+    pub fn has_hyperlink(&self) -> bool {
+        self.hyperlink.is_some()
+    }
+}
+
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
     id: Option<Id>,
@@ -52,9 +80,11 @@ pub struct TerminalBox<'a, Message> {
     padding: Padding,
     click_timing: Duration,
     context_menu: Option<Point>,
-    on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_context_menu: Option<Box<dyn Fn(Option<ContextMenuData>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
+    on_hover_hyperlink: Option<Box<dyn Fn(Option<term::cell::Hyperlink>) -> Message + 'a>>,
+    on_open_hyperlink: Option<Box<dyn Fn(term::cell::Hyperlink) -> Message + 'a>>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
@@ -75,6 +105,8 @@ where
             on_context_menu: None,
             on_mouse_enter: None,
             opacity: None,
+            on_hover_hyperlink: None,
+            on_open_hyperlink: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
             key_binds: key_binds(),
@@ -108,7 +140,7 @@ where
 
     pub fn on_context_menu(
         mut self,
-        on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
+        on_context_menu: impl Fn(Option<ContextMenuData>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
         self
@@ -121,6 +153,20 @@ where
 
     pub fn on_middle_click(mut self, on_middle_click: impl Fn() -> Message + 'a) -> Self {
         self.on_middle_click = Some(Box::new(on_middle_click));
+        self
+    }
+    pub fn on_open_hyperlink(
+        mut self,
+        on_open_hyperlink: impl Fn(term::cell::Hyperlink) -> Message + 'a,
+    ) -> Self {
+        self.on_open_hyperlink = Some(Box::new(on_open_hyperlink));
+        self
+    }
+    pub fn on_hover_hyperlink(
+        mut self,
+        on_hover_hyperlink: impl Fn(Option<term::cell::Hyperlink>) -> Message + 'a,
+    ) -> Self {
+        self.on_hover_hyperlink = Some(Box::new(on_hover_hyperlink));
         self
     }
 
@@ -224,6 +270,24 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
+                let mut col = x / terminal.size().cell_width;
+                let mut row = y / terminal.size().cell_height;
+                // Fix panic on the left edge of the scroll bar
+                col = col.min(terminal.size().columns().saturating_sub(1) as f32);
+                // Same for buttom edge
+                row = row.min(terminal.size().screen_lines().saturating_sub(1) as f32);
+
+                let location = terminal
+                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                let term = terminal.term.lock();
+
+                let hyperlink = term.grid()[location].hyperlink();
+                drop(term);
+                // dbg!(&hyperlink);
+                if hyperlink.is_some() {
+                    return mouse::Interaction::Pointer;
+                }
+
                 return mouse::Interaction::Text;
             }
         }
@@ -374,7 +438,7 @@ where
                             );
                         }
 
-                        if !metadata.flags.is_empty() {
+                        if !metadata.flags.is_empty() || metadata.hyperlink.is_some() {
                             let style_line_height = (self.glyph_font_size / 10.0).clamp(2.0, 16.0);
 
                             let line_color = cosmic_text_to_iced_color(metadata.underline_color);
@@ -386,7 +450,9 @@ where
                                 renderer.fill_quad(underline_quad, line_color);
                             }
 
-                            if metadata.flags.contains(Flags::UNDERLINE) {
+                            if metadata.flags.contains(Flags::UNDERLINE)
+                                || metadata.hyperlink_hovered
+                            {
                                 let bottom_offset = style_line_height * 2.0;
                                 let pos_offset = mk_pos_offset!(0.0, bottom_offset);
                                 let underline_quad = mk_quad!(pos_offset, style_line_height);
@@ -450,7 +516,9 @@ where
                                 }
                             };
 
-                            if metadata.flags.contains(Flags::DOTTED_UNDERLINE) {
+                            if metadata.flags.contains(Flags::DOTTED_UNDERLINE)
+                                || (metadata.hyperlink.is_some() && !metadata.hyperlink_hovered)
+                            {
                                 let bottom_offset = style_line_height * 2.0;
                                 let dot = (2.0, Some(bottom_offset));
                                 let gap = (2.0, None);
@@ -880,9 +948,9 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
-                if let Some(p) = cursor_position.position_in(layout.bounds()) {
-                    let x = p.x - self.padding.left;
-                    let y = p.y - self.padding.top;
+                if let Some(point) = cursor_position.position_in(layout.bounds()) {
+                    let x = point.x - self.padding.left;
+                    let y = point.y - self.padding.top;
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
@@ -895,8 +963,8 @@ where
                         // Handle left click drag
                         #[allow(clippy::collapsible_if)]
                         if let Button::Left = button {
-                            let x = p.x - self.padding.left;
-                            let y = p.y - self.padding.top;
+                            let x = point.x - self.padding.left;
+                            let y = point.y - self.padding.top;
                             if x >= 0.0
                                 && x < buffer_size.0.unwrap_or(0.0)
                                 && y >= 0.0
@@ -975,7 +1043,15 @@ where
                             shell.publish((on_context_menu)(match self.context_menu {
                                 Some(_) => None,
                                 None => match button {
-                                    Button::Right => Some(p),
+                                    Button::Right => {
+                                        let location = terminal.viewport_to_point(TermPoint::new(
+                                            row as usize,
+                                            TermColumn(col as usize),
+                                        ));
+                                        let hyperlink =
+                                            terminal.term.lock().grid()[location].hyperlink();
+                                        Some(ContextMenuData::new(point).with_hyperlink(hyperlink))
+                                    }
                                     _ => None,
                                 },
                             }));
@@ -992,6 +1068,19 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    let term = terminal.term.lock();
+                    let hyperlink = term.grid()[location].hyperlink();
+                    drop(term);
+                    dbg!(&hyperlink);
+                    if let Some(hyperlink) = hyperlink {
+                        if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
+                            shell.publish((on_open_hyperlink)(hyperlink));
+                            status = Status::Captured;
+                        }
+                    }
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
@@ -1033,6 +1122,34 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+
+                    if let Some(on_hover_hyperlink) = &self.on_hover_hyperlink {
+                        let location = {
+                            let col = col.min(terminal.size().columns().saturating_sub(1) as f32);
+                            let row =
+                                row.min(terminal.size().screen_lines().saturating_sub(1) as f32);
+
+                            let location = terminal.viewport_to_point(TermPoint::new(
+                                row as usize,
+                                TermColumn(col as usize),
+                            ));
+                            location
+                        };
+                        let hyperlink = terminal.term.lock().grid()[location].hyperlink();
+
+                        if hyperlink != state.hyperlink_hovered {
+                            shell.publish((on_hover_hyperlink)(hyperlink.clone()));
+                            state.hyperlink_hovered = hyperlink.clone();
+                        }
+                        if terminal.hyperlink_hovered.as_ref().map(|x| &x.0) != hyperlink.as_ref() {
+                            let term = terminal.term.lock();
+                            let hyperlink_hovered = hyperlink_at(&term, location);
+                            drop(term);
+                            terminal.hyperlink_hovered = hyperlink_hovered;
+                            terminal.needs_update = true;
+                        }
+                    }
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
@@ -1164,6 +1281,7 @@ pub struct State {
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
+    hyperlink_hovered: Option<term::cell::Hyperlink>,
 }
 
 impl State {
@@ -1176,6 +1294,7 @@ impl State {
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
+            hyperlink_hovered: None,
         }
     }
 }
@@ -1248,4 +1367,40 @@ fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
     } else {
         Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
     }
+}
+/// Each cell cointains an copy of the hyperlink, so for highlighting the hovered cell, you need to determine all adjacent cells.
+///
+/// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/display/hint.rs#L403-L431
+///
+/// Retrieve the hyperlink with its range, if there is one at the specified point.
+///
+/// This will only return contiguous cells, even if another hyperlink with the same ID exists.
+fn hyperlink_at<T>(
+    term: &alacritty_terminal::Term<T>,
+    point: TermPoint,
+) -> Option<(term::cell::Hyperlink, term::search::Match)> {
+    let hyperlink = term.grid()[point].hyperlink()?;
+
+    let grid = term.grid();
+
+    let mut match_end = point;
+    for cell in grid.iter_from(point) {
+        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+            match_end = cell.point;
+        } else {
+            break;
+        }
+    }
+
+    let mut match_start = point;
+    let mut iter = grid.iter_from(point);
+    while let Some(cell) = iter.prev() {
+        if cell.hyperlink().map_or(false, |link| link == hyperlink) {
+            match_start = cell.point;
+        } else {
+            break;
+        }
+    }
+
+    Some((hyperlink, match_start..=match_end))
 }

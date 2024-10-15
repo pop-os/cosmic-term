@@ -90,3 +90,5 @@ do
     printf "\033[4:5mDashedUnderline\033[0m "
     printf "\n"
 done
+
+printf '\e]8;;http://example.com\e\\This is a link\e]8;;\e\\\n'
