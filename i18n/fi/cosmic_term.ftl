@@ -18,7 +18,7 @@ import-errors = Tuo virheet
 
 ## Profiles
 
-profiles = Profiiilit
+profiles = Profiilit
 name = Nimi
 command-line = Komentorivi
 tab-title = Välilehden otsikko
