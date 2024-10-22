@@ -37,7 +37,6 @@ url = "2.5"
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
 default-features = false
-features = ["winit"]
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
@@ -63,14 +62,7 @@ wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 inherits = "release"
 debug = true
 
-[patch.crates-io]
-# https://github.com/alexcrichton/filetime/pull/104
-filetime = { git = "https://github.com/jackpot51/filetime" }
-
 # [patch.'https://github.com/pop-os/libcosmic']
-# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
-# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
-# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
 # cosmic-theme = { path = "../libcosmic/cosmic-theme" }

@@ -8,7 +8,6 @@ use cosmic::{
         Background, Length,
     },
     iced_core::Border,
-    theme,
     widget::{
         self,
         menu::{ItemHeight, ItemWidth, MenuBar, Tree as MenuTree},
@@ -38,7 +37,7 @@ pub fn context_menu<'a>(
         let key = find_key(&action);
         menu_button(vec![
             widget::text(label).into(),
-            horizontal_space(Length::Fill).into(),
+            horizontal_space().into(),
             widget::text(key).into(),
         ])
         .on_press(Message::TabContextAction(entity, action))
@@ -47,12 +46,11 @@ pub fn context_menu<'a>(
     let menu_checkbox = |label, value, action| {
         menu_button(vec![
             widget::text(label).into(),
-            widget::horizontal_space(Length::Fill).into(),
-            widget::toggler(None, value, move |_| {
-                Message::TabContextAction(entity, action)
-            })
-            .size(16.0)
-            .into(),
+            widget::horizontal_space().into(),
+            widget::toggler(value)
+                .on_toggle(move |_| Message::TabContextAction(entity, action))
+                .size(16.0)
+                .into(),
         ])
         .on_press(Message::TabContextAction(entity, action))
     };
@@ -78,10 +76,10 @@ pub fn context_menu<'a>(
     ))
     .padding(1)
     //TODO: move style to libcosmic
-    .style(theme::Container::custom(|theme| {
+    .style(|theme| {
         let cosmic = theme.cosmic();
         let component = &cosmic.background.component;
-        widget::container::Appearance {
+        widget::container::Style {
             icon_color: Some(component.on.into()),
             text_color: Some(component.on.into()),
             background: Some(Background::Color(component.base.into())),
@@ -92,7 +90,7 @@ pub fn context_menu<'a>(
             },
             ..Default::default()
         }
-    }))
+    })
     .width(Length::Fixed(240.0))
     .into()
 }
@@ -126,10 +124,10 @@ pub fn color_scheme_menu<'a>(
     widget::container(column)
         .padding(1)
         //TODO: move style to libcosmic
-        .style(theme::Container::custom(|theme| {
+        .style(|theme| {
             let cosmic = theme.cosmic();
             let component = &cosmic.background.component;
-            widget::container::Appearance {
+            widget::container::Style {
                 icon_color: Some(component.on.into()),
                 text_color: Some(component.on.into()),
                 background: Some(Background::Color(component.base.into())),
@@ -140,7 +138,7 @@ pub fn color_scheme_menu<'a>(
                 },
                 ..Default::default()
             }
-        }))
+        })
         .width(Length::Fixed(120.0))
         .into()
 }

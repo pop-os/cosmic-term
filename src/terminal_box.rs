@@ -24,7 +24,7 @@ use cosmic::{
         text::Renderer as _,
         widget::{
             self,
-            operation::{self, Operation, OperationOutputWrapper},
+            operation::{self, Operation},
             tree, Id, Widget,
         },
         Border, Shell,
@@ -192,7 +192,7 @@ where
         tree: &mut widget::Tree,
         _layout: Layout<'_>,
         _renderer: &Renderer,
-        operation: &mut dyn Operation<OperationOutputWrapper<Message>>,
+        operation: &mut dyn Operation,
     ) {
         let state = tree.state.downcast_mut::<State>();
 
