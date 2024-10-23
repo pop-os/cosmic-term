@@ -25,6 +25,8 @@ use cosmic_text::{
     Weight, Wrap,
 };
 use indexmap::IndexSet;
+#[cfg(not(windows))]
+use rustix::fd::AsFd;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -35,6 +37,8 @@ use std::{
     },
     time::Instant,
 };
+#[cfg(not(windows))]
+use std::{fs, path::PathBuf};
 use tokio::sync::mpsc;
 
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
@@ -214,6 +218,10 @@ pub struct Terminal {
     size: Size,
     use_bright_bold: bool,
     zoom_adj: i8,
+    #[cfg(not(windows))]
+    master_fd: Option<rustix::fd::OwnedFd>,
+    #[cfg(not(windows))]
+    shell_pid: rustix::process::Pid,
 }
 
 impl Terminal {
@@ -283,6 +291,11 @@ impl Terminal {
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
 
+        #[cfg(not(windows))]
+        let master_fd = pty.file().as_fd().try_clone_to_owned().ok();
+        #[cfg(not(windows))]
+        let shell_pid = rustix::process::Pid::from_child(pty.child());
+
         let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false)?;
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
@@ -306,6 +319,10 @@ impl Terminal {
             term,
             use_bright_bold,
             zoom_adj: Default::default(),
+            #[cfg(not(windows))]
+            master_fd,
+            #[cfg(not(windows))]
+            shell_pid,
         })
     }
 
@@ -923,6 +940,32 @@ impl Terminal {
                 delta,
             );
         }
+    }
+
+    /// Current working directory
+    #[cfg(not(windows))]
+    pub fn current_working_directory(&self) -> Option<PathBuf> {
+        // Largely based off of Alacritty
+        // https://github.com/alacritty/alacritty/blob/6bd1674bd80e73df0d41e4342ad4e34bb7d04f84/alacritty/src/daemon.rs#L85-L108
+        let pid = self
+            .master_fd
+            .as_ref()
+            .and_then(|pid| rustix::termios::tcgetpgrp(pid).ok())
+            .or(Some(self.shell_pid))?;
+
+        #[cfg(not(any(target_os = "freebsd", target_os = "macos")))]
+        let link_path = format!("/proc/{}/cwd", pid.as_raw_nonzero());
+        #[cfg(target_os = "freebsd")]
+        let link_path = format!("/compat/linux/proc/{}/cwd", pid.as_raw_nonzero());
+
+        #[cfg(not(target_os = "macos"))]
+        let cwd = fs::read_link(link_path).ok();
+
+        // TODO: macOS support
+        #[cfg(target_os = "macos")]
+        let cwd = None;
+
+        cwd
     }
 }
 

@@ -23,6 +23,7 @@ ron = "0.8"
 serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
 tokio = { version = "1", features = ["sync"] }
+rustix = { version = "0.38", features = ["termios"] }
 # Internationalization
 i18n-embed = { version = "0.14", features = [
     "fluent-system",
