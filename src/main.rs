@@ -352,7 +352,7 @@ pub enum Message {
     TabNext,
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
-    TermEventTx(mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
+    TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
@@ -411,7 +411,7 @@ pub struct App {
     find: bool,
     find_search_id: widget::Id,
     find_search_value: String,
-    term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
+    term_event_tx_opt: Option<mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
     color_scheme_errors: Vec<String>,
@@ -2791,7 +2791,7 @@ impl Application for App {
             Subscription::run_with_id(
                 TypeId::of::<TerminalEventSubscription>(),
                 stream::channel(100, |mut output| async move {
-                    let (event_tx, mut event_rx) = mpsc::channel(100);
+                    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
                     while let Some((pane, entity, event)) = event_rx.recv().await {

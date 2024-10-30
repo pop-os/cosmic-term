@@ -85,13 +85,13 @@ impl From<Size> for WindowSize {
 pub struct EventProxy(
     pane_grid::Pane,
     segmented_button::Entity,
-    mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+    mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
 );
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {
         //TODO: handle error
-        let _ = self.2.blocking_send((self.0, self.1, event));
+        let _ = self.2.send((self.0, self.1, event));
     }
 }
 
@@ -221,7 +221,7 @@ impl Terminal {
     pub fn new(
         pane: pane_grid::Pane,
         entity: segmented_button::Entity,
-        event_tx: mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+        event_tx: mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
         config: Config,
         options: Options,
         app_config: &AppConfig,
