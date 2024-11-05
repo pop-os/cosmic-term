@@ -246,6 +246,7 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
+        let radius_s = cosmic_theme.corner_radii.radius_s[0];
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
@@ -279,7 +280,11 @@ where
             renderer.fill_quad(
                 Quad {
                     bounds: layout.bounds(),
-                    border: self.border,
+                    border: Border {
+                        radius: [0.0, 0.0, radius_s, radius_s].into(),
+                        width: self.border.width,
+                        color: self.border.color,
+                    },
                     ..Default::default()
                 },
                 Color::new(

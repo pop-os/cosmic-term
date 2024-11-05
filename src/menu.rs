@@ -4,12 +4,12 @@ use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{items as menu_items, menu_button, root as menu_root, Item as MenuItem};
 use cosmic::{
     iced::{
-        widget::{column, horizontal_rule, horizontal_space},
+        widget::{column, horizontal_space},
         Background, Length,
     },
     iced_core::Border,
     widget::{
-        self,
+        self, divider,
         menu::{ItemHeight, ItemWidth, MenuBar, Tree as MenuTree},
         segmented_button,
     },
@@ -59,13 +59,13 @@ pub fn context_menu<'a>(
         menu_item(fl!("copy"), Action::Copy),
         menu_item(fl!("paste"), Action::Paste),
         menu_item(fl!("select-all"), Action::SelectAll),
-        horizontal_rule(1),
+        divider::horizontal::light(),
         menu_item(fl!("clear-scrollback"), Action::ClearScrollback),
-        horizontal_rule(1),
+        divider::horizontal::light(),
         menu_item(fl!("split-horizontal"), Action::PaneSplitHorizontal),
         menu_item(fl!("split-vertical"), Action::PaneSplitVertical),
         menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
-        horizontal_rule(1),
+        divider::horizontal::light(),
         menu_item(fl!("new-tab"), Action::TabNew),
         menu_item(fl!("menu-settings"), Action::Settings),
         menu_checkbox(
@@ -84,7 +84,7 @@ pub fn context_menu<'a>(
             text_color: Some(component.on.into()),
             background: Some(Background::Color(component.base.into())),
             border: Border {
-                radius: 8.0.into(),
+                radius: cosmic.radius_s().map(|x| x + 1.0).into(),
                 width: 1.0,
                 color: component.divider.into(),
             },
@@ -132,7 +132,7 @@ pub fn color_scheme_menu<'a>(
                 text_color: Some(component.on.into()),
                 background: Some(Background::Color(component.base.into())),
                 border: Border {
-                    radius: 8.0.into(),
+                    radius: cosmic.radius_s().map(|x| x + 1.0).into(),
                     width: 1.0,
                     color: component.divider.into(),
                 },
