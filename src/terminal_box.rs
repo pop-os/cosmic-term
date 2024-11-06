@@ -50,6 +50,7 @@ pub struct TerminalBox<'a, Message> {
     id: Option<Id>,
     border: Border,
     padding: Padding,
+    show_headerbar: bool,
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
@@ -70,6 +71,7 @@ where
             id: None,
             border: Border::default(),
             padding: Padding::new(0.0),
+            show_headerbar: true,
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
@@ -93,6 +95,11 @@ where
 
     pub fn padding<P: Into<Padding>>(mut self, padding: P) -> Self {
         self.padding = padding.into();
+        self
+    }
+
+    pub fn show_headerbar(mut self, show_headerbar: bool) -> Self {
+        self.show_headerbar = show_headerbar;
         self
     }
 
@@ -281,7 +288,11 @@ where
                 Quad {
                     bounds: layout.bounds(),
                     border: Border {
-                        radius: [0.0, 0.0, radius_s, radius_s].into(),
+                        radius: if self.show_headerbar {
+                            [0.0, 0.0, radius_s, radius_s].into()
+                        } else {
+                            [radius_s, radius_s, radius_s, radius_s].into()
+                        },
                         width: self.border.width,
                         color: self.border.color,
                     },
