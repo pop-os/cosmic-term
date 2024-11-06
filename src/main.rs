@@ -2666,7 +2666,8 @@ impl Application for App {
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .opacity(self.config.opacity_ratio())
-                    .padding(space_xxs);
+                    .padding(space_xxs)
+                    .show_headerbar(self.config.show_headerbar);
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
