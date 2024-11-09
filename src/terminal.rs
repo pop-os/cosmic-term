@@ -879,6 +879,7 @@ impl Terminal {
     ) {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
+
         #[allow(clippy::collapsible_else_if)]
         if mode.contains(TermMode::SGR_MOUSE) {
             if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
@@ -896,6 +897,7 @@ impl Terminal {
             }
         }
     }
+
     pub fn scroll_mouse(
         &mut self,
         delta: ScrollDelta,
@@ -905,9 +907,9 @@ impl Terminal {
     ) {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
+
         if mode.contains(TermMode::SGR_MOUSE) {
-            MouseReporter::report_sgr_mouse_wheel_scroll(
-                self,
+            let codes = self.mouse_reporter.sgr_mouse_wheel_scroll(
                 self.size().cell_width,
                 self.size().cell_height,
                 delta,
@@ -915,6 +917,10 @@ impl Terminal {
                 x,
                 y,
             );
+
+            for code in codes {
+                self.notifier.notify(code);
+            }
         } else {
             MouseReporter::report_mouse_wheel_as_arrows(
                 self,
