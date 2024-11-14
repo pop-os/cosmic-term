@@ -1,6 +1,7 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
+use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
@@ -1250,35 +1251,39 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focus;
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            // Use the profile options, startup options, or defaults
-                            let (options, tab_title_override) = match profile_id_opt
-                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
-                            {
-                                Some(profile) => {
-                                    let mut shell = None;
-                                    if let Some(mut args) = shlex::split(&profile.command) {
-                                        if !args.is_empty() {
-                                            let command = args.remove(0);
-                                            shell = Some(tty::Shell::new(command, args));
+                            // Use the startup options, profile options, or defaults
+                            let (options, tab_title_override) = match self.startup_options.take() {
+                                Some(options) => (options, None),
+                                None => match profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                                {
+                                    Some(profile) => {
+                                        let mut shell = None;
+                                        if let Some(mut args) = shlex::split(&profile.command) {
+                                            if !args.is_empty() {
+                                                let command = args.remove(0);
+                                                shell = Some(tty::Shell::new(command, args));
+                                            }
                                         }
-                                    }
-                                    let working_directory = (!profile.working_directory.is_empty())
-                                        .then(|| profile.working_directory.clone().into());
+                                        let working_directory =
+                                            (!profile.working_directory.is_empty())
+                                                .then(|| profile.working_directory.clone().into());
 
-                                    let options = tty::Options {
-                                        shell,
-                                        working_directory,
-                                        hold: profile.hold,
-                                        env: HashMap::new(),
-                                    };
-                                    let tab_title_override = if profile.tab_title.is_empty() {
-                                        None
-                                    } else {
-                                        Some(profile.tab_title.clone())
-                                    };
-                                    (options, tab_title_override)
-                                }
-                                None => (self.startup_options.take().unwrap_or_default(), None),
+                                        let options = tty::Options {
+                                            shell,
+                                            working_directory,
+                                            hold: profile.hold,
+                                            env: HashMap::new(),
+                                        };
+                                        let tab_title_override = if profile.tab_title.is_empty() {
+                                            None
+                                        } else {
+                                            Some(profile.tab_title.clone())
+                                        };
+                                        (options, tab_title_override)
+                                    }
+                                    None => (Options::default(), None),
+                                },
                             };
                             let entity = tab_model
                                 .insert()
