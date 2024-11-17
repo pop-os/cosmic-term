@@ -48,6 +48,18 @@ use crate::{
 /// Duplicated from alacritty
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 
+/// Maximum number of linewraps followed outside of the viewport during search highlighting.
+/// Duplicated from you guessed it.
+/// A regex expression can start or end outside the visible screen. Therefore, without this constant, some regular expressions would not match at the top and bottom.
+pub const MAX_SEARCH_LINES: usize = 100;
+
+/// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/config/ui_config.rs#L36-L39
+fn url_regex_search() -> RegexSearch {
+    let url_regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
+                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
+    RegexSearch::new(url_regex).unwrap()
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
     pub width: u32,
@@ -202,6 +214,9 @@ pub struct Terminal {
     pub profile_id_opt: Option<ProfileId>,
     pub tab_title_override: Option<String>,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
+    pub url_regex_search: RegexSearch,
+    pub regex_matches: Vec<alacritty_terminal::term::search::Match>,
+    pub active_regex_match: Option<alacritty_terminal::term::search::Match>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
     colors: Colors,
@@ -288,6 +303,9 @@ impl Terminal {
         let _pty_join_handle = pty_event_loop.spawn();
 
         Ok(Self {
+            active_regex_match: None,
+            url_regex_search: url_regex_search(),
+            regex_matches: Vec::new(),
             bold_font_weight: Weight(bold_font_weight),
             buffer: Arc::new(buffer),
             colors,
@@ -683,6 +701,10 @@ impl Terminal {
                 }
                 term.reset_damage();
 
+                let regex_match_iter = visible_regex_match_iter(&term, &mut self.url_regex_search);
+                self.regex_matches.clear();
+                self.regex_matches.extend(regex_match_iter);
+
                 let grid = term.grid();
                 for indexed in grid.display_iter() {
                     if indexed.point.line != last_point.unwrap_or(indexed.point).line {
@@ -806,8 +828,17 @@ impl Terminal {
                         .underline_color()
                         .map(|c| convert_color(&self.colors, c))
                         .unwrap_or(fg);
+
+                    let mut flags = indexed.cell.flags;
+
+                    if let Some(active_match) = &self.active_regex_match {
+                        if active_match.contains(&indexed.point) {
+                            flags |= Flags::UNDERLINE;
+                        }
+                    }
+
                     let metadata = Metadata::new(bg, fg)
-                        .with_flags(indexed.cell.flags)
+                        .with_flags(flags)
                         .with_underline_color(underline_color);
                     let (meta_idx, _) = self.metadata_set.insert_full(metadata);
                     attrs = attrs.metadata(meta_idx);
@@ -932,6 +963,24 @@ impl Terminal {
     }
 }
 
+/// Iterate over all visible regex matches.
+/// This includes the screen +- 100 lines (MAX_SEARCH_LINES).
+/// display/hint.rs
+pub fn visible_regex_match_iter<'a, T>(
+    term: &'a Term<T>,
+    regex: &'a mut RegexSearch,
+) -> impl Iterator<Item = alacritty_terminal::term::search::Match> + 'a {
+    let viewport_start = Line(-(term.grid().display_offset() as i32));
+    let viewport_end = viewport_start + term.bottommost_line();
+    let mut start = term.line_search_left(Point::new(viewport_start, Column(0)));
+    let mut end = term.line_search_right(Point::new(viewport_end, Column(0)));
+    start.line = start.line.max(viewport_start - MAX_SEARCH_LINES);
+    end.line = end.line.min(viewport_end + MAX_SEARCH_LINES);
+
+    alacritty_terminal::term::search::RegexIter::new(start, end, Direction::Right, term, regex)
+        .skip_while(move |rm| rm.end().line < viewport_start)
+        .take_while(move |rm| rm.start().line <= viewport_end)
+}
 impl Drop for Terminal {
     fn drop(&mut self) {
         // Ensure shutdown on terminal drop

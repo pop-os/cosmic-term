@@ -2665,6 +2665,7 @@ impl Application for App {
                         Message::TabContextMenu(pane, position_opt)
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
+                    .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs)
                     .show_headerbar(self.config.show_headerbar);
