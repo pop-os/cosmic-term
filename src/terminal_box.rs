@@ -58,6 +58,7 @@ pub struct TerminalBox<'a, Message> {
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
 }
 
@@ -80,6 +81,7 @@ where
             mouse_inside_boundary: None,
             on_middle_click: None,
             key_binds: key_binds(),
+            on_open_hyperlink: None,
         }
     }
 
@@ -133,6 +135,14 @@ where
 
     pub fn opacity(mut self, opacity: f32) -> Self {
         self.opacity = Some(opacity);
+        self
+    }
+
+    pub fn on_open_hyperlink(
+        mut self,
+        on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    ) -> Self {
+        self.on_open_hyperlink = on_open_hyperlink;
         self
     }
 }
@@ -231,6 +241,19 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
+                let col = x / terminal.size().cell_width;
+                let row = y / terminal.size().cell_height;
+
+                let location = terminal
+                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                if let Some(_) = terminal
+                    .regex_matches
+                    .iter()
+                    .find(|bounds| bounds.contains(&location))
+                {
+                    return mouse::Interaction::Pointer;
+                }
+
                 return mouse::Interaction::Text;
             }
         }
@@ -1008,6 +1031,22 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
+                        if let Some(match_) = terminal
+                            .regex_matches
+                            .iter()
+                            .find(|bounds| bounds.contains(&location))
+                        {
+                            let term = terminal.term.lock();
+                            let hyperlink = term.bounds_to_string(*match_.start(), *match_.end());
+                            shell.publish(on_open_hyperlink(hyperlink));
+                            status = Status::Captured;
+                        }
+                    }
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
@@ -1049,6 +1088,10 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    update_active_regex_match(&mut terminal, location);
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
@@ -1127,12 +1170,49 @@ where
                             }
                         }
                     }
+                    {
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+
+                        let location = terminal.viewport_to_point(TermPoint::new(
+                            row as usize,
+                            TermColumn(col as usize),
+                        ));
+                        update_active_regex_match(&mut terminal, location);
+                    }
                 }
             }
             _ => (),
         }
 
         status
+    }
+}
+
+fn update_active_regex_match(
+    terminal: &mut std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) {
+    if let Some(match_) = terminal
+        .regex_matches
+        .iter()
+        .find(|bounds| bounds.contains(&location))
+    {
+        'update: {
+            if let Some(active_match) = &terminal.active_regex_match {
+                if active_match == match_ {
+                    break 'update;
+                }
+            }
+            terminal.active_regex_match = Some(match_.clone());
+            terminal.needs_update = true;
+        }
+    } else if terminal.active_regex_match.is_some() {
+        terminal.active_regex_match = None;
+        terminal.needs_update = true;
     }
 }
 
