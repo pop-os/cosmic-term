@@ -253,7 +253,7 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
-        let radius_s = cosmic_theme.corner_radii.radius_s[0];
+        let radius_s = cosmic_theme.corner_radii.radius_s[0] - 1.0;
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
