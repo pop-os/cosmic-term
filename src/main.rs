@@ -9,7 +9,7 @@ use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::DndDestination;
 use cosmic::Apply;
 use cosmic::{
-    app::{command, message, Core, Settings, Task},
+    app::{command, context_drawer, message, Core, Settings, Task},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
@@ -370,17 +370,6 @@ pub enum ContextPage {
     ColorSchemes(ColorSchemeKind),
     Profiles,
     Settings,
-}
-
-impl ContextPage {
-    fn title(&self) -> String {
-        match self {
-            Self::About => String::new(),
-            Self::ColorSchemes(_color_scheme_kind) => fl!("color-schemes"),
-            Self::Profiles => fl!("profiles"),
-            Self::Settings => fl!("settings"),
-        }
-    }
 }
 
 /// The [`App`] stores application-specific state.
@@ -2564,8 +2553,6 @@ impl Application for App {
                             ColorSchemeKind::Light => light_entity,
                         });
                 }
-
-                self.set_context_title(context_page.title());
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
                 config_set!(default_profile, default.then_some(profile_id));
@@ -2601,16 +2588,31 @@ impl Application for App {
         Task::none()
     }
 
-    fn context_drawer(&self) -> Option<Element<Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Message>> {
         if !self.core.window.show_context {
             return None;
         }
 
         Some(match self.context_page {
-            ContextPage::About => self.about(),
-            ContextPage::ColorSchemes(color_scheme_kind) => self.color_schemes(color_scheme_kind),
-            ContextPage::Profiles => self.profiles(),
-            ContextPage::Settings => self.settings(),
+            ContextPage::About => context_drawer::context_drawer(
+                self.about(),
+                Message::ToggleContextPage(ContextPage::About),
+            ),
+            ContextPage::ColorSchemes(color_scheme_kind) => context_drawer::context_drawer(
+                self.color_schemes(color_scheme_kind),
+                Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind)),
+            )
+            .title(fl!("color-schemes")),
+            ContextPage::Profiles => context_drawer::context_drawer(
+                self.profiles(),
+                Message::ToggleContextPage(ContextPage::Profiles),
+            )
+            .title(fl!("profiles")),
+            ContextPage::Settings => context_drawer::context_drawer(
+                self.settings(),
+                Message::ToggleContextPage(ContextPage::Settings),
+            )
+            .title(fl!("settings")),
         })
     }
 
