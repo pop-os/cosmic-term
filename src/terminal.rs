@@ -701,9 +701,15 @@ impl Terminal {
                 }
                 term.reset_damage();
 
-                let regex_match_iter = visible_regex_match_iter(&term, &mut self.url_regex_search);
                 self.regex_matches.clear();
-                self.regex_matches.extend(regex_match_iter);
+                {
+                    let mut regex_matches: Vec<_> =
+                        visible_regex_match_iter(&term, &mut self.url_regex_search).collect();
+                    self.regex_matches
+                        .extend(regex_matches.drain(..).flat_map(|rm| -> Vec<_> {
+                            HintPostProcessor::new(&term, &mut self.url_regex_search, rm).collect()
+                        }));
+                }
 
                 let grid = term.grid();
                 for indexed in grid.display_iter() {
@@ -962,7 +968,6 @@ impl Terminal {
         }
     }
 }
-
 /// Iterate over all visible regex matches.
 /// This includes the screen +- 100 lines (MAX_SEARCH_LINES).
 /// display/hint.rs
@@ -981,6 +986,160 @@ pub fn visible_regex_match_iter<'a, T>(
         .skip_while(move |rm| rm.end().line < viewport_start)
         .take_while(move |rm| rm.start().line <= viewport_end)
 }
+/** Copy of <https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/display/hint.rs#L433C1-L572C1> */
+/// Iterator over all post-processed matches inside an existing hint match.
+struct HintPostProcessor<'a, T> {
+    /// Regex search DFAs.
+    regex: &'a mut RegexSearch,
+
+    /// Terminal reference.
+    term: &'a Term<T>,
+
+    /// Next hint match in the iterator.
+    next_match: Option<alacritty_terminal::term::search::Match>,
+
+    /// Start point for the next search.
+    start: Point,
+
+    /// End point for the hint match iterator.
+    end: Point,
+}
+
+impl<'a, T> HintPostProcessor<'a, T> {
+    /// Create a new iterator for an unprocessed match.
+    fn new(
+        term: &'a Term<T>,
+        regex: &'a mut RegexSearch,
+        regex_match: alacritty_terminal::term::search::Match,
+    ) -> Self {
+        let mut post_processor = Self {
+            next_match: None,
+            start: *regex_match.start(),
+            end: *regex_match.end(),
+            term,
+            regex,
+        };
+
+        // Post-process the first hint match.
+        post_processor.next_processed_match(regex_match);
+
+        post_processor
+    }
+
+    /// Apply some hint post processing heuristics.
+    ///
+    /// This will check the end of the hint and make it shorter if certain characters are determined
+    /// to be unlikely to be intentionally part of the hint.
+    ///
+    /// This is most useful for identifying URLs appropriately.
+    fn hint_post_processing(
+        &self,
+        regex_match: &alacritty_terminal::term::search::Match,
+    ) -> Option<alacritty_terminal::term::search::Match> {
+        let mut iter = self.term.grid().iter_from(*regex_match.start());
+
+        let mut c = iter.cell().c;
+
+        // Truncate uneven number of brackets.
+        let end = *regex_match.end();
+        let mut open_parents = 0;
+        let mut open_brackets = 0;
+        loop {
+            match c {
+                '(' => open_parents += 1,
+                '[' => open_brackets += 1,
+                ')' => {
+                    if open_parents == 0 {
+                        alacritty_terminal::grid::BidirectionalIterator::prev(&mut iter);
+                        break;
+                    } else {
+                        open_parents -= 1;
+                    }
+                }
+                ']' => {
+                    if open_brackets == 0 {
+                        alacritty_terminal::grid::BidirectionalIterator::prev(&mut iter);
+                        break;
+                    } else {
+                        open_brackets -= 1;
+                    }
+                }
+                _ => (),
+            }
+
+            if iter.point() == end {
+                break;
+            }
+
+            match iter.next() {
+                Some(indexed) => c = indexed.cell.c,
+                None => break,
+            }
+        }
+
+        // Truncate trailing characters which are likely to be delimiters.
+        let start = *regex_match.start();
+        while iter.point() != start {
+            if !matches!(c, '.' | ',' | ':' | ';' | '?' | '!' | '(' | '[' | '\'') {
+                break;
+            }
+
+            match alacritty_terminal::grid::BidirectionalIterator::prev(&mut iter) {
+                Some(indexed) => c = indexed.cell.c,
+                None => break,
+            }
+        }
+
+        if start > iter.point() {
+            None
+        } else {
+            Some(start..=iter.point())
+        }
+    }
+
+    /// Loop over submatches until a non-empty post-processed match is found.
+    fn next_processed_match(&mut self, mut regex_match: alacritty_terminal::term::search::Match) {
+        self.next_match = loop {
+            if let Some(next_match) = self.hint_post_processing(&regex_match) {
+                self.start = next_match.end().add(self.term, Boundary::Grid, 1);
+                break Some(next_match);
+            }
+
+            self.start = regex_match.start().add(self.term, Boundary::Grid, 1);
+            if self.start > self.end {
+                return;
+            }
+
+            match self
+                .term
+                .regex_search_right(self.regex, self.start, self.end)
+            {
+                Some(rm) => regex_match = rm,
+                None => return,
+            }
+        };
+    }
+}
+
+impl<'a, T> Iterator for HintPostProcessor<'a, T> {
+    type Item = alacritty_terminal::term::search::Match;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_match = self.next_match.take()?;
+
+        if self.start <= self.end {
+            if let Some(rm) = self
+                .term
+                .regex_search_right(self.regex, self.start, self.end)
+            {
+                self.next_processed_match(rm);
+            }
+        }
+
+        Some(next_match)
+    }
+}
+
 impl Drop for Terminal {
     fn drop(&mut self) {
         // Ensure shutdown on terminal drop
