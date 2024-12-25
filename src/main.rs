@@ -318,6 +318,7 @@ pub enum Message {
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
+    Padding(u16),
     PaneClicked(pane_grid::Pane),
     PaneDragged(pane_grid::DragEvent),
     PaneFocusAdjacent(pane_grid::Direction),
@@ -1063,6 +1064,8 @@ impl App {
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
 
+        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+
         let appearance_section = widget::settings::section()
             .title(fl!("appearance"))
             .add(
@@ -1106,6 +1109,13 @@ impl App {
                     .description(format!("{}%", self.config.opacity))
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
+                    })),
+            )
+            .add(
+                widget::settings::item::builder(fl!("padding"))
+                    .description(format!("{}px", self.config.padding))
+                    .control(widget::slider(space_xxs..=100, self.config.padding, |padding| {
+                        Message::Padding(padding)
                     })),
             );
 
@@ -2046,6 +2056,9 @@ impl Application for App {
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
             }
+            Message::Padding(padding) => {
+                config_set!(padding, cmp::min(100, padding));
+            }
             Message::PaneClicked(pane) => {
                 self.pane_model.focus = pane;
                 return self.update_title(Some(pane));
@@ -2674,7 +2687,7 @@ impl Application for App {
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .opacity(self.config.opacity_ratio())
-                    .padding(space_xxs)
+                    .padding(self.config.padding_value(space_xxs))
                     .show_headerbar(self.config.show_headerbar);
 
                 if self.config.focus_follow_mouse {
