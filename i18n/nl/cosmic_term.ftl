@@ -54,7 +54,7 @@ use-bright-bold = Vette tekst feller weergeven
 
 ### Splits
 splits = Splitsen
-focus-follow-mouse = Focus voor typen volgt cursor
+focus-follow-mouse = Focus voor typen volgt de cursor
 
 ### Advanced
 advanced = Geadvanceerd
