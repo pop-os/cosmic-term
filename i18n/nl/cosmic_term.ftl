@@ -58,8 +58,8 @@ focus-follow-mouse = Focus voor typen volgt cursor
 
 ### Advanced
 advanced = Geadvanceerd
-show-headerbar = Toon header
-show-header-description = Reveal the header from the right-click menu.
+show-headerbar = Koptekst tonen
+show-header-description = Toon de koptekst via het rechtermuisknopmenu
 
 # Find
 find-placeholder = Zoeken...
