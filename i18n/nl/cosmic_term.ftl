@@ -1,4 +1,4 @@
-cosmic-terminal = COSMIC Terminal
+cosmic-terminal = COSMIC-terminal
 new-terminal = Nieuw terminalvenster
 
 # Context Pages
@@ -25,7 +25,7 @@ new-profile = Nieuw profiel
 make-default = Als standaard instellen
 working-directory = Werkmap
 hold = Behouden
-remain-open = Geopend houden na het beëindigen van het subproces
+remain-open = Venster geopend houden nadat het subproces voltooid is
 
 ## Settings
 settings = Instellingen
@@ -43,7 +43,7 @@ opacity = Doorzichtigheid van de achtergrond
 
 ### Font
 font = Lettertype
-advanced-font-settings = Geadvanceerde lettertype-instellingen 
+advanced-font-settings = Geavanceerde lettertype-instellingen 
 default-font = Lettertype
 default-font-size = Grootte lettertype
 default-font-stretch = Breedte lettertype
@@ -57,7 +57,7 @@ splits = Splitsen
 focus-follow-mouse = Focus voor typen volgt de cursor
 
 ### Advanced
-advanced = Geadvanceerd
+advanced = Geavanceerd
 show-headerbar = Koptekst tonen
 show-header-description = Toon de koptekst via het rechtermuisknopmenu
 
@@ -97,4 +97,4 @@ split-vertical = Verticaal splitsen
 pane-toggle-maximize = Naar volledig scherm omschakelen
 menu-color-schemes = Kleurenpaletten
 menu-settings = Instellingen...
-menu-about = Over COSMIC Terminal...
+menu-about = Over COSMIC-terminal...
