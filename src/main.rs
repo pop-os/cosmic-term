@@ -77,10 +77,16 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     icon_cache.get(name, size)
 }
 
+const NO_BOOL_FLAGS: &[&str] = &["profile"];
 fn parse_flag<'a>(arg: &'a str) -> Option<(Arg<'a>, &'a str)> {
     if let Some(arg) = arg.strip_prefix("--") {
+        let arg = arg.split_once('=');
+        if let Some((flag, _)) = arg {
+            if !NO_BOOL_FLAGS.contains(&flag) {
+                did_you_mean(flag);
+            }
+        }
         return arg
-            .split_once('=')
             .filter(|(flag, value)| !value.is_empty() && !flag.is_empty())
             .map(|(flag, value)| (Arg::Long(flag), value));
     } else if let Some(arg) = arg.strip_prefix('-') {
@@ -91,6 +97,17 @@ fn parse_flag<'a>(arg: &'a str) -> Option<(Arg<'a>, &'a str)> {
             .map(|(flag, value)| (Arg::Short(flag.as_bytes()[0]), value));
     }
     return None;
+}
+#[cold]
+fn did_you_mean(flag: &str) {
+    if let Some((_, val)) = NO_BOOL_FLAGS
+        .iter()
+        .map(|val| (edit_distance::edit_distance(val, flag), val))
+        .max_by_key(|&(score, _)| score)
+        .filter(|&(score, _)| score <= 2)
+    {
+        eprintln!("Did you mean: {val}");
+    }
 }
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 enum Arg<'a> {
