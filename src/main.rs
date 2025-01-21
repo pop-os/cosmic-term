@@ -359,6 +359,8 @@ pub enum Message {
     UseBrightBold(bool),
     WindowClose,
     WindowNew,
+    WindowFocused,
+    WindowUnfocused,
     ZoomIn,
     ZoomOut,
     ZoomReset,
@@ -575,7 +577,8 @@ impl App {
     fn update_focus(&self) -> Task<Message> {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
-        } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focus).cloned() {
+        } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
+        {
             widget::text_input::focus(terminal_id)
         } else {
             Task::none()
@@ -584,7 +587,7 @@ impl App {
 
     // Call this any time the tab changes
     fn update_title(&mut self, pane: Option<pane_grid::Pane>) -> Task<Message> {
-        let pane = pane.unwrap_or(self.pane_model.focus);
+        let pane = pane.unwrap_or(self.pane_model.focused());
         if let Some(tab_model) = self.pane_model.panes.get(pane) {
             let (header_title, window_title) = match tab_model.text(tab_model.active()) {
                 Some(tab_title) => (
@@ -1221,7 +1224,7 @@ impl App {
         pane: pane_grid::Pane,
         profile_id_opt: Option<ProfileId>,
     ) -> Task<Message> {
-        self.pane_model.focus = pane;
+        self.pane_model.set_focus(pane);
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
                 let colors = self
@@ -1238,7 +1241,7 @@ impl App {
                     });
                 match colors {
                     Some(colors) => {
-                        let current_pane = self.pane_model.focus;
+                        let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
                             // Use the startup options, profile options, or defaults
                             let (options, tab_title_override) = match self.startup_options.take() {
@@ -1482,7 +1485,7 @@ impl Application for App {
 
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
-        terminal_ids.insert(pane_model.focus, widget::Id::unique());
+        terminal_ids.insert(pane_model.focused(), widget::Id::unique());
 
         let mut app = Self {
             core,
@@ -1949,7 +1952,7 @@ impl Application for App {
                 }
             }
             Message::Drop(Some((pane, entity, data))) => {
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 if let Ok(value) = shlex::try_join(data.paths.iter().filter_map(|p| p.to_str())) {
                     return Task::batch([
                         self.update_focus(),
@@ -2012,7 +2015,7 @@ impl Application for App {
                 self.find_search_value = value;
             }
             Message::MiddleClick(pane, entity_opt) => {
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return Task::batch([
                     self.update_focus(),
                     clipboard::read_primary().map(move |value_opt| match value_opt {
@@ -2040,20 +2043,20 @@ impl Application for App {
                 self.modifiers = modifiers;
             }
             Message::MouseEnter(pane) => {
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return self.update_focus();
             }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
             }
             Message::PaneClicked(pane) => {
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return self.update_title(Some(pane));
             }
             Message::PaneSplit(axis) => {
                 let result = self.pane_model.panes.split(
                     axis,
-                    self.pane_model.focus,
+                    self.pane_model.focused(),
                     segmented_button::ModelBuilder::default().build(),
                 );
                 if let Some((pane, _)) = result {
@@ -2068,7 +2071,7 @@ impl Application for App {
                 if self.pane_model.panes.maximized().is_some() {
                     self.pane_model.panes.restore();
                 } else {
-                    self.pane_model.panes.maximize(self.pane_model.focus);
+                    self.pane_model.panes.maximize(self.pane_model.focused());
                 }
                 return self.update_focus();
             }
@@ -2076,9 +2079,9 @@ impl Application for App {
                 if let Some(adjacent) = self
                     .pane_model
                     .panes
-                    .adjacent(self.pane_model.focus, direction)
+                    .adjacent(self.pane_model.focused(), direction)
                 {
-                    self.pane_model.focus = adjacent;
+                    self.pane_model.set_focus(adjacent);
                     return self.update_title(Some(adjacent));
                 }
             }
@@ -2154,7 +2157,8 @@ impl Application for App {
                 return self.save_profiles();
             }
             Message::ProfileOpen(profile_id) => {
-                return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
+                return self
+                    .create_and_focus_new_terminal(self.pane_model.focused(), Some(profile_id));
             }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
@@ -2292,10 +2296,10 @@ impl Application for App {
                     // If that was the last tab, close current pane
                     if tab_model.iter().next().is_none() {
                         if let Some((_state, sibling)) =
-                            self.pane_model.panes.close(self.pane_model.focus)
+                            self.pane_model.panes.close(self.pane_model.focused())
                         {
-                            self.terminal_ids.remove(&self.pane_model.focus);
-                            self.pane_model.focus = sibling;
+                            self.terminal_ids.remove(&self.pane_model.focused());
+                            self.pane_model.set_focus(sibling);
                         } else {
                             //Last pane, closing window
                             if let Some(window_id) = self.core.main_window_id() {
@@ -2343,17 +2347,17 @@ impl Application for App {
 
                 // Shift focus to the pane / terminal
                 // with the context menu
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return self.update_title(Some(pane));
             }
             Message::TabNew => {
                 return self.create_and_focus_new_terminal(
-                    self.pane_model.focus,
+                    self.pane_model.focused(),
                     self.get_default_profile(),
                 )
             }
             Message::TabNewNoProfile => {
-                return self.create_and_focus_new_terminal(self.pane_model.focus, None)
+                return self.create_and_focus_new_terminal(self.pane_model.focused(), None)
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2500,10 +2504,10 @@ impl Application for App {
 
                     // First, close other panes
                     while let Some((_state, sibling)) =
-                        self.pane_model.panes.close(self.pane_model.focus)
+                        self.pane_model.panes.close(self.pane_model.focused())
                     {
-                        self.terminal_ids.remove(&self.pane_model.focus);
-                        self.pane_model.focus = sibling;
+                        self.terminal_ids.remove(&self.pane_model.focused());
+                        self.pane_model.set_focus(sibling);
                     }
 
                     // Next, close all tabs in the active pane
@@ -2573,6 +2577,13 @@ impl Application for App {
                     log::error!("failed to get current executable path: {}", err);
                 }
             },
+            Message::WindowFocused => {
+                self.pane_model.update_terminal_focus();
+                return self.update_focus();
+            }
+            Message::WindowUnfocused => {
+                self.pane_model.unfocus_all_terminals();
+            }
             Message::ZoomIn => {
                 return self.update_render_active_pane_zoom(message);
             }
@@ -2673,6 +2684,8 @@ impl Application for App {
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
+                    .on_window_focused(|| Message::WindowFocused)
+                    .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs)
                     .show_headerbar(self.config.show_headerbar);
@@ -2697,7 +2710,7 @@ impl Application for App {
             }
 
             //Only draw find in the currently focused pane
-            if self.find && pane == self.pane_model.focus {
+            if self.find && pane == self.pane_model.focused() {
                 let find_input = widget::text_input::text_input(
                     fl!("find-placeholder"),
                     &self.find_search_value,

@@ -16,8 +16,7 @@ use alacritty_terminal::{
     Term,
 };
 use cosmic::{
-    iced::advanced::graphics::text::font_system,
-    iced::mouse::ScrollDelta,
+    iced::{advanced::graphics::text::font_system, mouse::ScrollDelta},
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
@@ -31,7 +30,7 @@ use std::{
     io, mem,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Weak,
+        Arc, Mutex, Weak,
     },
     time::Instant,
 };
@@ -155,7 +154,7 @@ type TabModel = segmented_button::Model<segmented_button::SingleSelect>;
 pub struct TerminalPaneGrid {
     pub panes: pane_grid::State<TabModel>,
     pub panes_created: usize,
-    pub focus: pane_grid::Pane,
+    focus: pane_grid::Pane,
 }
 
 impl TerminalPaneGrid {
@@ -175,6 +174,34 @@ impl TerminalPaneGrid {
     }
     pub fn active_mut(&mut self) -> Option<&mut TabModel> {
         self.panes.get_mut(self.focus)
+    }
+    pub fn set_focus(&mut self, pane: pane_grid::Pane) {
+        self.focus = pane;
+        self.update_terminal_focus();
+    }
+    pub fn focused(&self) -> pane_grid::Pane {
+        self.focus
+    }
+
+    pub fn update_terminal_focus(&self) {
+        for (pane, tab_model) in self.panes.panes.iter() {
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal = terminal.lock().unwrap();
+                terminal.is_focused = self.focus == *pane;
+                terminal.update();
+            }
+        }
+    }
+    pub fn unfocus_all_terminals(&self) {
+        for (_pane, tab_model) in self.panes.panes.iter() {
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal = terminal.lock().unwrap();
+                terminal.is_focused = false;
+                terminal.update();
+            }
+        }
     }
 }
 
@@ -219,6 +246,7 @@ pub struct Terminal {
     pub active_regex_match: Option<alacritty_terminal::term::search::Match>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
+    is_focused: bool,
     colors: Colors,
     default_attrs: Attrs<'static>,
     dim_font_weight: Weight,
@@ -324,6 +352,7 @@ impl Terminal {
             term,
             use_bright_bold,
             zoom_adj: Default::default(),
+            is_focused: true,
         })
     }
 
@@ -787,6 +816,7 @@ impl Terminal {
                     // Change color if cursor
                     if indexed.point == grid.cursor.point
                         && term.renderable_content().cursor.shape == CursorShape::Block
+                        && self.is_focused
                     {
                         //Use specific cursor color if requested
                         if term.colors()[NamedColor::Cursor].is_some() {
