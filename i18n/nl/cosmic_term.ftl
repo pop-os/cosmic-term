@@ -17,7 +17,7 @@ import-errors = Importfouten
 ## Profiles
 profiles = Profielen
 name = Naam
-command-line = Opdrachtregel
+command-line = Commandoregel
 tab-title = Tabbladtitel
 tab-title-description = De standaard tabbladtitel overschrijven
 add-profile = Profiel toevoegen
@@ -31,13 +31,13 @@ remain-open = Venster geopend houden nadat het subproces voltooid is
 settings = Instellingen
 
 ### Appearance
-appearance = Uiterlijk
+appearance = Weergave
 theme = Thema
 match-desktop = Systeemstandaard
 dark = Donker
 light = Licht
-syntax-dark = Donker thema
-syntax-light = Licht thema
+syntax-dark = Donkere syntaxiskleuring
+syntax-light = Lichte syntaxiskleuring
 default-zoom-step = Zoomstappen
 opacity = Doorzichtigheid van de achtergrond
 
@@ -86,7 +86,7 @@ find = Zoeken
 clear-scrollback = Scrollgeschiedenis wissen
 
 ## View
-view = Aanzicht
+view = Beeld
 zoom-in = Tekst vergroten
 zoom-reset = Normale tekstgrootte
 zoom-out = Tekst verkleinen
