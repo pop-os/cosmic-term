@@ -693,10 +693,11 @@ where
         match event {
             Event::Keyboard(KeyEvent::KeyPressed {
                 key: Key::Named(named),
+                modified_key: Key::Named(modified_named),
                 modifiers,
                 text,
                 ..
-            }) if state.is_focused => {
+            }) if state.is_focused && named == modified_named => {
                 for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &Key::Named(named)) {
                         return Status::Captured;
