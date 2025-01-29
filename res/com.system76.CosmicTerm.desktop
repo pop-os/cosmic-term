@@ -3,6 +3,7 @@
 Name=COSMIC Terminal
 Name[pl]=Terminal COSMIC
 Name[pt-BR]=Terminal do COSMIC
+Name[hu]=COSMIC Terminál
 Exec=cosmic-term
 Terminal=false
 Type=Application
@@ -12,3 +13,4 @@ Categories=COSMIC;System;TerminalEmulator;
 Keywords=Command;Shell;Terminal;
 Keywords[pl]=Cli;WierszPoleceń;Powłoka;Terminal;
 Keywords[pt-BR]=Comando;Shell;Terminal;
+Keywords[hu]=parancssor;terminál;
