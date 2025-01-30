@@ -35,6 +35,8 @@ icu_collator = "1.5"
 icu_provider = { version = "1.5", features = ["sync"] }
 rust-embed = "8"
 url = "2.5"
+serde_yaml = "0.9.34"
+home = "0.5.9"
 
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"

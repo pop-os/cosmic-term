@@ -1278,6 +1278,7 @@ dependencies = [
  "env_logger 0.10.2",
  "fork",
  "hex_color",
+ "home",
  "i18n-embed",
  "i18n-embed-fl",
  "icu_collator",
@@ -1293,6 +1294,7 @@ dependencies = [
  "ron 0.8.1",
  "rust-embed",
  "serde",
+ "serde_yaml",
  "shlex",
  "tokio",
  "url",
@@ -5251,6 +5253,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6069,6 +6084,12 @@ name = "unix_permissions_ext"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7497808a85e03f612f13e9c5061e4c81cdee86e6c00adfa1096690990ccd08e9"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "url"
