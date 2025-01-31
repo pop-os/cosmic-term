@@ -25,7 +25,7 @@ new-profile = Nieuw profiel
 make-default = Als standaard instellen
 working-directory = Werkmap
 hold = Behouden
-remain-open = Venster geopend houden nadat het subproces voltooid is
+remain-open = Venster geopend houden nadat het subproces voltooid is.
 
 ## Settings
 settings = Instellingen
@@ -59,7 +59,7 @@ focus-follow-mouse = Focus voor typen volgt de cursor
 ### Advanced
 advanced = Geavanceerd
 show-headerbar = Koptekst tonen
-show-header-description = Toon de koptekst via het rechtermuisknopmenu
+show-header-description = Toon de koptekst via het rechtermuisknopmenu.
 
 # Find
 find-placeholder = Zoeken...
@@ -95,6 +95,6 @@ previous-tab = Vorig tabblad
 split-horizontal = Horizontaal splitsen
 split-vertical = Verticaal splitsen
 pane-toggle-maximize = Naar volledig scherm omschakelen
-menu-color-schemes = Kleurenpaletten
+menu-color-schemes = Kleurenpaletten...
 menu-settings = Instellingen...
 menu-about = Over COSMIC-terminal...
