@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2021"
 license = "GPL-3.0-only"
-rust-version = "1.71"
+rust-version = "1.80"
 
 [build-dependencies]
 vergen = { version = "8", features = ["git", "gitcl"] }
@@ -35,6 +35,8 @@ icu_collator = "1.5"
 icu_provider = { version = "1.5", features = ["sync"] }
 rust-embed = "8"
 url = "2.5"
+# TODO: required by 1.80
+home = "=0.5.9"
 
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
