@@ -278,7 +278,7 @@ impl Terminal {
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
 
-        let metrics = Metrics::new(14.0, 20.0);
+        let metrics = Metrics::new(14.0, 21.0);
 
         let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
         let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
