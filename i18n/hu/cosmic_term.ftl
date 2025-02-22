@@ -4,7 +4,7 @@ new-terminal = Új terminál
 # Context Pages
 
 ## About
-git-description = Git commit {$hash} {$date}-kor
+git-description = Git commit {$hash} ekkor: {$date}
 
 ## Color schemes
 color-schemes = Színsémák
@@ -12,7 +12,7 @@ rename = Átnevezés
 export = Exportálás
 delete = Törlés
 import = Importálás
-import-errors = Import hibák
+import-errors = Importálási hibák
 
 ## Profiles
 profiles = Profilok
@@ -43,23 +43,23 @@ opacity = Háttér átlátszósága
 
 ### Font
 font = Betűtípus
-advanced-font-settings = Haladó betűtípus beállítások
+advanced-font-settings = Haladó betűtípus-beállítások
 default-font = Betűtípus
 default-font-size = Betűméret
-default-font-stretch = Betűtípus nyújtása
+default-font-stretch = Betűszélesség
 default-font-weight = Normál betűsúly
 default-dim-font-weight = Halvány betűsúly
 default-bold-font-weight = Félkövér betűsúly
 use-bright-bold = Félkövér szöveg világosítása
 
 ### Splits
-splits = Felosztások
+splits = Ablakelrendezés
 focus-follow-mouse = A fókusz követi az egeret gépelés közben
 
 ### Advanced
 advanced = Haladó
 show-headerbar = Fejléc megjelenítése
-show-header-description = Fejléc megjelenítése a jobbklikk menüből.
+show-header-description = Fejléc megjelenítése a jobb gombos menüből.
 
 # Find
 find-placeholder = Keresés...
@@ -83,7 +83,7 @@ copy = Másolás
 paste = Beillesztés
 select-all = Összes kijelölése
 find = Keresés
-clear-scrollback = Puffer törlése
+clear-scrollback = Visszagörgetési puffer törlése
 
 ## View
 view = Nézet
@@ -94,7 +94,7 @@ next-tab = Következő lap
 previous-tab = Előző lap
 split-horizontal = Vízszintes felosztás
 split-vertical = Függőleges felosztás
-pane-toggle-maximize = Maximalizálás
+pane-toggle-maximize = Panel maximalizálása
 menu-color-schemes = Színsémák...
 menu-settings = Beállítások...
 menu-about = A COSMIC Terminálról...
