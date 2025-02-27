@@ -334,6 +334,7 @@ pub enum Message {
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
+    SearchFlags(config::SearchFlags, bool),
     Surface(surface::Action),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
@@ -1998,7 +1999,11 @@ impl Application for App {
                         let entity = tab_model.active();
                         if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, true);
+                            terminal.search(
+                                &self.find_search_value,
+                                true,
+                                self.config.search_flags(),
+                            );
                         }
                     }
                 }
@@ -2012,7 +2017,11 @@ impl Application for App {
                         let entity = tab_model.active();
                         if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, false);
+                            terminal.search(
+                                &self.find_search_value,
+                                false,
+                                self.config.search_flags(),
+                            );
                         }
                     }
                 }
@@ -2238,6 +2247,15 @@ impl Application for App {
                     config_set!(use_bright_bold, use_bright_bold);
                     return self.update_config();
                 }
+            }
+            Message::SearchFlags(flag, toggle) => {
+                if flag.contains_all(config::SearchFlags::WHOLE_WORDS) {
+                    config_set!(search_whole_words, toggle);
+                } else if flag.contains_all(config::SearchFlags::CASE_SENSITIVE) {
+                    config_set!(search_case_sensitive, toggle);
+                } else {
+                    config_set!(search_use_regex, toggle);
+                };
             }
             Message::ShowAdvancedFontSettings(show) => {
                 self.show_advanced_font_settings = show;
@@ -2747,36 +2765,63 @@ impl Application for App {
                         .class(style::Button::Icon)
                         .into(),
                 );
-                let find_widget = widget::row::with_children(vec![
-                    find_input.into(),
-                    widget::tooltip(
-                        button::custom(icon_cache_get("go-up-symbolic", 16))
-                            .on_press(Message::FindPrevious)
-                            .padding(space_xxs)
-                            .class(style::Button::Icon),
-                        widget::text::body(fl!("find-previous")),
-                        widget::tooltip::Position::Top,
-                    )
-                    .into(),
-                    widget::tooltip(
-                        button::custom(icon_cache_get("go-down-symbolic", 16))
-                            .on_press(Message::FindNext)
-                            .padding(space_xxs)
-                            .class(style::Button::Icon),
-                        widget::text::body(fl!("find-next")),
-                        widget::tooltip::Position::Top,
-                    )
-                    .into(),
-                    widget::horizontal_space().into(),
-                    button::custom(icon_cache_get("window-close-symbolic", 16))
-                        .on_press(Message::Find(false))
-                        .padding(space_xxs)
-                        .class(style::Button::Icon)
+
+                let mut find_widget = widget::column::with_capacity(2);
+
+                find_widget = find_widget.push(
+                    widget::row::with_children(vec![
+                        find_input.into(),
+                        widget::tooltip(
+                            button::custom(icon_cache_get("go-up-symbolic", 16))
+                                .on_press(Message::FindPrevious)
+                                .padding(space_xxs)
+                                .class(style::Button::Icon),
+                            widget::text::body(fl!("find-previous")),
+                            widget::tooltip::Position::Top,
+                        )
                         .into(),
-                ])
-                .align_y(Alignment::Center)
-                .padding(space_xxs)
-                .spacing(space_xxs);
+                        widget::tooltip(
+                            button::custom(icon_cache_get("go-down-symbolic", 16))
+                                .on_press(Message::FindNext)
+                                .padding(space_xxs)
+                                .class(style::Button::Icon),
+                            widget::text::body(fl!("find-next")),
+                            widget::tooltip::Position::Top,
+                        )
+                        .into(),
+                        widget::horizontal_space().into(),
+                        button::custom(icon_cache_get("window-close-symbolic", 16))
+                            .on_press(Message::Find(false))
+                            .padding(space_xxs)
+                            .class(style::Button::Icon)
+                            .into(),
+                    ])
+                    .align_y(Alignment::Center)
+                    .padding(space_xxs)
+                    .spacing(space_xxs),
+                );
+                find_widget = find_widget.push(
+                    widget::row::with_children(vec![
+                        widget::checkbox(fl!("case-sensitive"), self.config.search_case_sensitive)
+                            .on_toggle(|toggle| {
+                                Message::SearchFlags(config::SearchFlags::CASE_SENSITIVE, toggle)
+                            })
+                            .into(),
+                        widget::checkbox(fl!("use-regex"), self.config.search_use_regex)
+                            .on_toggle(|toggle| {
+                                Message::SearchFlags(config::SearchFlags::USE_REGEX, toggle)
+                            })
+                            .into(),
+                        widget::checkbox(fl!("whole-words"), self.config.search_whole_words)
+                            .on_toggle(|toggle| {
+                                Message::SearchFlags(config::SearchFlags::WHOLE_WORDS, toggle)
+                            })
+                            .into(),
+                    ])
+                    .align_y(Alignment::Center)
+                    .padding(space_xxs)
+                    .spacing(space_xxs),
+                );
 
                 tab_column = tab_column
                     .push(widget::layer_container(find_widget).layer(cosmic_theme::Layer::Primary));

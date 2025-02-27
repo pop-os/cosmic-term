@@ -236,6 +236,9 @@ pub struct Config {
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
     pub default_profile: Option<ProfileId>,
+    pub search_whole_words: bool,
+    pub search_case_sensitive: bool,
+    pub search_use_regex: bool,
 }
 
 impl Default for Config {
@@ -259,6 +262,9 @@ impl Default for Config {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
+            search_whole_words: false,
+            search_case_sensitive: false,
+            search_use_regex: false,
         }
     }
 }
@@ -386,4 +392,61 @@ impl Config {
             }
         })[&self.font_stretch]
     }
+
+    pub fn search_flags(&self) -> SearchFlags {
+        let word_flag = self.search_whole_words as u8 * 1;
+        let case_flag = self.search_case_sensitive as u8 * 2;
+        let regex_flag = self.search_use_regex as u8 * 4;
+        SearchFlags(word_flag | case_flag | regex_flag)
+    }
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct SearchFlags(u8);
+impl SearchFlags {
+    pub const WHOLE_WORDS: Self = Self(1);
+    pub const CASE_SENSITIVE: Self = Self(2);
+    pub const USE_REGEX: Self = Self(4);
+    pub fn contains_all(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    pub fn contains_any(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+impl std::ops::BitOr for SearchFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
+    }
+}
+
+pub fn escape_regex(s: &str) -> String {
+    let mut new = String::with_capacity(s.len());
+    for c in s.chars() {
+        if matches!(
+            c,
+            '\\' | '.'
+                | '+'
+                | '*'
+                | '?'
+                | '('
+                | ')'
+                | '|'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | '^'
+                | '$'
+                | '#'
+                | '&'
+                | '-'
+                | '~'
+        ) {
+            new.push('\\');
+        }
+        new.push(c);
+    }
+    return new;
 }
