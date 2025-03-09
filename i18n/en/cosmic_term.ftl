@@ -65,6 +65,8 @@ show-header-description = Reveal the header from the right-click menu.
 find-placeholder = Find...
 find-previous = Find previous
 find-next = Find next
+match-case = Match Case
+whole-words = Whole Words
 
 # Menu
 
