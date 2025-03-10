@@ -229,6 +229,7 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub opacity: u8,
+    pub padding: u16,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub use_bright_bold: bool,
@@ -253,6 +254,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
             opacity: 100,
+            padding: 0,
             profiles: BTreeMap::new(),
             show_headerbar: true,
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
@@ -331,6 +333,14 @@ impl Config {
 
     pub fn opacity_ratio(&self) -> f32 {
         f32::from(self.opacity) / 100.0
+    }
+
+    pub fn padding_value(&self, space_xxs: u16) -> u16 {
+        if self.padding <= space_xxs {
+            u16::from(space_xxs)
+        } else {
+            u16::from(self.padding)
+        }
     }
 
     // Get a sorted and adjusted for duplicates list of profile names and ids
