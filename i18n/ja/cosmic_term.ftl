@@ -7,7 +7,7 @@ new-terminal = 新しい端末
 git-description = {$date}の{$hash}というGitコミット
 
 ## Color schemes
-color-schemes = Color schemes
+color-schemes = カラースキーム
 rename = 名前を変更
 export = エクスポート
 delete = 削除
@@ -24,8 +24,8 @@ add-profile = プロファイルを追加
 new-profile = 新しいプロファイル
 make-default = デフォルトにする
 working-directory = 作業ディレクトリ
-hold = Hold
-remain-open = 子プロセスの終了後も閉じない
+hold = 押さえる
+remain-open = 子プロセスが終了しても閉じない
 
 ## Settings
 settings = 設定
@@ -62,7 +62,7 @@ show-headerbar = ヘッダーを表示する
 show-header-description = 右クリックでヘッダーを表示する
 
 # Find
-find-placeholder = 検索...
+find-placeholder = 検索…
 find-previous = 前を検索
 find-next = 次を検索
 
@@ -73,7 +73,7 @@ file = ファイル
 new-tab = 新しいタブ
 new-window = 新しいウィンドウ
 profile = プロファイル
-menu-profiles = プロファイル...
+menu-profiles = プロファイル…
 close-tab = タブを閉じる
 quit = 終了
 
@@ -83,6 +83,7 @@ copy = コピー
 paste = 貼り付け
 select-all = すべて選択
 find = 検索
+clear-scrollback = スクロールバックを削除
 
 ## View
 view = 表示
