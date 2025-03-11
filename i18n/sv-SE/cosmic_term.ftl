@@ -23,6 +23,9 @@ tab-title-description = Åsidosätt standardtitel för flik
 add-profile = Lägg till profil
 new-profile = Ny profil
 make-default = Gör till standard
+working-directory = Arbetskatalog
+hold = Håll
+remain-open = Förbli öppen efter att barnprocessen avslutats.
 
 ## Inställningar
 settings = Inställningar
@@ -91,6 +94,7 @@ previous-tab = Föregående flik
 split-horizontal = Dela horisontellt
 split-vertical = Dela vertikalt
 pane-toggle-maximize = Växla maximerad
+clear-scrollback = Rensa tillbakarullning
 menu-color-schemes = Färgscheman…
 menu-settings = Inställningar…
 menu-about = Om COSMIC Terminal…

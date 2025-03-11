@@ -49,15 +49,15 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl, Shift], Key::Named(Named::Tab), TabPrev);
 
     // Ctrl+Shift+# activates tabs by index
-    bind!([Ctrl, Shift], Key::Character("!".into()), TabActivate0);
-    bind!([Ctrl, Shift], Key::Character("@".into()), TabActivate1);
-    bind!([Ctrl, Shift], Key::Character("#".into()), TabActivate2);
-    bind!([Ctrl, Shift], Key::Character("$".into()), TabActivate3);
-    bind!([Ctrl, Shift], Key::Character("%".into()), TabActivate4);
-    bind!([Ctrl, Shift], Key::Character("^".into()), TabActivate5);
-    bind!([Ctrl, Shift], Key::Character("&".into()), TabActivate6);
-    bind!([Ctrl, Shift], Key::Character("*".into()), TabActivate7);
-    bind!([Ctrl, Shift], Key::Character("(".into()), TabActivate8);
+    bind!([Ctrl, Shift], Key::Character("1".into()), TabActivate0);
+    bind!([Ctrl, Shift], Key::Character("2".into()), TabActivate1);
+    bind!([Ctrl, Shift], Key::Character("3".into()), TabActivate2);
+    bind!([Ctrl, Shift], Key::Character("4".into()), TabActivate3);
+    bind!([Ctrl, Shift], Key::Character("5".into()), TabActivate4);
+    bind!([Ctrl, Shift], Key::Character("6".into()), TabActivate5);
+    bind!([Ctrl, Shift], Key::Character("7".into()), TabActivate6);
+    bind!([Ctrl, Shift], Key::Character("8".into()), TabActivate7);
+    bind!([Ctrl, Shift], Key::Character("9".into()), TabActivate8);
 
     // Ctrl+0, Ctrl+-, and Ctrl+= are not special keys for terminals and are free to use
     bind!([Ctrl], Key::Character("0".into()), ZoomReset);
@@ -74,6 +74,9 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl, Shift], Key::Character("K".into()), PaneFocusUp);
     bind!([Ctrl, Shift], Key::Named(Named::ArrowRight), PaneFocusRight);
     bind!([Ctrl, Shift], Key::Character("L".into()), PaneFocusRight);
+
+    // CTRL+Alt+L clears the scrollback.
+    bind!([Ctrl, Alt], Key::Character("L".into()), ClearScrollback);
 
     key_binds
 }

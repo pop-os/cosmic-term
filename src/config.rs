@@ -211,7 +211,7 @@ impl Default for Profile {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             tab_title: String::new(),
             working_directory: String::new(),
-            hold: true,
+            hold: false,
         }
     }
 }
@@ -247,7 +247,7 @@ impl Default for Config {
             color_schemes_light: BTreeMap::new(),
             dim_font_weight: Weight::NORMAL.0,
             focus_follow_mouse: false,
-            font_name: "Fira Mono".to_string(),
+            font_name: "Noto Sans Mono".to_string(),
             font_size: 14,
             font_size_zoom_step_mul_100: 100,
             font_stretch: Stretch::Normal.to_number(),

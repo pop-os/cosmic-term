@@ -4,6 +4,7 @@ use alacritty_terminal::{
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
     term::{cell::Flags, TermMode},
+    vte::ansi::{CursorShape, NamedColor},
 };
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
@@ -23,7 +24,7 @@ use cosmic::{
         text::Renderer as _,
         widget::{
             self,
-            operation::{self, Operation, OperationOutputWrapper},
+            operation::{self, Operation},
             tree, Id, Widget,
         },
         Border, Shell,
@@ -34,6 +35,7 @@ use cosmic::{
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
 use std::{
+    array,
     cell::Cell,
     cmp,
     collections::HashMap,
@@ -48,6 +50,7 @@ pub struct TerminalBox<'a, Message> {
     id: Option<Id>,
     border: Border,
     padding: Padding,
+    show_headerbar: bool,
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
@@ -55,6 +58,9 @@ pub struct TerminalBox<'a, Message> {
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
 }
 
@@ -68,6 +74,7 @@ where
             id: None,
             border: Border::default(),
             padding: Padding::new(0.0),
+            show_headerbar: true,
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
@@ -76,6 +83,9 @@ where
             mouse_inside_boundary: None,
             on_middle_click: None,
             key_binds: key_binds(),
+            on_open_hyperlink: None,
+            on_window_focused: None,
+            on_window_unfocused: None,
         }
     }
 
@@ -91,6 +101,11 @@ where
 
     pub fn padding<P: Into<Padding>>(mut self, padding: P) -> Self {
         self.padding = padding.into();
+        self
+    }
+
+    pub fn show_headerbar(mut self, show_headerbar: bool) -> Self {
+        self.show_headerbar = show_headerbar;
         self
     }
 
@@ -124,6 +139,24 @@ where
 
     pub fn opacity(mut self, opacity: f32) -> Self {
         self.opacity = Some(opacity);
+        self
+    }
+
+    pub fn on_open_hyperlink(
+        mut self,
+        on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    ) -> Self {
+        self.on_open_hyperlink = on_open_hyperlink;
+        self
+    }
+
+    pub fn on_window_focused(mut self, on_window_focused: impl Fn() -> Message + 'a) -> Self {
+        self.on_window_focused = Some(Box::new(on_window_focused));
+        self
+    }
+
+    pub fn on_window_unfocused(mut self, on_window_unfocused: impl Fn() -> Message + 'a) -> Self {
+        self.on_window_unfocused = Some(Box::new(on_window_unfocused));
         self
     }
 }
@@ -190,7 +223,7 @@ where
         tree: &mut widget::Tree,
         _layout: Layout<'_>,
         _renderer: &Renderer,
-        operation: &mut dyn Operation<OperationOutputWrapper<Message>>,
+        operation: &mut dyn Operation,
     ) {
         let state = tree.state.downcast_mut::<State>();
 
@@ -222,6 +255,19 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
+                let col = x / terminal.size().cell_width;
+                let row = y / terminal.size().cell_height;
+
+                let location = terminal
+                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                if let Some(_) = terminal
+                    .regex_matches
+                    .iter()
+                    .find(|bounds| bounds.contains(&location))
+                {
+                    return mouse::Interaction::Pointer;
+                }
+
                 return mouse::Interaction::Text;
             }
         }
@@ -244,6 +290,7 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
+        let radius_s = cosmic_theme.corner_radii.radius_s[0] - 1.0;
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
@@ -277,7 +324,15 @@ where
             renderer.fill_quad(
                 Quad {
                     bounds: layout.bounds(),
-                    border: self.border,
+                    border: Border {
+                        radius: if self.show_headerbar {
+                            [0.0, 0.0, radius_s, radius_s].into()
+                        } else {
+                            [radius_s, radius_s, radius_s, radius_s].into()
+                        },
+                        width: self.border.width,
+                        color: self.border.color,
+                    },
                     ..Default::default()
                 },
                 Color::new(
@@ -406,72 +461,80 @@ where
                                 renderer.fill_quad(underline2_quad, line_color);
                             }
 
+                            // rects is a slice of (width, Option<y>), `None` means a gap.
+                            let mut draw_repeated = |rects: &[(f32, Option<f32>)]| {
+                                let full_width = self.end_x - self.start_x;
+                                let pattern_len: f32 = rects.iter().map(|x| x.0).sum(); // total length of the pattern
+                                let mut accu_width = 0.0;
+                                let mut index = {
+                                    let in_pattern = self.start_x % pattern_len;
+
+                                    let mut sum = 0.0;
+                                    let mut index = 0;
+                                    for (i, rect) in rects.iter().enumerate() {
+                                        sum += rect.0;
+                                        if in_pattern < sum {
+                                            let width = sum - in_pattern;
+                                            if let Some(height) = rect.1 {
+                                                // draw first rect cropped to span
+                                                let pos_offset = mk_pos_offset!(accu_width, height);
+                                                let underline_quad =
+                                                    mk_quad!(pos_offset, style_line_height, width);
+                                                renderer.fill_quad(underline_quad, line_color);
+                                            }
+                                            index = i + 1;
+                                            accu_width += width;
+                                            break;
+                                        }
+                                    }
+                                    index // index of first full rect
+                                };
+                                while accu_width < full_width {
+                                    let (width, x) = rects[index % rects.len()];
+                                    let cropped_width = width.min(full_width - accu_width);
+                                    if let Some(height) = x {
+                                        let pos_offset = mk_pos_offset!(accu_width, height);
+                                        let underline_quad =
+                                            mk_quad!(pos_offset, style_line_height, cropped_width);
+                                        renderer.fill_quad(underline_quad, line_color);
+                                    }
+                                    accu_width += cropped_width;
+                                    index += 1;
+                                }
+                            };
+
                             if metadata.flags.contains(Flags::DOTTED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-
-                                let full_width = self.end_x - self.start_x;
-                                let mut accu_width = 0.0;
-                                let mut dot_width = 2.0f32.min(full_width - accu_width);
-
-                                while accu_width < full_width {
-                                    dot_width = dot_width.min(full_width - accu_width);
-                                    let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                    let underline_quad =
-                                        mk_quad!(pos_offset, style_line_height, dot_width);
-                                    renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += 2.0 * dot_width;
-                                }
+                                let dot = (2.0, Some(bottom_offset));
+                                let gap = (2.0, None);
+                                draw_repeated(&[dot, gap]);
                             }
 
                             if metadata.flags.contains(Flags::DASHED_UNDERLINE) {
                                 let bottom_offset = style_line_height * 2.0;
-
-                                let full_width = self.end_x - self.start_x;
-                                let mut accu_width = 0.0;
-                                let mut dash_width = 6.0f32.min(full_width - accu_width);
-                                let gap_width = dash_width / 2.0;
-
-                                // gap-width dash first
-                                let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                let underline_quad =
-                                    mk_quad!(pos_offset, style_line_height, gap_width);
-                                renderer.fill_quad(underline_quad, line_color);
-                                accu_width += gap_width * 2.0;
-
-                                while accu_width < full_width {
-                                    dash_width = dash_width.min(full_width - accu_width);
-                                    let pos_offset = mk_pos_offset!(accu_width, bottom_offset);
-                                    let underline_quad =
-                                        mk_quad!(pos_offset, style_line_height, dash_width);
-                                    renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += dash_width + gap_width;
-                                }
+                                let dash = (6.0, Some(bottom_offset));
+                                let gap = (3.0, None);
+                                draw_repeated(&[dash, gap]);
                             }
 
                             if metadata.flags.contains(Flags::UNDERCURL) {
                                 let style_line_height = style_line_height.floor();
                                 let bottom_offset = style_line_height * 1.5;
-
-                                let full_width = self.end_x - self.start_x;
-                                let mut accu_width = 0.0;
-                                let mut dot_width = 1.0f32.min(full_width - accu_width);
-
-                                while accu_width < full_width {
-                                    dot_width = dot_width.min(full_width - accu_width);
-
-                                    let dot_bottom_offset = match accu_width as u32 % 8 {
-                                        3..=5 => bottom_offset + style_line_height,
-                                        2 | 6 => bottom_offset + 2.0 * style_line_height / 3.0,
-                                        1 | 7 => bottom_offset + 1.0 * style_line_height / 3.0,
-                                        _ => bottom_offset,
-                                    };
-
-                                    let pos_offset = mk_pos_offset!(accu_width, dot_bottom_offset);
-                                    let underline_quad =
-                                        mk_quad!(pos_offset, style_line_height, dot_width);
-                                    renderer.fill_quad(underline_quad, line_color);
-                                    accu_width += dot_width;
-                                }
+                                let pattern: [(f32, Option<f32>); 8] =
+                                    array::from_fn(|i| match i {
+                                        3..=5 => (1.0, Some(bottom_offset + style_line_height)),
+                                        2 | 6 => (
+                                            1.0,
+                                            Some(bottom_offset + 2.0 * style_line_height / 3.0),
+                                        ),
+                                        1 | 7 => (
+                                            1.0,
+                                            Some(bottom_offset + 1.0 * style_line_height / 3.0),
+                                        ),
+                                        0 => (1.0, Some(bottom_offset)),
+                                        _ => unreachable!(),
+                                    });
+                                draw_repeated(&pattern)
                             }
                         }
                     }
@@ -578,6 +641,69 @@ where
             state.scrollbar_rect.set(Rectangle::default())
         }
 
+        // Draw cursor
+        {
+            let cursor = terminal.term.lock().renderable_content().cursor;
+            let col = cursor.point.column.0;
+            let line = cursor.point.line.0;
+            let color = terminal.term.lock().colors()[NamedColor::Cursor]
+                .or(terminal.colors()[NamedColor::Cursor])
+                .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
+                .unwrap_or(Color::WHITE); // TODO default color from theme?
+            let width = terminal.size().cell_width;
+            let height = terminal.size().cell_height;
+            let top_left = view_position
+                + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
+            match cursor.shape {
+                CursorShape::Beam => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(top_left, Size::new(1.0, height)),
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, color);
+                }
+                CursorShape::Underline => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(
+                            view_position
+                                + Vector::new(
+                                    (col as f32 * width).floor(),
+                                    ((line + 1) as f32 * height).floor(),
+                                ),
+                            Size::new(width, 1.0),
+                        ),
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, color);
+                }
+                CursorShape::Block if !state.is_focused => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(top_left, Size::new(width, height)),
+                        border: Border {
+                            width: 1.0,
+                            color,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, Color::TRANSPARENT);
+                }
+                CursorShape::HollowBlock => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(top_left, Size::new(width, height)),
+                        border: Border {
+                            width: 1.0,
+                            color,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, Color::TRANSPARENT);
+                }
+                CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
+            }
+        }
+
         let duration = instant.elapsed();
         log::trace!("redraw {}, {}: {:?}", view_w, view_h, duration);
     }
@@ -600,19 +726,35 @@ where
 
         let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
         let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
-
         let mut status = Status::Ignored;
         match event {
+            Event::Window(event) => match event {
+                cosmic::iced::window::Event::Focused => {
+                    if let Some(on_window_focused) = &self.on_window_focused {
+                        shell.publish(on_window_focused());
+                    }
+                }
+                cosmic::iced::window::Event::Unfocused => {
+                    state.is_focused = false;
+                    if let Some(on_window_unfocused) = &self.on_window_unfocused {
+                        shell.publish(on_window_unfocused());
+                    }
+                }
+                _ => {}
+            },
             Event::Keyboard(KeyEvent::KeyPressed {
                 key: Key::Named(named),
+                modified_key: Key::Named(modified_named),
                 modifiers,
+                text,
                 ..
-            }) if state.is_focused => {
+            }) if state.is_focused && named == modified_named => {
                 for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &Key::Named(named)) {
                         return Status::Captured;
                     }
                 }
+
                 let mod_no = calculate_modifier_number(state);
                 let escape_code = match named {
                     Named::Insert => csi("2", "~", mod_no),
@@ -637,28 +779,28 @@ where
                         if is_app_cursor {
                             ss3("A", mod_no)
                         } else {
-                            csi("A", "", mod_no)
+                            csi2("A", mod_no)
                         }
                     }
                     Named::ArrowDown => {
                         if is_app_cursor {
                             ss3("B", mod_no)
                         } else {
-                            csi("B", "", mod_no)
+                            csi2("B", mod_no)
                         }
                     }
                     Named::ArrowRight => {
                         if is_app_cursor {
                             ss3("C", mod_no)
                         } else {
-                            csi("C", "", mod_no)
+                            csi2("C", mod_no)
                         }
                     }
                     Named::ArrowLeft => {
                         if is_app_cursor {
                             ss3("D", mod_no)
                         } else {
-                            csi("D", "", mod_no)
+                            csi2("D", mod_no)
                         }
                     }
                     Named::End => {
@@ -668,7 +810,7 @@ where
                         } else if is_app_cursor {
                             ss3("F", mod_no)
                         } else {
-                            csi("F", "", mod_no)
+                            csi2("F", mod_no)
                         }
                     }
                     Named::Home => {
@@ -678,7 +820,7 @@ where
                         } else if is_app_cursor {
                             ss3("H", mod_no)
                         } else {
-                            csi("H", "", mod_no)
+                            csi2("H", mod_no)
                         }
                     }
                     Named::F1 => ss3("P", mod_no),
@@ -707,12 +849,11 @@ where
                 match named {
                     Named::Backspace => {
                         let code = if modifiers.control() { "\x08" } else { "\x7f" };
-                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
                         status = Status::Captured;
                     }
                     Named::Enter => {
-                        terminal
-                            .input_scroll(format!("{}{}", alt_prefix, "\x0D").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{}{}", alt_prefix, "\x0D").into_bytes());
                         status = Status::Captured;
                     }
                     Named::Escape => {
@@ -724,19 +865,26 @@ where
                         if had_selection {
                             terminal.update();
                         } else {
-                            terminal.input_scroll(
-                                format!("{}{}", alt_prefix, "\x1B").as_bytes().to_vec(),
-                            );
+                            terminal.input_scroll(format!("{}{}", alt_prefix, "\x1B").into_bytes());
                         }
                         status = Status::Captured;
                     }
                     Named::Space => {
-                        terminal.input_scroll(format!("{}{}", alt_prefix, " ").as_bytes().to_vec());
+                        // Keep this instead of hardcoding the space to allow for dead keys
+                        let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
+
+                        if modifiers.control() {
+                            // Send NUL character (\x00) for Ctrl + Space
+                            terminal.input_scroll(b"\x00".to_vec());
+                        } else {
+                            terminal
+                                .input_scroll(format!("{}{}", alt_prefix, character).into_bytes());
+                        }
                         status = Status::Captured;
                     }
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
-                        terminal.input_scroll(format!("{alt_prefix}{code}").as_bytes().to_vec());
+                        terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
                         status = Status::Captured;
                     }
                     _ => {}
@@ -935,6 +1083,22 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
+                        if let Some(match_) = terminal
+                            .regex_matches
+                            .iter()
+                            .find(|bounds| bounds.contains(&location))
+                        {
+                            let term = terminal.term.lock();
+                            let hyperlink = term.bounds_to_string(*match_.start(), *match_.end());
+                            shell.publish(on_open_hyperlink(hyperlink));
+                            status = Status::Captured;
+                        }
+                    }
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
@@ -976,6 +1140,10 @@ where
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    update_active_regex_match(&mut terminal, location);
+
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
@@ -1054,12 +1222,49 @@ where
                             }
                         }
                     }
+                    {
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+
+                        let location = terminal.viewport_to_point(TermPoint::new(
+                            row as usize,
+                            TermColumn(col as usize),
+                        ));
+                        update_active_regex_match(&mut terminal, location);
+                    }
                 }
             }
             _ => (),
         }
 
         status
+    }
+}
+
+fn update_active_regex_match(
+    terminal: &mut std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) {
+    if let Some(match_) = terminal
+        .regex_matches
+        .iter()
+        .find(|bounds| bounds.contains(&location))
+    {
+        'update: {
+            if let Some(active_match) = &terminal.active_regex_match {
+                if active_match == match_ {
+                    break 'update;
+                }
+            }
+            terminal.active_regex_match = Some(match_.clone());
+            terminal.needs_update = true;
+        }
+    } else if terminal.active_regex_match.is_some() {
+        terminal.active_regex_match = None;
+        terminal.needs_update = true;
     }
 }
 
@@ -1167,21 +1372,28 @@ fn calculate_modifier_number(state: &State) -> u8 {
 #[inline(always)]
 fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B[{code}{suffix}").as_bytes().to_vec())
+        Some(format!("\x1B[{code}{suffix}").into_bytes())
     } else {
-        Some(
-            format!("\x1B[{code};{modifiers}{suffix}")
-                .as_bytes()
-                .to_vec(),
-        )
+        Some(format!("\x1B[{code};{modifiers}{suffix}").into_bytes())
+    }
+}
+// https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-functional-keys
+// CSI 1 ; modifier {ABCDEFHPQS}
+// code is ABCDEFHPQS
+#[inline(always)]
+fn csi2(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    if modifiers == 1 {
+        Some(format!("\x1B[{code}").into_bytes())
+    } else {
+        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
     }
 }
 
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
     if modifiers == 1 {
-        Some(format!("\x1B\x4F{code}").as_bytes().to_vec())
+        Some(format!("\x1B\x4F{code}").into_bytes())
     } else {
-        Some(format!("\x1B[1;{modifiers}{code}").as_bytes().to_vec())
+        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
     }
 }

@@ -1,11 +1,15 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
+use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
+use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
+use cosmic::widget::DndDestination;
+use cosmic::Apply;
 use cosmic::{
-    app::{message, Command, Core, Settings},
+    app::{command, context_drawer, message, Core, Settings, Task},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
@@ -15,8 +19,7 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
-        subscription::{self, Subscription},
-        window, Alignment, Color, Event, Length, Limits, Padding, Point,
+        stream, window, Alignment, Color, Event, Length, Limits, Padding, Point, Subscription,
     },
     style,
     widget::{self, button, pane_grid, segmented_button, PaneGrid},
@@ -30,6 +33,7 @@ use std::{
     cmp,
     collections::{BTreeMap, BTreeSet, HashMap},
     env, fs, process,
+    rc::Rc,
     sync::{atomic::Ordering, Mutex},
 };
 use tokio::sync::mpsc;
@@ -56,9 +60,13 @@ use terminal::{Terminal, TerminalPaneGrid, TerminalScroll};
 mod terminal;
 
 use terminal_box::terminal_box;
+
+use crate::dnd::DndDrop;
 mod terminal_box;
 
 mod terminal_theme;
+
+mod dnd;
 
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
@@ -97,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             shell_args.push(arg);
         }
     }
-    
+
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
         match fork::daemon(true, true) {
@@ -173,6 +181,7 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
     About,
+    ClearScrollback,
     ColorSchemes(ColorSchemeKind),
     Copy,
     CopyOrSigint,
@@ -203,6 +212,7 @@ pub enum Action {
     TabActivate8,
     TabClose,
     TabNew,
+    TabNewNoProfile,
     TabNext,
     TabPrev,
     WindowClose,
@@ -216,6 +226,7 @@ impl Action {
     fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Self::About => Message::ToggleContextPage(ContextPage::About),
+            Self::ClearScrollback => Message::ClearScrollback(entity_opt),
             Self::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
@@ -248,6 +259,7 @@ impl Action {
             Self::TabActivate8 => Message::TabActivateJump(8),
             Self::TabClose => Message::TabClose(entity_opt),
             Self::TabNew => Message::TabNew,
+            Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
             Self::WindowClose => Message::WindowClose,
@@ -271,6 +283,7 @@ impl MenuAction for Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
+    ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
     ColorSchemeExpand(ColorSchemeKind, Option<ColorSchemeId>),
@@ -293,6 +306,7 @@ pub enum Message {
     DefaultFontWeight(usize),
     DefaultZoomStep(usize),
     DialogMessage(DialogMessage),
+    Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -335,15 +349,18 @@ pub enum Message {
     TabContextAction(segmented_button::Entity, Action),
     TabContextMenu(pane_grid::Pane, Option<Point>),
     TabNew,
+    TabNewNoProfile,
     TabNext,
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
-    TermEventTx(mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
+    TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
     WindowClose,
     WindowNew,
+    WindowFocused,
+    WindowUnfocused,
     ZoomIn,
     ZoomOut,
     ZoomReset,
@@ -355,17 +372,6 @@ pub enum ContextPage {
     ColorSchemes(ColorSchemeKind),
     Profiles,
     Settings,
-}
-
-impl ContextPage {
-    fn title(&self) -> String {
-        match self {
-            Self::About => String::new(),
-            Self::ColorSchemes(_color_scheme_kind) => fl!("color-schemes"),
-            Self::Profiles => fl!("profiles"),
-            Self::Settings => fl!("settings"),
-        }
-    }
 }
 
 /// The [`App`] stores application-specific state.
@@ -386,7 +392,6 @@ pub struct App {
     curr_font_weights: Vec<u16>,
     curr_font_stretch_names: Vec<String>,
     curr_font_stretches: Vec<Stretch>,
-    zoom_adj: i8,
     zoom_step_names: Vec<String>,
     zoom_steps: Vec<u16>,
     theme_names_dark: Vec<String>,
@@ -398,7 +403,8 @@ pub struct App {
     find: bool,
     find_search_id: widget::Id,
     find_search_value: String,
-    term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
+    term_event_tx_opt:
+        Option<mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
     color_scheme_errors: Vec<String>,
@@ -466,7 +472,18 @@ impl App {
             .sort_by(|a, b| LANGUAGE_SORTER.compare(a, b));
     }
 
-    fn update_config(&mut self) -> Command<Message> {
+    fn reset_terminal_panes_zoom(&mut self) {
+        for (_pane, tab_model) in self.pane_model.panes.iter() {
+            for entity in tab_model.iter() {
+                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                    let mut terminal = terminal.lock().unwrap();
+                    terminal.set_zoom_adj(0);
+                }
+            }
+        }
+    }
+
+    fn update_config(&mut self) -> Task<Message> {
         let theme = self.config.app_theme.theme();
 
         // Update color schemes
@@ -488,7 +505,7 @@ impl App {
             for entity in tab_model.iter() {
                 if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
-                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                    terminal.set_config(&self.config, &self.themes);
                 }
             }
         }
@@ -500,19 +517,34 @@ impl App {
         cosmic::app::command::set_theme(theme)
     }
 
-    fn save_config(&mut self) -> Command<Message> {
-        if let Some(ref config_handler) = self.config_handler {
-            match self.config.write_entry(config_handler) {
-                Ok(()) => {}
-                Err(err) => {
-                    log::error!("failed to save config: {}", err);
+    fn update_render_active_pane_zoom(&mut self, zoom_message: Message) -> Task<Message> {
+        // skip writing config to fs when zoom in/ out
+        // recalculate the pane due to the changes of zoom_adj value
+        // but only for the active pane/tab
+        if let Some(tab_model) = self.pane_model.active() {
+            for entity in tab_model.iter() {
+                if tab_model.is_active(entity) {
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        let current_zoom_adj = terminal.zoom_adj();
+                        match zoom_message {
+                            Message::ZoomIn => {
+                                terminal.set_zoom_adj(current_zoom_adj.saturating_add(1))
+                            }
+                            Message::ZoomOut => {
+                                terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1))
+                            }
+                            _ => {}
+                        }
+                        terminal.set_config(&self.config, &self.themes);
+                    }
                 }
             }
         }
-        self.update_config()
+        Task::none()
     }
 
-    fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Command<Message> {
+    fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Task<Message> {
         // Optimized for just saving color_schemes
         if let Some(ref config_handler) = self.config_handler {
             if let Err(err) = config_handler.set(
@@ -526,10 +558,10 @@ impl App {
             }
         }
         self.update_color_schemes();
-        Command::none()
+        Task::none()
     }
 
-    fn save_profiles(&mut self) -> Command<Message> {
+    fn save_profiles(&mut self) -> Task<Message> {
         // Optimized for just saving profiles
         if let Some(ref config_handler) = self.config_handler {
             match config_handler.set("profiles", &self.config.profiles) {
@@ -539,22 +571,23 @@ impl App {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
-    fn update_focus(&self) -> Command<Message> {
+    fn update_focus(&self) -> Task<Message> {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
-        } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focus).cloned() {
+        } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
+        {
             widget::text_input::focus(terminal_id)
         } else {
-            Command::none()
+            Task::none()
         }
     }
 
     // Call this any time the tab changes
-    fn update_title(&mut self, pane: Option<pane_grid::Pane>) -> Command<Message> {
-        let pane = pane.unwrap_or(self.pane_model.focus);
+    fn update_title(&mut self, pane: Option<pane_grid::Pane>) -> Task<Message> {
+        let pane = pane.unwrap_or(self.pane_model.focused());
         if let Some(tab_model) = self.pane_model.panes.get(pane) {
             let (header_title, window_title) = match tab_model.text(tab_model.active()) {
                 Some(tab_title) => (
@@ -564,14 +597,22 @@ impl App {
                 None => (String::new(), fl!("cosmic-terminal")),
             };
             self.set_header_title(header_title);
-            Command::batch([
-                self.set_window_title(window_title, window::Id::MAIN),
+            Task::batch([
+                if let Some(window_id) = self.core.main_window_id() {
+                    self.set_window_title(window_title, window_id)
+                } else {
+                    Task::none()
+                },
                 self.update_focus(),
             ])
         } else {
             log::error!("Failed to get the specific pane");
-            Command::batch([
-                self.set_window_title(fl!("cosmic-terminal"), window::Id::MAIN),
+            Task::batch([
+                if let Some(window_id) = self.core.main_window_id() {
+                    self.set_window_title(fl!("cosmic-terminal"), window_id)
+                } else {
+                    Task::none()
+                },
                 self.update_focus(),
             ])
         }
@@ -681,7 +722,7 @@ impl App {
                     .padding(0)
                 .into(),
             ])
-        .align_items(Alignment::Center)
+        .align_x(Alignment::Center)
         .spacing(space_xxs)
         .into()
     }
@@ -697,7 +738,7 @@ impl App {
                 .into(),
         );
 
-        let mut section = widget::settings::view_section("");
+        let mut section = widget::settings::section();
         let builtin_name = format!("COSMIC {:?}", color_scheme_kind);
         let color_scheme_names = self.config.color_scheme_names(color_scheme_kind);
         for (color_scheme_name, color_scheme_id_opt) in std::iter::once((builtin_name, None)).chain(
@@ -717,14 +758,14 @@ impl App {
             };
 
             let button = if expanded {
-                widget::button(icon_cache_get("view-more-symbolic", 16))
+                widget::button::custom(icon_cache_get("view-more-symbolic", 16))
                     .on_press(Message::ColorSchemeCollapse)
             } else {
-                widget::button(icon_cache_get("view-more-symbolic", 16)).on_press(
+                widget::button::custom(icon_cache_get("view-more-symbolic", 16)).on_press(
                     Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id_opt),
                 )
             }
-            .style(style::Button::Icon);
+            .class(style::Button::Icon);
 
             let mut popover = widget::popover(button);
             if expanded {
@@ -761,7 +802,7 @@ impl App {
 
         sections.push(
             widget::row::with_children(vec![
-                widget::horizontal_space(Length::Fill).into(),
+                widget::horizontal_space().into(),
                 widget::button::standard(fl!("import"))
                     .on_press(Message::ColorSchemeImport(color_scheme_kind))
                     .into(),
@@ -773,18 +814,18 @@ impl App {
             sections.push(
                 widget::row::with_children(vec![
                     icon_cache_get("dialog-error-symbolic", 16)
-                        .style(style::Svg::custom(|theme| {
+                        .class(style::Svg::Custom(Rc::new(|theme| {
                             let cosmic = theme.cosmic();
-                            widget::svg::Appearance {
+                            widget::svg::Style {
                                 color: Some(cosmic.destructive_text_color().into()),
                             }
-                        }))
+                        })))
                         .into(),
-                    widget::text(error)
-                        .style(style::Text::Custom(|theme| {
+                    widget::text::body(error)
+                        .class(style::Text::Custom(|theme| {
                             let cosmic = theme.cosmic();
                             //TODO: re-export in libcosmic
-                            iced::widget::text::Appearance {
+                            iced::widget::text::Style {
                                 color: Some(cosmic.destructive_text_color().into()),
                             }
                         }))
@@ -810,7 +851,7 @@ impl App {
         let mut sections = Vec::with_capacity(2);
 
         if !self.config.profiles.is_empty() {
-            let mut profiles_section = widget::settings::view_section("");
+            let mut profiles_section = widget::settings::section();
             for (profile_name, profile_id) in self.config.profile_names() {
                 let Some(profile) = self.config.profiles.get(&profile_id) else {
                     continue;
@@ -821,21 +862,21 @@ impl App {
                 profiles_section = profiles_section.add(
                     widget::settings::item::builder(profile_name).control(
                         widget::row::with_children(vec![
-                            widget::button(icon_cache_get("edit-delete-symbolic", 16))
+                            widget::button::custom(icon_cache_get("edit-delete-symbolic", 16))
                                 .on_press(Message::ProfileRemove(profile_id))
-                                .style(style::Button::Icon)
+                                .class(style::Button::Icon)
                                 .into(),
                             if expanded {
-                                widget::button(icon_cache_get("go-up-symbolic", 16))
+                                widget::button::custom(icon_cache_get("go-up-symbolic", 16))
                                     .on_press(Message::ProfileCollapse(profile_id))
                             } else {
-                                widget::button(icon_cache_get("go-down-symbolic", 16))
+                                widget::button::custom(icon_cache_get("go-down-symbolic", 16))
                                     .on_press(Message::ProfileExpand(profile_id))
                             }
-                            .style(style::Button::Icon)
+                            .class(style::Button::Icon)
                             .into(),
                         ])
-                        .align_items(Alignment::Center)
+                        .align_y(Alignment::Center)
                         .spacing(space_xxs),
                     ),
                 );
@@ -850,7 +891,7 @@ impl App {
                         .iter()
                         .position(|theme_name| theme_name == &profile.syntax_theme_light);
 
-                    let expanded_section = widget::settings::view_section("")
+                    let expanded_section = widget::settings::section()
                         .add(
                             widget::column::with_children(vec![
                                 widget::column::with_children(vec![
@@ -933,10 +974,9 @@ impl App {
                         .add(
                             widget::settings::item::builder(fl!("make-default")).control(
                                 widget::toggler(
-                                    None,
                                     self.get_default_profile().is_some_and(|p| p == profile_id),
-                                    move |t| Message::UpdateDefaultProfile((t, profile_id)),
-                                ),
+                                )
+                                .on_toggle(move |t| Message::UpdateDefaultProfile((t, profile_id))),
                             ),
                         )
                         .add(
@@ -947,13 +987,12 @@ impl App {
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),
-                                widget::horizontal_space(Length::Fill).into(),
-                                widget::toggler(None, profile.hold, move |t| {
-                                    Message::ProfileHold(profile_id, t)
-                                })
-                                .into(),
+                                widget::horizontal_space().into(),
+                                widget::toggler(profile.hold)
+                                    .on_toggle(move |t| Message::ProfileHold(profile_id, t))
+                                    .into(),
                             ])
-                            .align_items(Alignment::Center)
+                            .align_y(Alignment::Center)
                             .padding([0, space_s]),
                         );
 
@@ -971,7 +1010,7 @@ impl App {
         }
 
         let add_profile = widget::row::with_children(vec![
-            widget::horizontal_space(Length::Fill).into(),
+            widget::horizontal_space().into(),
             widget::button::standard(fl!("add-profile"))
                 .on_press(Message::ProfileNew)
                 .into(),
@@ -1027,7 +1066,8 @@ impl App {
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
 
-        let appearance_section = widget::settings::view_section(fl!("appearance"))
+        let appearance_section = widget::settings::section()
+            .title(fl!("appearance"))
             .add(
                 widget::settings::item::builder(fl!("theme")).control(widget::dropdown(
                     &self.app_themes,
@@ -1072,7 +1112,8 @@ impl App {
                     })),
             );
 
-        let mut font_section = widget::settings::view_section(fl!("font"))
+        let mut font_section = widget::settings::section()
+            .title(fl!("font"))
             .add(
                 widget::settings::item::builder(fl!("default-font")).control(widget::dropdown(
                     &self.font_names,
@@ -1090,18 +1131,18 @@ impl App {
             .add(
                 widget::settings::item::builder(fl!("advanced-font-settings")).control(
                     if self.show_advanced_font_settings {
-                        widget::button(icon_cache_get("go-up-symbolic", 16))
+                        widget::button::custom(icon_cache_get("go-up-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(false))
                     } else {
-                        widget::button(icon_cache_get("go-down-symbolic", 16))
+                        widget::button::custom(icon_cache_get("go-down-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(true))
                     }
-                    .style(style::Button::Icon),
+                    .class(style::Button::Icon),
                 ),
             );
 
         let advanced_font_settings = || {
-            let section = widget::settings::view_section("")
+            let section = widget::settings::section()
                 .add(
                     widget::settings::item::builder(fl!("default-font-stretch")).control(
                         widget::dropdown(
@@ -1155,12 +1196,12 @@ impl App {
             font_section = font_section.add(advanced_font_settings());
         }
 
-        let splits_section = widget::settings::view_section(fl!("splits")).add(
+        let splits_section = widget::settings::section().title(fl!("splits")).add(
             widget::settings::item::builder(fl!("focus-follow-mouse"))
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::view_section(fl!("advanced")).add(
+        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
                 .description(fl!("show-header-description"))
                 .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
@@ -1182,8 +1223,8 @@ impl App {
         &mut self,
         pane: pane_grid::Pane,
         profile_id_opt: Option<ProfileId>,
-    ) -> Command<Message> {
-        self.pane_model.focus = pane;
+    ) -> Task<Message> {
+        self.pane_model.set_focus(pane);
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
                 let colors = self
@@ -1200,37 +1241,41 @@ impl App {
                     });
                 match colors {
                     Some(colors) => {
-                        let current_pane = self.pane_model.focus;
+                        let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            // Use the profile options, startup options, or defaults
-                            let (options, tab_title_override) = match profile_id_opt
-                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
-                            {
-                                Some(profile) => {
-                                    let mut shell = None;
-                                    if let Some(mut args) = shlex::split(&profile.command) {
-                                        if !args.is_empty() {
-                                            let command = args.remove(0);
-                                            shell = Some(tty::Shell::new(command, args));
+                            // Use the startup options, profile options, or defaults
+                            let (options, tab_title_override) = match self.startup_options.take() {
+                                Some(options) => (options, None),
+                                None => match profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                                {
+                                    Some(profile) => {
+                                        let mut shell = None;
+                                        if let Some(mut args) = shlex::split(&profile.command) {
+                                            if !args.is_empty() {
+                                                let command = args.remove(0);
+                                                shell = Some(tty::Shell::new(command, args));
+                                            }
                                         }
-                                    }
-                                    let working_directory = (!profile.working_directory.is_empty())
-                                        .then(|| profile.working_directory.clone().into());
+                                        let working_directory =
+                                            (!profile.working_directory.is_empty())
+                                                .then(|| profile.working_directory.clone().into());
 
-                                    let options = tty::Options {
-                                        shell,
-                                        working_directory,
-                                        hold: profile.hold,
-                                        env: HashMap::new(),
-                                    };
-                                    let tab_title_override = if profile.tab_title.is_empty() {
-                                        None
-                                    } else {
-                                        Some(profile.tab_title.clone())
-                                    };
-                                    (options, tab_title_override)
-                                }
-                                None => (self.startup_options.take().unwrap_or_default(), None),
+                                        let options = tty::Options {
+                                            shell,
+                                            working_directory,
+                                            hold: profile.hold,
+                                            env: HashMap::new(),
+                                        };
+                                        let tab_title_override = if profile.tab_title.is_empty() {
+                                            None
+                                        } else {
+                                            Some(profile.tab_title.clone())
+                                        };
+                                        (options, tab_title_override)
+                                    }
+                                    None => (Options::default(), None),
+                                },
                             };
                             let entity = tab_model
                                 .insert()
@@ -1254,9 +1299,31 @@ impl App {
                                 tab_title_override,
                             ) {
                                 Ok(mut terminal) => {
-                                    terminal.set_config(&self.config, &self.themes, self.zoom_adj);
+                                    terminal.set_config(&self.config, &self.themes);
                                     tab_model
                                         .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                }
+                                Err(err) if profile_id_opt.is_some() => {
+                                    // Create a tab without a profile if the selected
+                                    // profile doesn't work
+                                    let name = profile_id_opt
+                                        .and_then(|id| self.config.profiles.get(&id))
+                                        .map(|profile| profile.name.as_str())
+                                        .unwrap_or_default();
+                                    log::error!(
+                                        "failed to open terminal with profile `{}`: {}",
+                                        name,
+                                        err
+                                    );
+
+                                    // TabClose focuses the nearest tab which would be incorrect
+                                    // in this specific case as it would unfocus the new tab
+                                    // created by TabNewNoProfile
+                                    // TabClose can also cause the terminal app to close if it
+                                    // closes the only open tab. This would close cosmic term
+                                    // if launched with an invalid profile (issue #274)
+                                    tab_model.remove(entity);
+                                    return self.update(Message::TabNewNoProfile);
                                 }
                                 Err(err) => {
                                     log::error!("failed to open terminal: {}", err);
@@ -1308,7 +1375,7 @@ impl Application for App {
     }
 
     /// Creates the application, and optionally emits command on initialize.
-    fn init(mut core: Core, flags: Self::Flags) -> (Self, Command<Self::Message>) {
+    fn init(mut core: Core, flags: Self::Flags) -> (Self, Task<Self::Message>) {
         core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
@@ -1357,6 +1424,13 @@ impl Application for App {
             });
             font_name_faces_map
         };
+
+        if font_name_faces_map.is_empty() {
+            log::error!("at least one monospace font with normal/bold weights and default stretch is required");
+            log::error!("no monospace fonts to select from, exiting");
+            process::exit(1);
+        }
+
         let font_names = font_name_faces_map.keys().cloned().collect();
 
         let mut font_size_names = Vec::new();
@@ -1411,7 +1485,7 @@ impl Application for App {
 
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
-        terminal_ids.insert(pane_model.focus, widget::Id::unique());
+        terminal_ids.insert(pane_model.focused(), widget::Id::unique());
 
         let mut app = Self {
             core,
@@ -1430,7 +1504,6 @@ impl Application for App {
             curr_font_weights: Vec::new(),
             curr_font_stretch_names: Vec::new(),
             curr_font_stretches: Vec::new(),
-            zoom_adj: 0,
             zoom_step_names,
             zoom_steps,
             theme_names_dark: Vec::new(),
@@ -1456,13 +1529,13 @@ impl Application for App {
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = Command::batch([app.update_config(), app.update_title(None)]);
+        let command = Task::batch([app.update_config(), app.update_title(None)]);
 
         (app, command)
     }
 
     //TODO: currently the first escape unfocuses, and the second calls this function
-    fn on_escape(&mut self) -> Command<Message> {
+    fn on_escape(&mut self) -> Task<Message> {
         if self.core.window.show_context {
             // Close context drawer if open
             self.core.window.show_context = false;
@@ -1476,16 +1549,16 @@ impl Application for App {
         self.update_focus()
     }
 
-    fn on_context_drawer(&mut self) -> Command<Message> {
+    fn on_context_drawer(&mut self) -> Task<Message> {
         if self.core.window.show_context {
-            Command::none()
+            Task::none()
         } else {
             self.update_focus()
         }
     }
 
     /// Handle application events here.
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    fn update(&mut self, message: Self::Message) -> Task<Self::Message> {
         // Helper for updating config values efficiently
         macro_rules! config_set {
             ($name: ident, $value: expr) => {
@@ -1507,11 +1580,20 @@ impl Application for App {
                 }
             };
         }
-
         match message {
             Message::AppTheme(app_theme) => {
-                self.config.app_theme = app_theme;
-                return self.save_config();
+                config_set!(app_theme, app_theme);
+                return self.update_config();
+            }
+            Message::ClearScrollback(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        let mut term = terminal.term.lock();
+                        term.grid_mut().clear_history();
+                    }
+                }
             }
             Message::ColorSchemeCollapse => {
                 self.color_scheme_expanded = None;
@@ -1729,7 +1811,7 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
-                            return Command::batch([clipboard::write(text), self.update_focus()]);
+                            return Task::batch([clipboard::write(text), self.update_focus()]);
                         }
                     }
                 } else {
@@ -1744,7 +1826,7 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
-                            return Command::batch([clipboard::write(text), self.update_focus()]);
+                            return Task::batch([clipboard::write(text), self.update_focus()]);
                         } else {
                             // Drop the lock for term so that input_scroll doesn't block forever
                             drop(term);
@@ -1764,7 +1846,7 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
-                            return Command::batch([
+                            return Task::batch([
                                 clipboard::write_primary(text),
                                 self.update_focus(),
                             ]);
@@ -1796,10 +1878,10 @@ impl Application for App {
                                 }
                             }
 
-                            self.config.font_name = font_name.to_string();
+                            config_set!(font_name, font_name.to_string());
                             self.set_curr_font_weights_and_stretches();
 
-                            return self.save_config();
+                            return self.update_config();
                         }
                     }
                     None => {
@@ -1809,9 +1891,9 @@ impl Application for App {
             }
             Message::DefaultFontSize(index) => match self.font_sizes.get(index) {
                 Some(font_size) => {
-                    self.config.font_size = *font_size;
-                    self.zoom_adj = 0; // reset zoom
-                    return self.save_config();
+                    config_set!(font_size, *font_size);
+                    self.reset_terminal_panes_zoom(); // reset zoom
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find font with index {}", index);
@@ -1819,9 +1901,9 @@ impl Application for App {
             },
             Message::DefaultFontStretch(index) => match self.curr_font_stretches.get(index) {
                 Some(font_stretch) => {
-                    self.config.font_stretch = font_stretch.to_number();
+                    config_set!(font_stretch, font_stretch.to_number());
                     self.set_curr_font_weights_and_stretches();
-                    return self.save_config();
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find font weight with index {}", index);
@@ -1829,8 +1911,8 @@ impl Application for App {
             },
             Message::DefaultFontWeight(index) => match self.curr_font_weights.get(index) {
                 Some(font_weight) => {
-                    self.config.font_weight = *font_weight;
-                    return self.save_config();
+                    config_set!(font_weight, *font_weight);
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find font weight with index {}", index);
@@ -1838,8 +1920,8 @@ impl Application for App {
             },
             Message::DefaultDimFontWeight(index) => match self.curr_font_weights.get(index) {
                 Some(font_weight) => {
-                    self.config.dim_font_weight = *font_weight;
-                    return self.save_config();
+                    config_set!(dim_font_weight, *font_weight);
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find dim font weight with index {}", index);
@@ -1847,8 +1929,8 @@ impl Application for App {
             },
             Message::DefaultBoldFontWeight(index) => match self.curr_font_weights.get(index) {
                 Some(font_weight) => {
-                    self.config.bold_font_weight = *font_weight;
-                    return self.save_config();
+                    config_set!(bold_font_weight, *font_weight);
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find bold font weight with index {}", index);
@@ -1856,9 +1938,9 @@ impl Application for App {
             },
             Message::DefaultZoomStep(index) => match self.zoom_steps.get(index) {
                 Some(zoom_step) => {
-                    self.config.font_size_zoom_step_mul_100 = *zoom_step;
-                    self.zoom_adj = 0; // reset zoom
-                    return self.save_config();
+                    config_set!(font_size_zoom_step_mul_100, *zoom_step);
+                    self.reset_terminal_panes_zoom(); // reset zoom
+                    return self.update_config();
                 }
                 None => {
                     log::warn!("failed to find zoom step with index {}", index);
@@ -1869,6 +1951,16 @@ impl Application for App {
                     return dialog.update(dialog_message);
                 }
             }
+            Message::Drop(Some((pane, entity, data))) => {
+                self.pane_model.set_focus(pane);
+                if let Ok(value) = shlex::try_join(data.paths.iter().filter_map(|p| p.to_str())) {
+                    return Task::batch([
+                        self.update_focus(),
+                        command::message::app(Message::PasteValue(Some(entity), value)),
+                    ]);
+                }
+            }
+            Message::Drop(None) => {}
             Message::Find(find) => {
                 self.find = find;
                 if find {
@@ -1923,10 +2015,10 @@ impl Application for App {
                 self.find_search_value = value;
             }
             Message::MiddleClick(pane, entity_opt) => {
-                self.pane_model.focus = pane;
-                return Command::batch([
+                self.pane_model.set_focus(pane);
+                return Task::batch([
                     self.update_focus(),
-                    clipboard::read_primary(move |value_opt| match value_opt {
+                    clipboard::read_primary().map(move |value_opt| match value_opt {
                         Some(value) => message::app(Message::PasteValue(entity_opt, value)),
                         None => message::none(),
                     }),
@@ -1951,20 +2043,20 @@ impl Application for App {
                 self.modifiers = modifiers;
             }
             Message::MouseEnter(pane) => {
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return self.update_focus();
             }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
             }
             Message::PaneClicked(pane) => {
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return self.update_title(Some(pane));
             }
             Message::PaneSplit(axis) => {
                 let result = self.pane_model.panes.split(
                     axis,
-                    self.pane_model.focus,
+                    self.pane_model.focused(),
                     segmented_button::ModelBuilder::default().build(),
                 );
                 if let Some((pane, _)) = result {
@@ -1979,7 +2071,7 @@ impl Application for App {
                 if self.pane_model.panes.maximized().is_some() {
                     self.pane_model.panes.restore();
                 } else {
-                    self.pane_model.panes.maximize(self.pane_model.focus);
+                    self.pane_model.panes.maximize(self.pane_model.focused());
                 }
                 return self.update_focus();
             }
@@ -1987,9 +2079,9 @@ impl Application for App {
                 if let Some(adjacent) = self
                     .pane_model
                     .panes
-                    .adjacent(self.pane_model.focus, direction)
+                    .adjacent(self.pane_model.focused(), direction)
                 {
-                    self.pane_model.focus = adjacent;
+                    self.pane_model.set_focus(adjacent);
                     return self.update_title(Some(adjacent));
                 }
             }
@@ -2001,13 +2093,13 @@ impl Application for App {
             }
             Message::PaneDragged(_) => {}
             Message::Paste(entity_opt) => {
-                return clipboard::read(move |value_opt| match value_opt {
+                return clipboard::read().map(move |value_opt| match value_opt {
                     Some(value) => message::app(Message::PasteValue(entity_opt, value)),
                     None => message::none(),
                 });
             }
             Message::PastePrimary(entity_opt) => {
-                return clipboard::read_primary(move |value_opt| match value_opt {
+                return clipboard::read_primary().map(move |value_opt| match value_opt {
                     Some(value) => message::app(Message::PasteValue(entity_opt, value)),
                     None => message::none(),
                 });
@@ -2065,7 +2157,8 @@ impl Application for App {
                 return self.save_profiles();
             }
             Message::ProfileOpen(profile_id) => {
-                return self.create_and_focus_new_terminal(self.pane_model.focus, Some(profile_id));
+                return self
+                    .create_and_focus_new_terminal(self.pane_model.focused(), Some(profile_id));
             }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
@@ -2127,14 +2220,14 @@ impl Application for App {
             }
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {
-                    self.config.show_headerbar = show_headerbar;
-                    return self.save_config();
+                    config_set!(show_headerbar, show_headerbar);
+                    return self.update_config();
                 }
             }
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
-                    self.config.use_bright_bold = use_bright_bold;
-                    return self.save_config();
+                    config_set!(use_bright_bold, use_bright_bold);
+                    return self.update_config();
                 }
             }
             Message::ShowAdvancedFontSettings(show) => {
@@ -2148,13 +2241,13 @@ impl Application for App {
                     Some(theme_name) => {
                         match color_scheme_kind {
                             ColorSchemeKind::Dark => {
-                                self.config.syntax_theme_dark = theme_name.to_string();
+                                config_set!(syntax_theme_dark, theme_name.to_string());
                             }
                             ColorSchemeKind::Light => {
-                                self.config.syntax_theme_light = theme_name.to_string();
+                                config_set!(syntax_theme_light, theme_name.to_string());
                             }
                         }
-                        return self.save_config();
+                        return self.update_config();
                     }
                     None => {
                         log::warn!("failed to find syntax theme with index {}", index);
@@ -2203,13 +2296,15 @@ impl Application for App {
                     // If that was the last tab, close current pane
                     if tab_model.iter().next().is_none() {
                         if let Some((_state, sibling)) =
-                            self.pane_model.panes.close(self.pane_model.focus)
+                            self.pane_model.panes.close(self.pane_model.focused())
                         {
-                            self.terminal_ids.remove(&self.pane_model.focus);
-                            self.pane_model.focus = sibling;
+                            self.terminal_ids.remove(&self.pane_model.focused());
+                            self.pane_model.set_focus(sibling);
                         } else {
                             //Last pane, closing window
-                            return window::close(window::Id::MAIN);
+                            if let Some(window_id) = self.core.main_window_id() {
+                                return window::close(window_id);
+                            }
                         }
                     }
                 }
@@ -2252,14 +2347,17 @@ impl Application for App {
 
                 // Shift focus to the pane / terminal
                 // with the context menu
-                self.pane_model.focus = pane;
+                self.pane_model.set_focus(pane);
                 return self.update_title(Some(pane));
             }
             Message::TabNew => {
                 return self.create_and_focus_new_terminal(
-                    self.pane_model.focus,
+                    self.pane_model.focused(),
                     self.get_default_profile(),
                 )
+            }
+            Message::TabNewNoProfile => {
+                return self.create_and_focus_new_terminal(self.pane_model.focused(), None)
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2300,7 +2398,7 @@ impl Application for App {
                         match kind {
                             term::ClipboardType::Clipboard => {
                                 log::info!("clipboard load");
-                                return clipboard::read(move |data_opt| {
+                                return clipboard::read().map(move |data_opt| {
                                     //TODO: what to do when data_opt is None?
                                     callback(&data_opt.unwrap_or_default());
                                     // We don't need to do anything else
@@ -2406,10 +2504,10 @@ impl Application for App {
 
                     // First, close other panes
                     while let Some((_state, sibling)) =
-                        self.pane_model.panes.close(self.pane_model.focus)
+                        self.pane_model.panes.close(self.pane_model.focused())
                     {
-                        self.terminal_ids.remove(&self.pane_model.focus);
-                        self.pane_model.focus = sibling;
+                        self.terminal_ids.remove(&self.pane_model.focused());
+                        self.pane_model.set_focus(sibling);
                     }
 
                     // Next, close all tabs in the active pane
@@ -2459,14 +2557,14 @@ impl Application for App {
                             ColorSchemeKind::Light => light_entity,
                         });
                 }
-
-                self.set_context_title(context_page.title());
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
                 config_set!(default_profile, default.then_some(profile_id));
             }
             Message::WindowClose => {
-                return window::close(window::Id::MAIN);
+                if let Some(window_id) = self.core.main_window_id() {
+                    return window::close(window_id);
+                }
             }
             Message::WindowNew => match env::current_exe() {
                 Ok(exe) => match process::Command::new(&exe).spawn() {
@@ -2479,33 +2577,53 @@ impl Application for App {
                     log::error!("failed to get current executable path: {}", err);
                 }
             },
+            Message::WindowFocused => {
+                self.pane_model.update_terminal_focus();
+                return self.update_focus();
+            }
+            Message::WindowUnfocused => {
+                self.pane_model.unfocus_all_terminals();
+            }
             Message::ZoomIn => {
-                self.zoom_adj = self.zoom_adj.saturating_add(1);
-                return self.save_config();
+                return self.update_render_active_pane_zoom(message);
             }
             Message::ZoomOut => {
-                self.zoom_adj = self.zoom_adj.saturating_sub(1);
-                return self.save_config();
+                return self.update_render_active_pane_zoom(message);
             }
             Message::ZoomReset => {
-                self.zoom_adj = 0;
-                return self.save_config();
+                self.reset_terminal_panes_zoom();
+                return self.update_config();
             }
         }
 
-        Command::none()
+        Task::none()
     }
 
-    fn context_drawer(&self) -> Option<Element<Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Message>> {
         if !self.core.window.show_context {
             return None;
         }
 
         Some(match self.context_page {
-            ContextPage::About => self.about(),
-            ContextPage::ColorSchemes(color_scheme_kind) => self.color_schemes(color_scheme_kind),
-            ContextPage::Profiles => self.profiles(),
-            ContextPage::Settings => self.settings(),
+            ContextPage::About => context_drawer::context_drawer(
+                self.about(),
+                Message::ToggleContextPage(ContextPage::About),
+            ),
+            ContextPage::ColorSchemes(color_scheme_kind) => context_drawer::context_drawer(
+                self.color_schemes(color_scheme_kind),
+                Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind)),
+            )
+            .title(fl!("color-schemes")),
+            ContextPage::Profiles => context_drawer::context_drawer(
+                self.profiles(),
+                Message::ToggleContextPage(ContextPage::Profiles),
+            )
+            .title(fl!("profiles")),
+            ContextPage::Settings => context_drawer::context_drawer(
+                self.settings(),
+                Message::ToggleContextPage(ContextPage::Settings),
+            )
+            .title(fl!("settings")),
         })
     }
 
@@ -2514,12 +2632,13 @@ impl Application for App {
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-        vec![widget::button(icon_cache_get("list-add-symbolic", 16))
-            .on_press(Message::TabNew)
-            .padding(space_xxs)
-            .style(style::Button::Icon)
-            .into()]
+        vec![
+            widget::button::custom(icon_cache_get("list-add-symbolic", 16))
+                .on_press(Message::TabNew)
+                .padding(8)
+                .class(style::Button::Icon)
+                .into(),
+        ]
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<Message> {
@@ -2545,7 +2664,7 @@ impl Application for App {
                             .on_activate(Message::TabActivate)
                             .on_close(|entity| Message::TabClose(Some(entity))),
                     )
-                    .style(style::Container::Background)
+                    .class(style::Container::Background)
                     .width(Length::Fill),
                 );
             }
@@ -2564,8 +2683,12 @@ impl Application for App {
                         Message::TabContextMenu(pane, position_opt)
                     })
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
+                    .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
+                    .on_window_focused(|| Message::WindowFocused)
+                    .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())
-                    .padding(space_xxs);
+                    .padding(space_xxs)
+                    .show_headerbar(self.config.show_headerbar);
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
@@ -2587,7 +2710,7 @@ impl Application for App {
             }
 
             //Only draw find in the currently focused pane
-            if self.find && pane == self.pane_model.focus {
+            if self.find && pane == self.pane_model.focused() {
                 let find_input = widget::text_input::text_input(
                     fl!("find-placeholder"),
                     &self.find_search_value,
@@ -2603,39 +2726,39 @@ impl Application for App {
                 })
                 .width(Length::Fixed(320.0))
                 .trailing_icon(
-                    button(icon_cache_get("edit-clear-symbolic", 16))
+                    button::custom(icon_cache_get("edit-clear-symbolic", 16))
                         .on_press(Message::FindSearchValueChanged(String::new()))
-                        .style(style::Button::Icon)
+                        .class(style::Button::Icon)
                         .into(),
                 );
                 let find_widget = widget::row::with_children(vec![
                     find_input.into(),
                     widget::tooltip(
-                        button(icon_cache_get("go-up-symbolic", 16))
+                        button::custom(icon_cache_get("go-up-symbolic", 16))
                             .on_press(Message::FindPrevious)
                             .padding(space_xxs)
-                            .style(style::Button::Icon),
-                        fl!("find-previous"),
+                            .class(style::Button::Icon),
+                        widget::text::body(fl!("find-previous")),
                         widget::tooltip::Position::Top,
                     )
                     .into(),
                     widget::tooltip(
-                        button(icon_cache_get("go-down-symbolic", 16))
+                        button::custom(icon_cache_get("go-down-symbolic", 16))
                             .on_press(Message::FindNext)
                             .padding(space_xxs)
-                            .style(style::Button::Icon),
-                        fl!("find-next"),
+                            .class(style::Button::Icon),
+                        widget::text::body(fl!("find-next")),
                         widget::tooltip::Position::Top,
                     )
                     .into(),
-                    widget::horizontal_space(Length::Fill).into(),
-                    button(icon_cache_get("window-close-symbolic", 16))
+                    widget::horizontal_space().into(),
+                    button::custom(icon_cache_get("window-close-symbolic", 16))
                         .on_press(Message::Find(false))
                         .padding(space_xxs)
-                        .style(style::Button::Icon)
+                        .class(style::Button::Icon)
                         .into(),
                 ])
-                .align_items(Alignment::Center)
+                .align_y(Alignment::Center)
                 .padding(space_xxs)
                 .spacing(space_xxs);
 
@@ -2645,7 +2768,19 @@ impl Application for App {
                 // TODO
             }
 
-            pane_grid::Content::new(tab_column)
+            DndDestination::for_data::<DndDrop>(tab_column, move |data, action| {
+                if let Some(data) = data {
+                    if action == DndAction::Move {
+                        Message::Drop(Some((pane, entity, data)))
+                    } else {
+                        log::warn!("unsuppported action: {:?}", action);
+                        Message::Drop(None)
+                    }
+                } else {
+                    Message::Drop(None)
+                }
+            })
+            .apply(pane_grid::Content::new)
         })
         .width(Length::Fill)
         .height(Length::Fill)
@@ -2664,7 +2799,7 @@ impl Application for App {
         struct ThemeModeSubscription;
 
         Subscription::batch([
-            event::listen_with(|event, _status| match event {
+            event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
                     Some(Message::Key(modifiers, key))
                 }
@@ -2676,11 +2811,10 @@ impl Application for App {
                 }
                 _ => None,
             }),
-            subscription::channel(
+            Subscription::run_with_id(
                 TypeId::of::<TerminalEventSubscription>(),
-                100,
-                |mut output| async move {
-                    let (event_tx, mut event_rx) = mpsc::channel(100);
+                stream::channel(100, |mut output| async move {
+                    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
                     output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
                     while let Some((pane, entity, event)) = event_rx.recv().await {
@@ -2691,7 +2825,7 @@ impl Application for App {
                     }
 
                     panic!("terminal event channel closed");
-                },
+                }),
             ),
             cosmic_config::config_subscription(
                 TypeId::of::<ConfigSubscription>(),
@@ -2727,7 +2861,7 @@ impl Application for App {
             .map(|_update| Message::SystemThemeChange),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
-                None => subscription::Subscription::none(),
+                None => Subscription::none(),
             },
         ])
     }

@@ -11,6 +11,8 @@ const SCROLL_SPEED: u32 = 3;
 pub struct MouseReporter {
     last_movment_x: Option<u32>,
     last_movment_y: Option<u32>,
+    accumulated_scroll_x: f32,
+    accumulated_scroll_y: f32,
     button: Option<Button>,
 }
 
@@ -167,44 +169,72 @@ impl MouseReporter {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn report_sgr_mouse_wheel_scroll(
-        terminal: &Terminal,
+    pub fn sgr_mouse_wheel_scroll(
+        &mut self,
         term_cell_width: f32,
         term_cell_height: f32,
         delta: ScrollDelta,
         modifiers: &Modifiers,
         x: u32,
         y: u32,
-    ) {
-        let (delta_x, delta_y) = match delta {
-            ScrollDelta::Lines { x, y } => (x, y),
-            ScrollDelta::Pixels { x, y } => (x / term_cell_width, y / term_cell_height),
-        };
-        let (mut button_no, amount) = if delta_y > 0.0 {
-            (64, delta_y.abs()) //Wheel UP
-        } else if delta_y < 0.0 {
-            (65, delta_y.abs()) //Wheel Down
-        } else if delta_x < 0.0 {
-            (66, delta_x.abs()) //Wheel Left
-        } else if delta_x > 0.0 {
-            (67, delta_x.abs()) //Wheel Right
-        } else {
-            return;
+    ) -> impl Iterator<Item = Vec<u8>> {
+        let (lines_x, lines_y) = match delta {
+            ScrollDelta::Lines { x, y } => (x as i32, y as i32),
+            ScrollDelta::Pixels { x, y } => {
+                //Accumulate change
+                self.accumulated_scroll_x += x / term_cell_width;
+                self.accumulated_scroll_y += y / term_cell_height;
+
+                //Resolve lines crossed
+                let lines_x = self.accumulated_scroll_x as i32;
+                let lines_y = self.accumulated_scroll_y as i32;
+
+                //Subtract accounted lines from accumulators
+                self.accumulated_scroll_x -= lines_x as f32;
+                self.accumulated_scroll_y -= lines_y as f32;
+
+                (lines_x, lines_y)
+            }
         };
 
+        //Resolve modifier flags
+        let mut modifier_flags = 0;
+
         if modifiers.shift() {
-            button_no += 4;
+            modifier_flags += 4;
         }
         if modifiers.alt() {
-            button_no += 8;
+            modifier_flags += 8;
         }
         if modifiers.control() {
-            button_no += 16;
-        }
-        let term_code = format!("\x1b[<{};{};{}M", button_no, x + 1, y + 1);
-        for _ in 0..amount as u32 {
-            terminal.input_no_scroll(term_code.as_bytes().to_vec());
-        }
+            modifier_flags += 16;
+        };
+
+        //Resolve base inputs
+        let button_no_y = match lines_y.cmp(&0) {
+            std::cmp::Ordering::Less => 65,    //Wheel Down
+            std::cmp::Ordering::Greater => 64, //Wheel Up
+            std::cmp::Ordering::Equal => 0,    //Unused
+        };
+
+        let button_no_x = match lines_x.cmp(&0) {
+            std::cmp::Ordering::Less => 66,    //Wheel Left
+            std::cmp::Ordering::Greater => 67, //Wheel Right
+            std::cmp::Ordering::Equal => 0,    //Unused
+        };
+
+        //Generate term codes
+        //TODO: std::iter::repeat_n only available in 1.82
+        let x_iter = itertools::repeat_n(button_no_x, lines_x.unsigned_abs() as _);
+        let y_iter = itertools::repeat_n(button_no_y, lines_y.unsigned_abs() as _);
+
+        x_iter
+            .chain(y_iter)
+            .map(move |button_no| button_no + modifier_flags)
+            .map(move |button_no| {
+                let term_code = format!("\x1b[<{};{};{}M", button_no, x + 1, y + 1);
+                term_code.as_bytes().to_vec()
+            })
     }
 
     //Emulate mouse wheel scroll with up/down arrows. Using mouse spec uses

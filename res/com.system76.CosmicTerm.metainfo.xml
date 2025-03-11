@@ -9,13 +9,20 @@
   <url type="homepage">https://github.com/pop-os/cosmic-term</url>
   <url type="bugtracker">https://github.com/pop-os/cosmic-term</url>
   <name>COSMIC Terminal</name>
+  <name xml:lang="pl">Terminal COSMIC</name>
+  <name xml:lang="hu">COSMIC Terminál</name>
   <summary>Terminal emulator for the COSMIC desktop</summary>
+  <summary xml:lang="pl">Emulator terminala dla pulpitu COSMIC</summary>
+  <summary xml:lang="hu">Terminálemulátor a COSMIC asztalhoz</summary>
   <description>
     <p>Terminal emulator for the COSMIC desktop</p>
+    <p xml:lang="pl">Emulator terminala dla pulpitu COSMIC</p>
+    <p xml:lang="hu">Terminálemulátor a COSMIC asztalhoz</p>
   </description>
   <launchable type="desktop-id">com.system76.CosmicTerm.desktop</launchable>
   <icon type="remote" height="256" width="256">https://raw.githubusercontent.com/pop-os/cosmic-term/master/res/icons/hicolor/256x256/apps/com.system76.CosmicTerm.svg</icon>
   <provides>
+    <id>com.system76.CosmicApplication</id>
     <binaries>
       <binary>cosmic-term</binary>
     </binaries>

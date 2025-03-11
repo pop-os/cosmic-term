@@ -12,12 +12,11 @@ use alacritty_terminal::{
         viewport_to_point, Config, TermDamage, TermMode,
     },
     tty::{self, Options},
-    vte::ansi::{Color, NamedColor, Rgb},
+    vte::ansi::{Color, CursorShape, NamedColor, Rgb},
     Term,
 };
 use cosmic::{
-    iced::advanced::graphics::text::font_system,
-    iced::mouse::ScrollDelta,
+    iced::{advanced::graphics::text::font_system, mouse::ScrollDelta},
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
@@ -31,7 +30,7 @@ use std::{
     io, mem,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Weak,
+        Arc, Mutex, Weak,
     },
     time::Instant,
 };
@@ -47,6 +46,18 @@ use crate::{
 /// Minimum contrast between a fixed cursor color and the cell's background.
 /// Duplicated from alacritty
 pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
+
+/// Maximum number of linewraps followed outside of the viewport during search highlighting.
+/// Duplicated from you guessed it.
+/// A regex expression can start or end outside the visible screen. Therefore, without this constant, some regular expressions would not match at the top and bottom.
+pub const MAX_SEARCH_LINES: usize = 100;
+
+/// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/config/ui_config.rs#L36-L39
+fn url_regex_search() -> RegexSearch {
+    let url_regex = "(ipfs:|ipns:|magnet:|mailto:|gemini://|gopher://|https://|http://|news:|file:|git://|ssh:|ftp://)\
+                         [^\u{0000}-\u{001F}\u{007F}-\u{009F}<>\"\\s{-}\\^⟨⟩`]+";
+    RegexSearch::new(url_regex).unwrap()
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Size {
@@ -85,13 +96,13 @@ impl From<Size> for WindowSize {
 pub struct EventProxy(
     pane_grid::Pane,
     segmented_button::Entity,
-    mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+    mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
 );
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {
         //TODO: handle error
-        let _ = self.2.blocking_send((self.0, self.1, event));
+        let _ = self.2.send((self.0, self.1, event));
     }
 }
 
@@ -139,10 +150,11 @@ fn convert_color(colors: &Colors, color: Color) -> cosmic_text::Color {
 }
 
 type TabModel = segmented_button::Model<segmented_button::SingleSelect>;
+
 pub struct TerminalPaneGrid {
     pub panes: pane_grid::State<TabModel>,
     pub panes_created: usize,
-    pub focus: pane_grid::Pane,
+    focus: pane_grid::Pane,
 }
 
 impl TerminalPaneGrid {
@@ -162,6 +174,34 @@ impl TerminalPaneGrid {
     }
     pub fn active_mut(&mut self) -> Option<&mut TabModel> {
         self.panes.get_mut(self.focus)
+    }
+    pub fn set_focus(&mut self, pane: pane_grid::Pane) {
+        self.focus = pane;
+        self.update_terminal_focus();
+    }
+    pub fn focused(&self) -> pane_grid::Pane {
+        self.focus
+    }
+
+    pub fn update_terminal_focus(&self) {
+        for (pane, tab_model) in self.panes.panes.iter() {
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal = terminal.lock().unwrap();
+                terminal.is_focused = self.focus == *pane;
+                terminal.update();
+            }
+        }
+    }
+    pub fn unfocus_all_terminals(&self) {
+        for (_pane, tab_model) in self.panes.panes.iter() {
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal = terminal.lock().unwrap();
+                terminal.is_focused = false;
+                terminal.update();
+            }
+        }
     }
 }
 
@@ -201,8 +241,12 @@ pub struct Terminal {
     pub profile_id_opt: Option<ProfileId>,
     pub tab_title_override: Option<String>,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
+    pub url_regex_search: RegexSearch,
+    pub regex_matches: Vec<alacritty_terminal::term::search::Match>,
+    pub active_regex_match: Option<alacritty_terminal::term::search::Match>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
+    is_focused: bool,
     colors: Colors,
     default_attrs: Attrs<'static>,
     dim_font_weight: Weight,
@@ -212,6 +256,7 @@ pub struct Terminal {
     search_value: String,
     size: Size,
     use_bright_bold: bool,
+    zoom_adj: i8,
 }
 
 impl Terminal {
@@ -219,7 +264,7 @@ impl Terminal {
     pub fn new(
         pane: pane_grid::Pane,
         entity: segmented_button::Entity,
-        event_tx: mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+        event_tx: mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
         config: Config,
         options: Options,
         app_config: &AppConfig,
@@ -233,7 +278,7 @@ impl Terminal {
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
 
-        let metrics = Metrics::new(14.0, 20.0);
+        let metrics = Metrics::new(14.0, 21.0);
 
         let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
         let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
@@ -286,6 +331,9 @@ impl Terminal {
         let _pty_join_handle = pty_event_loop.spawn();
 
         Ok(Self {
+            active_regex_match: None,
+            url_regex_search: url_regex_search(),
+            regex_matches: Vec::new(),
             bold_font_weight: Weight(bold_font_weight),
             buffer: Arc::new(buffer),
             colors,
@@ -303,6 +351,8 @@ impl Terminal {
             tab_title_override,
             term,
             use_bright_bold,
+            zoom_adj: Default::default(),
+            is_focused: true,
         })
     }
 
@@ -330,6 +380,14 @@ impl Terminal {
 
     pub fn size(&self) -> Size {
         self.size
+    }
+
+    pub fn zoom_adj(&self) -> i8 {
+        self.zoom_adj
+    }
+
+    pub fn set_zoom_adj(&mut self, value: i8) {
+        self.zoom_adj = value;
     }
 
     pub fn redraw(&self) -> bool {
@@ -528,11 +586,10 @@ impl Terminal {
         &mut self,
         config: &AppConfig,
         themes: &HashMap<(String, ColorSchemeKind), Colors>,
-        zoom_adj: i8,
     ) {
         let mut update_cell_size = false;
         let mut update = false;
-
+        let zoom_adj = self.zoom_adj;
         if self.default_attrs.stretch != config.typed_font_stretch() {
             self.default_attrs = self.default_attrs.stretch(config.typed_font_stretch());
             update_cell_size = true;
@@ -580,31 +637,39 @@ impl Terminal {
             }
         }
 
-        //TODO: this is done on every set_config because the changed boolean above does not capture
+        // NOTE: this is done on every set_config because the changed boolean above does not capture
         // WINDOW_BG changes
-        self.update_colors(config);
+        let default_colors_updated = self.update_default_colors(config);
 
         if update_cell_size {
             self.update_cell_size();
-        } else if update {
+        } else if update || default_colors_updated {
             self.update();
         }
     }
 
-    pub fn update_colors(&mut self, config: &AppConfig) {
-        self.metadata_set.clear();
+    pub fn update_default_colors(&mut self, config: &AppConfig) -> bool {
         let default_bg = convert_color(&self.colors, Color::Named(NamedColor::Background));
         let default_fg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
 
-        let default_metadata = Metadata::new(default_bg, default_fg);
-        let (default_metadata_idx, _) = self.metadata_set.insert_full(default_metadata);
+        let new_default_metadata = Metadata::new(default_bg, default_fg);
+        let curr_metada_idx = self.default_attrs().metadata;
 
-        self.default_attrs = Attrs::new()
-            .family(Family::Monospace)
-            .weight(Weight(config.font_weight))
-            .stretch(config.typed_font_stretch())
-            .color(default_fg)
-            .metadata(default_metadata_idx);
+        let updated = new_default_metadata != self.metadata_set[curr_metada_idx];
+
+        if updated {
+            self.metadata_set.clear();
+            let (default_metadata_idx, _) = self.metadata_set.insert_full(new_default_metadata);
+
+            self.default_attrs = Attrs::new()
+                .family(Family::Monospace)
+                .weight(Weight(config.font_weight))
+                .stretch(config.typed_font_stretch())
+                .color(default_fg)
+                .metadata(default_metadata_idx);
+        }
+
+        updated
     }
 
     pub fn update_cell_size(&mut self) {
@@ -664,6 +729,16 @@ impl Terminal {
                     TermDamage::Partial(_damage_lines) => {}
                 }
                 term.reset_damage();
+
+                self.regex_matches.clear();
+                {
+                    let mut regex_matches: Vec<_> =
+                        visible_regex_match_iter(&term, &mut self.url_regex_search).collect();
+                    self.regex_matches
+                        .extend(regex_matches.drain(..).flat_map(|rm| -> Vec<_> {
+                            HintPostProcessor::new(&term, &mut self.url_regex_search, rm).collect()
+                        }));
+                }
 
                 let grid = term.grid();
                 for indexed in grid.display_iter() {
@@ -739,43 +814,35 @@ impl Terminal {
                     }
 
                     // Change color if cursor
-                    if indexed.point == grid.cursor.point {
-                        //TODO: better handling of cursor
-                        if term.mode().contains(TermMode::SHOW_CURSOR) {
-                            //Use specific cursor color if requested
-                            if term.colors()[NamedColor::Cursor].is_some() {
-                                fg = bg;
-                                bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
-                            } else if self.colors[NamedColor::Cursor].is_some() {
-                                //Use specific theme cursor color if exists
-                                fg = bg;
-                                bg = convert_color(&self.colors, Color::Named(NamedColor::Cursor));
-                            } else {
-                                mem::swap(&mut fg, &mut bg);
-                            }
-                            let fg_rgb = Rgb {
-                                r: fg.r(),
-                                g: fg.g(),
-                                b: fg.b(),
-                            };
-                            let bg_rgb = Rgb {
-                                r: bg.r(),
-                                g: bg.g(),
-                                b: bg.b(),
-                            };
-                            let contrast = fg_rgb.contrast(bg_rgb);
-                            if contrast < MIN_CURSOR_CONTRAST {
-                                fg = convert_color(
-                                    &self.colors,
-                                    Color::Named(NamedColor::Background),
-                                );
-                                bg = convert_color(
-                                    &self.colors,
-                                    Color::Named(NamedColor::Foreground),
-                                );
-                            }
-                        } else {
+                    if indexed.point == grid.cursor.point
+                        && term.renderable_content().cursor.shape == CursorShape::Block
+                        && self.is_focused
+                    {
+                        //Use specific cursor color if requested
+                        if term.colors()[NamedColor::Cursor].is_some() {
                             fg = bg;
+                            bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
+                        } else if self.colors[NamedColor::Cursor].is_some() {
+                            //Use specific theme cursor color if exists
+                            fg = bg;
+                            bg = convert_color(&self.colors, Color::Named(NamedColor::Cursor));
+                        } else {
+                            mem::swap(&mut fg, &mut bg);
+                        }
+                        let fg_rgb = Rgb {
+                            r: fg.r(),
+                            g: fg.g(),
+                            b: fg.b(),
+                        };
+                        let bg_rgb = Rgb {
+                            r: bg.r(),
+                            g: bg.g(),
+                            b: bg.b(),
+                        };
+                        let contrast = fg_rgb.contrast(bg_rgb);
+                        if contrast < MIN_CURSOR_CONTRAST {
+                            fg = convert_color(&self.colors, Color::Named(NamedColor::Background));
+                            bg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
                         }
                     }
 
@@ -797,8 +864,17 @@ impl Terminal {
                         .underline_color()
                         .map(|c| convert_color(&self.colors, c))
                         .unwrap_or(fg);
+
+                    let mut flags = indexed.cell.flags;
+
+                    if let Some(active_match) = &self.active_regex_match {
+                        if active_match.contains(&indexed.point) {
+                            flags |= Flags::UNDERLINE;
+                        }
+                    }
+
                     let metadata = Metadata::new(bg, fg)
-                        .with_flags(indexed.cell.flags)
+                        .with_flags(flags)
                         .with_underline_color(underline_color);
                     let (meta_idx, _) = self.metadata_set.insert_full(metadata);
                     attrs = attrs.metadata(meta_idx);
@@ -870,6 +946,7 @@ impl Terminal {
     ) {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
+
         #[allow(clippy::collapsible_else_if)]
         if mode.contains(TermMode::SGR_MOUSE) {
             if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
@@ -887,6 +964,7 @@ impl Terminal {
             }
         }
     }
+
     pub fn scroll_mouse(
         &mut self,
         delta: ScrollDelta,
@@ -896,9 +974,9 @@ impl Terminal {
     ) {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
+
         if mode.contains(TermMode::SGR_MOUSE) {
-            MouseReporter::report_sgr_mouse_wheel_scroll(
-                self,
+            let codes = self.mouse_reporter.sgr_mouse_wheel_scroll(
                 self.size().cell_width,
                 self.size().cell_height,
                 delta,
@@ -906,6 +984,10 @@ impl Terminal {
                 x,
                 y,
             );
+
+            for code in codes {
+                self.notifier.notify(code);
+            }
         } else {
             MouseReporter::report_mouse_wheel_as_arrows(
                 self,
@@ -914,6 +996,177 @@ impl Terminal {
                 delta,
             );
         }
+    }
+}
+/// Iterate over all visible regex matches.
+/// This includes the screen +- 100 lines (MAX_SEARCH_LINES).
+/// display/hint.rs
+pub fn visible_regex_match_iter<'a, T>(
+    term: &'a Term<T>,
+    regex: &'a mut RegexSearch,
+) -> impl Iterator<Item = alacritty_terminal::term::search::Match> + 'a {
+    let viewport_start = Line(-(term.grid().display_offset() as i32));
+    let viewport_end = viewport_start + term.bottommost_line();
+    let mut start = term.line_search_left(Point::new(viewport_start, Column(0)));
+    let mut end = term.line_search_right(Point::new(viewport_end, Column(0)));
+    start.line = start.line.max(viewport_start - MAX_SEARCH_LINES);
+    end.line = end.line.min(viewport_end + MAX_SEARCH_LINES);
+
+    alacritty_terminal::term::search::RegexIter::new(start, end, Direction::Right, term, regex)
+        .skip_while(move |rm| rm.end().line < viewport_start)
+        .take_while(move |rm| rm.start().line <= viewport_end)
+}
+/** Copy of <https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/display/hint.rs#L433C1-L572C1> */
+/// Iterator over all post-processed matches inside an existing hint match.
+struct HintPostProcessor<'a, T> {
+    /// Regex search DFAs.
+    regex: &'a mut RegexSearch,
+
+    /// Terminal reference.
+    term: &'a Term<T>,
+
+    /// Next hint match in the iterator.
+    next_match: Option<alacritty_terminal::term::search::Match>,
+
+    /// Start point for the next search.
+    start: Point,
+
+    /// End point for the hint match iterator.
+    end: Point,
+}
+
+impl<'a, T> HintPostProcessor<'a, T> {
+    /// Create a new iterator for an unprocessed match.
+    fn new(
+        term: &'a Term<T>,
+        regex: &'a mut RegexSearch,
+        regex_match: alacritty_terminal::term::search::Match,
+    ) -> Self {
+        let mut post_processor = Self {
+            next_match: None,
+            start: *regex_match.start(),
+            end: *regex_match.end(),
+            term,
+            regex,
+        };
+
+        // Post-process the first hint match.
+        post_processor.next_processed_match(regex_match);
+
+        post_processor
+    }
+
+    /// Apply some hint post processing heuristics.
+    ///
+    /// This will check the end of the hint and make it shorter if certain characters are determined
+    /// to be unlikely to be intentionally part of the hint.
+    ///
+    /// This is most useful for identifying URLs appropriately.
+    fn hint_post_processing(
+        &self,
+        regex_match: &alacritty_terminal::term::search::Match,
+    ) -> Option<alacritty_terminal::term::search::Match> {
+        let mut iter = self.term.grid().iter_from(*regex_match.start());
+
+        let mut c = iter.cell().c;
+
+        // Truncate uneven number of brackets.
+        let end = *regex_match.end();
+        let mut open_parents = 0;
+        let mut open_brackets = 0;
+        loop {
+            match c {
+                '(' => open_parents += 1,
+                '[' => open_brackets += 1,
+                ')' => {
+                    if open_parents == 0 {
+                        alacritty_terminal::grid::BidirectionalIterator::prev(&mut iter);
+                        break;
+                    } else {
+                        open_parents -= 1;
+                    }
+                }
+                ']' => {
+                    if open_brackets == 0 {
+                        alacritty_terminal::grid::BidirectionalIterator::prev(&mut iter);
+                        break;
+                    } else {
+                        open_brackets -= 1;
+                    }
+                }
+                _ => (),
+            }
+
+            if iter.point() == end {
+                break;
+            }
+
+            match iter.next() {
+                Some(indexed) => c = indexed.cell.c,
+                None => break,
+            }
+        }
+
+        // Truncate trailing characters which are likely to be delimiters.
+        let start = *regex_match.start();
+        while iter.point() != start {
+            if !matches!(c, '.' | ',' | ':' | ';' | '?' | '!' | '(' | '[' | '\'') {
+                break;
+            }
+
+            match alacritty_terminal::grid::BidirectionalIterator::prev(&mut iter) {
+                Some(indexed) => c = indexed.cell.c,
+                None => break,
+            }
+        }
+
+        if start > iter.point() {
+            None
+        } else {
+            Some(start..=iter.point())
+        }
+    }
+
+    /// Loop over submatches until a non-empty post-processed match is found.
+    fn next_processed_match(&mut self, mut regex_match: alacritty_terminal::term::search::Match) {
+        self.next_match = loop {
+            if let Some(next_match) = self.hint_post_processing(&regex_match) {
+                self.start = next_match.end().add(self.term, Boundary::Grid, 1);
+                break Some(next_match);
+            }
+
+            self.start = regex_match.start().add(self.term, Boundary::Grid, 1);
+            if self.start > self.end {
+                return;
+            }
+
+            match self
+                .term
+                .regex_search_right(self.regex, self.start, self.end)
+            {
+                Some(rm) => regex_match = rm,
+                None => return,
+            }
+        };
+    }
+}
+
+impl<'a, T> Iterator for HintPostProcessor<'a, T> {
+    type Item = alacritty_terminal::term::search::Match;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_match = self.next_match.take()?;
+
+        if self.start <= self.end {
+            if let Some(rm) = self
+                .term
+                .regex_search_right(self.regex, self.start, self.end)
+            {
+                self.next_processed_match(rm);
+            }
+        }
+
+        Some(next_match)
     }
 }
 

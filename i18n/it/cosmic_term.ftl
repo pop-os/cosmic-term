@@ -23,6 +23,9 @@ tab-title-description = Sovrascrivi il titolo predefinito della scheda
 add-profile = Aggiungi profilo
 new-profile = Nuovo profilo
 make-default = Rendi predefinito
+working-directory = Directory di lavoro
+hold = Mantieni
+remain-open = Rimani aperto dopo l'uscita del processo figlio.
 
 ## Settings
 settings = Impostazioni
@@ -80,6 +83,7 @@ copy = Copia
 paste = Incolla
 select-all = Seleziona tutto
 find = Trova
+clear-scrollback = Cancella lo scrollback
 
 ## View
 view = Visualizza

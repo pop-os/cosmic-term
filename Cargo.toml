@@ -4,19 +4,21 @@ version = "0.1.0"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2021"
 license = "GPL-3.0-only"
-rust-version = "1.71"
+rust-version = "1.80"
 
 [build-dependencies]
 vergen = { version = "8", features = ["git", "gitcl"] }
 
 [dependencies]
-alacritty_terminal = "0.23"
-env_logger = "0.10"
+alacritty_terminal = { git = "https://github.com/alacritty/alacritty", rev = "cacdb5bb3b72bad2c729227537979d95af75978f" }
+env_logger = "0.11"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
+#TODO: for repeat_n, which is in std in 1.82
+itertools = "0.14"
 lazy_static = "1"
 log = "0.4"
-open = "5.0.2"
+open = "5.3.2"
 palette = { version = "0.7", features = ["serde"] }
 paste = "1.0"
 ron = "0.8"
@@ -24,14 +26,17 @@ serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
 tokio = { version = "1", features = ["sync"] }
 # Internationalization
-i18n-embed = { version = "0.14", features = [
+i18n-embed = { version = "0.15", features = [
     "fluent-system",
     "desktop-requester",
 ] }
-i18n-embed-fl = "0.7"
+i18n-embed-fl = "0.9"
 icu_collator = "1.5"
 icu_provider = { version = "1.5", features = ["sync"] }
 rust-embed = "8"
+url = "2.5"
+# TODO: required by 1.80
+home = "=0.5.9"
 
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
@@ -46,12 +51,8 @@ git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
 features = ["a11y", "multi-window", "tokio", "winit"]
 
-[dependencies.smol_str]
-version = "0.2.1"
-features = ["serde"]
-
 [target.'cfg(unix)'.dependencies]
-fork = "0.1"
+fork = "0.2"
 
 [features]
 default = ["wgpu"]
@@ -61,14 +62,7 @@ wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 inherits = "release"
 debug = true
 
-[patch.crates-io]
-# https://github.com/rust-lang/libc/pull/3686
-libc = { git = "https://gitlab.redox-os.org/redox-os/liblibc.git", branch = "redox-epoll-0.2" }
-
 # [patch.'https://github.com/pop-os/libcosmic']
-# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
-# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
-# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "zbus-4" }
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
 # cosmic-theme = { path = "../libcosmic/cosmic-theme" }
