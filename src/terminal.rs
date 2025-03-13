@@ -254,6 +254,7 @@ pub struct Terminal {
     notifier: Notifier,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
+    search_flags: u8,
     size: Size,
     use_bright_bold: bool,
     zoom_adj: i8,
@@ -347,6 +348,7 @@ impl Terminal {
             profile_id_opt,
             search_regex_opt: None,
             search_value: String::new(),
+            search_flags: app_config.search_flags(),
             size,
             tab_title_override,
             term,
@@ -480,17 +482,31 @@ impl Terminal {
             None
         }
     }
-
-    pub fn search(&mut self, value: &str, forwards: bool) {
+    pub fn search(&mut self, value: &str, forwards: bool, search_flags: u8) {
         //TODO: set max lines, run in thread?
         {
             let mut term = self.term.lock();
 
-            if self.search_value != value {
-                match RegexSearch::new(value) {
+            if self.search_value != value || self.search_flags != search_flags {
+                // TODO: enable unicode word boundaries (can't due to internal regex engine)
+
+                let search_value = if search_flags & 0b11 != 0 {
+                    let (start, end) = if search_flags & 0b11 == 0b11 {
+                        (r"(?i)(?-u:\b)", r"(?-u:\b)")
+                    } else if search_flags & 0b1 == 0b1 {
+                        (r"(?-u:\b)", r"(?-u:\b)")
+                    } else {
+                        ("(?i)", "")
+                    };
+                    &format!("{start}{value}{end}")
+                } else {
+                    value
+                };
+                match RegexSearch::new(search_value) {
                     Ok(search_regex) => {
                         self.search_regex_opt = Some(search_regex);
                         self.search_value = value.to_string();
+                        self.search_flags = search_flags;
                         term.selection = None;
                     }
                     Err(err) => {

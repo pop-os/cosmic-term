@@ -338,6 +338,7 @@ pub enum Message {
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
+    SearchFlags(bool, bool),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
@@ -1995,7 +1996,11 @@ impl Application for App {
                         let entity = tab_model.active();
                         if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, true);
+                            terminal.search(
+                                &self.find_search_value,
+                                true,
+                                self.config.search_flags(),
+                            );
                         }
                     }
                 }
@@ -2009,7 +2014,11 @@ impl Application for App {
                         let entity = tab_model.active();
                         if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, false);
+                            terminal.search(
+                                &self.find_search_value,
+                                false,
+                                self.config.search_flags(),
+                            );
                         }
                     }
                 }
@@ -2235,6 +2244,14 @@ impl Application for App {
                     config_set!(use_bright_bold, use_bright_bold);
                     return self.update_config();
                 }
+            }
+            Message::SearchFlags(flag, toggle) => {
+                let val = if flag as u8 == 0 {
+                    &mut self.config.search_whole_words
+                } else {
+                    &mut self.config.search_match_case
+                };
+                *val = toggle;
             }
             Message::ShowAdvancedFontSettings(show) => {
                 self.show_advanced_font_settings = show;
@@ -2758,6 +2775,12 @@ impl Application for App {
                     )
                     .into(),
                     widget::horizontal_space().into(),
+                    widget::checkbox(fl!("match-case"), self.config.search_match_case)
+                        .on_toggle(|toggle| Message::SearchFlags(true, toggle))
+                        .into(),
+                    widget::checkbox(fl!("whole-words"), self.config.search_whole_words)
+                        .on_toggle(|toggle| Message::SearchFlags(false, toggle))
+                        .into(),
                     button::custom(icon_cache_get("window-close-symbolic", 16))
                         .on_press(Message::Find(false))
                         .padding(space_xxs)

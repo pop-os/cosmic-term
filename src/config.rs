@@ -236,6 +236,8 @@ pub struct Config {
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
     pub default_profile: Option<ProfileId>,
+    pub search_whole_words: bool,
+    pub search_match_case: bool,
 }
 
 impl Default for Config {
@@ -259,6 +261,8 @@ impl Default for Config {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
+            search_whole_words: false,
+            search_match_case: false,
         }
     }
 }
@@ -385,5 +389,11 @@ impl Config {
                 Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
             }
         })[&self.font_stretch]
+    }
+
+    pub fn search_flags(&self) -> u8 {
+        let word_flag = self.search_whole_words as u8 * 1;
+        let case_flag = self.search_match_case as u8 * 2;
+        word_flag | case_flag
     }
 }
