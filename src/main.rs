@@ -1823,9 +1823,15 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let terminal = terminal.lock().unwrap();
-                        let term = terminal.term.lock();
+                        let mut terminal = terminal.lock().unwrap();
+                        let mut term = terminal.term.lock();
                         if let Some(text) = term.selection_to_string() {
+                            // Clear selection (to allow next Ctrl+C to signal)
+                            term.selection = None;
+                            drop(term);
+                            // Mark as dirty
+                            terminal.needs_update = true;
+                            drop(terminal);
                             return Task::batch([clipboard::write(text), self.update_focus()]);
                         } else {
                             // Drop the lock for term so that input_scroll doesn't block forever
