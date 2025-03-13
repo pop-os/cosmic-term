@@ -290,7 +290,10 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
-        let radius_s = cosmic_theme.corner_radii.radius_s[0] - 1.0;
+        // matches the corners to the window border
+        let corner_radius = cosmic_theme
+            .radius_s()
+            .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
@@ -326,9 +329,9 @@ where
                     bounds: layout.bounds(),
                     border: Border {
                         radius: if self.show_headerbar {
-                            [0.0, 0.0, radius_s, radius_s].into()
+                            [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
                         } else {
-                            [radius_s, radius_s, radius_s, radius_s].into()
+                            corner_radius.into()
                         },
                         width: self.border.width,
                         color: self.border.color,
