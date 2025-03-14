@@ -39,8 +39,10 @@ url = "2.5"
 home = "=0.5.9"
 
 [dependencies.cosmic-files]
+# path = "../cosmic-files"
 git = "https://github.com/pop-os/cosmic-files.git"
 default-features = false
+branch = "update-libcosmic"
 
 [dependencies.cosmic-text]
 git = "https://github.com/pop-os/cosmic-text.git"
