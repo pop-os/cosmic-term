@@ -68,6 +68,8 @@ mod terminal_theme;
 
 mod dnd;
 
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
 }
@@ -80,6 +82,19 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 /// Runs application with these settings
 #[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Add CLI arguments managements with `clap`
+    let matches = clap::Command::new("cosmic-term")
+        .version(env!("CARGO_PKG_VERSION"))
+        .about("COSMIC Terminal Emulator")
+        .long_about("A terminal emulator designed to be part of the COSMIC desktop environment. \nFor more information, visit the GitHub repository at https://github.com/pop-os/cosmic-term.")
+        .get_matches();
+
+    // Argument verification
+    if matches.contains_id("version") {
+        println!("cosmic-term {}", APP_VERSION);
+        return Ok(());
+    }
+    
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut parse_flags = true;
