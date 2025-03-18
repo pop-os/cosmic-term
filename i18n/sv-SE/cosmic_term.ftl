@@ -23,6 +23,9 @@ tab-title-description = Åsidosätt standardtitel för flik
 add-profile = Lägg till profil
 new-profile = Ny profil
 make-default = Gör till standard
+working-directory = Arbetskatalog
+hold = Håll
+remain-open = Förbli öppen efter att barnprocessen avslutats.
 
 ## Inställningar
 settings = Inställningar

@@ -59,6 +59,8 @@ pub struct TerminalBox<'a, Message> {
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
 }
 
@@ -82,6 +84,8 @@ where
             on_middle_click: None,
             key_binds: key_binds(),
             on_open_hyperlink: None,
+            on_window_focused: None,
+            on_window_unfocused: None,
         }
     }
 
@@ -143,6 +147,16 @@ where
         on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
     ) -> Self {
         self.on_open_hyperlink = on_open_hyperlink;
+        self
+    }
+
+    pub fn on_window_focused(mut self, on_window_focused: impl Fn() -> Message + 'a) -> Self {
+        self.on_window_focused = Some(Box::new(on_window_focused));
+        self
+    }
+
+    pub fn on_window_unfocused(mut self, on_window_unfocused: impl Fn() -> Message + 'a) -> Self {
+        self.on_window_unfocused = Some(Box::new(on_window_unfocused));
         self
     }
 }
@@ -276,7 +290,10 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
-        let radius_s = cosmic_theme.corner_radii.radius_s[0] - 1.0;
+        // matches the corners to the window border
+        let corner_radius = cosmic_theme
+            .radius_s()
+            .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
@@ -312,9 +329,9 @@ where
                     bounds: layout.bounds(),
                     border: Border {
                         radius: if self.show_headerbar {
-                            [0.0, 0.0, radius_s, radius_s].into()
+                            [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
                         } else {
-                            [radius_s, radius_s, radius_s, radius_s].into()
+                            corner_radius.into()
                         },
                         width: self.border.width,
                         color: self.border.color,
@@ -662,7 +679,30 @@ where
                     };
                     renderer.fill_quad(quad, color);
                 }
-                CursorShape::HollowBlock => {} // TODO not sure when this would even be activated
+                CursorShape::Block if !state.is_focused => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(top_left, Size::new(width, height)),
+                        border: Border {
+                            width: 1.0,
+                            color,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, Color::TRANSPARENT);
+                }
+                CursorShape::HollowBlock => {
+                    let quad = Quad {
+                        bounds: Rectangle::new(top_left, Size::new(width, height)),
+                        border: Border {
+                            width: 1.0,
+                            color,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    };
+                    renderer.fill_quad(quad, Color::TRANSPARENT);
+                }
                 CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
             }
         }
@@ -691,12 +731,27 @@ where
         let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
         let mut status = Status::Ignored;
         match event {
+            Event::Window(event) => match event {
+                cosmic::iced::window::Event::Focused => {
+                    if let Some(on_window_focused) = &self.on_window_focused {
+                        shell.publish(on_window_focused());
+                    }
+                }
+                cosmic::iced::window::Event::Unfocused => {
+                    state.is_focused = false;
+                    if let Some(on_window_unfocused) = &self.on_window_unfocused {
+                        shell.publish(on_window_unfocused());
+                    }
+                }
+                _ => {}
+            },
             Event::Keyboard(KeyEvent::KeyPressed {
                 key: Key::Named(named),
+                modified_key: Key::Named(modified_named),
                 modifiers,
                 text,
                 ..
-            }) if state.is_focused => {
+            }) if state.is_focused && named == modified_named => {
                 for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &Key::Named(named)) {
                         return Status::Captured;
