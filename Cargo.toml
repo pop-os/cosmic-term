@@ -63,6 +63,8 @@ wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+[patch.crates-io]
+xdg-mime = { git = "https://github.com/ellieplayswow/xdg-mime-rs", branch = "feature/get-same-as" }
 
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { path = "../libcosmic" }
