@@ -68,10 +68,25 @@ mod terminal_theme;
 
 mod dnd;
 
+use lexopt::{Parser, Arg};
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
+}
+
+fn print_help() {
+    println!(
+        r#"
+COSMIC Terminal
+A terminal emulator designed for the COSMIC desktop environment.
+
+Project home page: https://github.com/pop-os/cosmic-term
+
+Options:
+  --help     Show this message
+  --version  Show the version of cosmic-term"#
+    );
 }
 
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
@@ -82,19 +97,22 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 /// Runs application with these settings
 #[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Add CLI arguments managements with `clap`
-    let matches = clap::Command::new("cosmic-term")
-        .version(env!("CARGO_PKG_VERSION"))
-        .about("COSMIC Terminal Emulator")
-        .long_about("A terminal emulator designed to be part of the COSMIC desktop environment. \nFor more information, visit the GitHub repository at https://github.com/pop-os/cosmic-term.")
-        .get_matches();
+    let mut parser = Parser::from_env();
 
-    // Argument verification
-    if matches.contains_id("version") {
-        println!("cosmic-term {}", APP_VERSION);
-        return Ok(());
+    // Parse the arguments
+    while let Some(arg) = parser.next()? {
+        match arg {
+            Arg::Long("help") => {
+                print_help();
+                return Ok(());
+            }
+            Arg::Long("version") => {
+                println!("cosmic-term {}", APP_VERSION);
+                return Ok(());
+            }
+            _ => {}
+        }
     }
-
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut parse_flags = true;
