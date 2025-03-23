@@ -70,7 +70,6 @@ mod terminal_theme;
 mod dnd;
 
 use lexopt::{Parser, Arg};
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
@@ -78,8 +77,7 @@ lazy_static::lazy_static! {
 
 fn print_help() {
     println!(
-        r#"
-COSMIC Terminal
+        r#"COSMIC Terminal
 A terminal emulator designed for the COSMIC desktop environment.
 
 Project home page: https://github.com/pop-os/cosmic-term
@@ -103,18 +101,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the arguments
     while let Some(arg) = parser.next()? {
         match arg {
-            Arg::Long("help") => {
+            Arg::Short('h') | Arg::Long("help") => {
                 print_help();
                 return Ok(());
             }
-            Arg::Long("version") => {
-                println!("cosmic-term {}", APP_VERSION);
+            Arg::Short('v') | Arg::Long("version") => {
+                println!("cosmic-term {} (git commit {})",
+                    env!("CARGO_PKG_VERSION"),
+                    env!("VERGEN_GIT_SHA")
+                );
                 return Ok(());
             }
             _ => {}
         }
     }
-    
+
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut parse_flags = true;
