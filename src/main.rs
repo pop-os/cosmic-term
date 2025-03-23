@@ -114,6 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => {}
         }
     }
+    
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut parse_flags = true;
