@@ -69,7 +69,7 @@ mod terminal_theme;
 
 mod dnd;
 
-use lexopt::{Parser, Arg};
+use lexopt::{Arg, Parser};
 
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
