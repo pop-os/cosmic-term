@@ -75,19 +75,6 @@ lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
 }
 
-fn print_help() {
-    println!(
-        r#"COSMIC Terminal
-A terminal emulator designed for the COSMIC desktop environment.
-
-Project home page: https://github.com/pop-os/cosmic-term
-
-Options:
-  --help     Show this message
-  --version  Show the version of cosmic-term"#
-    );
-}
-
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();
     icon_cache.get(name, size)
@@ -102,11 +89,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     while let Some(arg) = parser.next()? {
         match arg {
             Arg::Short('h') | Arg::Long("help") => {
-                print_help();
-                return Ok(());
+                print_help(env!("CARGO_PKG_VERSION"), env!("VERGEN_GIT_SHA"));
+		return Ok(());
             }
             Arg::Short('v') | Arg::Long("version") => {
-                println!("cosmic-term {} (git commit {})",
+                println!(
+		    "cosmic-term {} (git commit {})",
                     env!("CARGO_PKG_VERSION"),
                     env!("VERGEN_GIT_SHA")
                 );
@@ -204,6 +192,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cosmic::app::run::<App>(settings, flags)?;
 
     Ok(())
+}
+
+fn print_help() {
+    println!(
+        r#"COSMIC Terminal
+Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based terminal emulator.
+        
+Project home page: https://github.com/pop-os/cosmic-term
+
+Options:
+  --help     Show this message
+  --version  Show the version of cosmic-term"#
+    );
 }
 
 #[derive(Clone, Debug)]
