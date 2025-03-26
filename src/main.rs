@@ -88,12 +88,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let raw_args = RawArgs::from_args();
     let mut cursor = raw_args.cursor();
 
-    // Parse the arguments
+    let mut shell_program_opt = None;
+    let mut shell_args = Vec::new();
+    let mut daemonize = true;
+
+    // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
             Some("--help") | Some("-h") => {
-                print_help(env!("CARGO_PKG_VERSION"), env!("VERGEN_GIT_SHA"));
-		return Ok(());
+                print_help();
+                return Ok(());
             }
             Some("--version") | Some("-V") => {
                 println!(
@@ -103,36 +107,36 @@ fn main() -> Result<(), Box<dyn Error>> {
                 );
                 return Ok(());
             }
-            _ => {}
-        }
-    }
-
-    let mut shell_program_opt = None;
-    let mut shell_args = Vec::new();
-    let mut parse_flags = true;
-    let mut daemonize = true;
-    for arg in env::args().skip(1) {
-        if parse_flags {
-            match arg.as_str() {
-                // These flags indicate the end of parsing flags
-                "-e" | "--command" | "--" => {
-                    parse_flags = false;
-                }
-                "--no-daemon" => {
+            Some("--no-daemon") => {
+                // Only disable daemonization under Redox
+                if cfg!(target_os = "redox") {
                     daemonize = false;
                 }
-                _ => {
-                    //TODO: should this throw an error?
-                    log::warn!("ignored argument {:?}", arg);
-                }
             }
-        } else if shell_program_opt.is_none() {
-            shell_program_opt = Some(arg);
-        } else {
-            shell_args.push(arg);
+            Some("-e") | Some("--command") => {
+                // Handle the '--command' or '-e' flag
+                continue;
+            }
+            Some("--") => {
+                // End of flags, the next args are shell-related
+                break;
+            }
+            _ => {
+                log::warn!("Ignored argument {:?}", arg);
+            }
         }
     }
 
+    // After flags, process remaining shell program and args
+    while let Some(arg) = raw_args.next_os(&mut cursor) {
+        if let Some(program) = shell_program_opt.take() {
+            shell_args.push(arg.to_string_lossy().to_string());
+        } else {
+            shell_program_opt = Some(arg.to_string_lossy().to_string());
+        }
+    }
+
+    // Platform-specific daemonization logic
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
         match fork::daemon(true, true) {
@@ -176,22 +180,25 @@ fn main() -> Result<(), Box<dyn Error>> {
         None
     };
 
+    // Terminal config setup
     let term_config = term::Config::default();
-    // Set up environmental variables for terminal
     tty::setup_env();
-    // Override TERM for better compatibility
     env::set_var("TERM", "xterm-256color");
 
+    // Set settings
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
+    // Flags
     let flags = Flags {
         config_handler,
         config,
         startup_options,
         term_config,
     };
+
+    // Run the cosmic app
     cosmic::app::run::<App>(settings, flags)?;
 
     Ok(())
