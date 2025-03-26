@@ -182,7 +182,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Terminal config setup
     let term_config = term::Config::default();
+    // Set up environmental variables for terminal
     tty::setup_env();
+    // Override TERM for better compatibility
     env::set_var("TERM", "xterm-256color");
 
     // Set settings
