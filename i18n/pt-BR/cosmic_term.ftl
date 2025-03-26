@@ -1,4 +1,4 @@
-cosmic-terminal = Terminal do COSMIC
+cosmic-terminal = Terminal
 new-terminal = Novo terminal
 
 # Context Pages
@@ -83,6 +83,7 @@ copy = Copiar
 paste = Colar
 select-all = Selecionar tudo
 find = Pesquisar
+clear-scrollback = Limpar scrollback
 
 ## View
 view = Visualizar
