@@ -79,33 +79,28 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 }
 
 /// Runs application with these settings
-#[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut shell_program_opt = None;
-    let mut shell_args = Vec::new();
-    let mut parse_flags = true;
     let mut daemonize = true;
-    for arg in env::args().skip(1) {
-        if parse_flags {
-            match arg.as_str() {
-                // These flags indicate the end of parsing flags
-                "-e" | "--command" | "--" => {
-                    parse_flags = false;
-                }
-                "--no-daemon" => {
-                    daemonize = false;
-                }
-                _ => {
-                    //TODO: should this throw an error?
-                    log::warn!("ignored argument {:?}", arg);
-                }
+    let mut args_iter = env::args().fuse();
+    // more performant than an iterator adapter
+    _ = args_iter.next();
+    for arg in args_iter.by_ref() {
+        match arg.as_str() {
+            // These flags indicate the end of parsing flags
+            "-e" | "--command" | "--" => {
+                break;
             }
-        } else if shell_program_opt.is_none() {
-            shell_program_opt = Some(arg);
-        } else {
-            shell_args.push(arg);
+            "--no-daemon" => {
+                daemonize = false;
+            }
+            _ => {
+                //TODO: should this throw an error?
+                log::warn!("ignored argument {:?}", arg);
+            }
         }
     }
+    let shell_program_opt = args_iter.next();
+    let shell_args = Vec::from_iter(args_iter);
 
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
