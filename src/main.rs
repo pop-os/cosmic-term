@@ -80,6 +80,8 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 
 /// Runs application with these settings
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+
     let mut daemonize = true;
     let mut args_iter = env::args().fuse();
     // more performant than an iterator adapter
@@ -113,8 +115,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
     localize::localize();
 
