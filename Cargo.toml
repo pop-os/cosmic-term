@@ -58,6 +58,9 @@ fork = "0.2"
 default = ["wgpu"]
 wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 
+[profile.release]
+lto = true
+
 [profile.release-with-debug]
 inherits = "release"
 debug = true
