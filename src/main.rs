@@ -115,7 +115,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             Some("-e") | Some("--command") => {
                 // Handle the '--command' or '-e' flag
-                continue;
+                break;
             }
             Some("--") => {
                 // End of flags, the next args are shell-related
