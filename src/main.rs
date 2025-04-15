@@ -149,8 +149,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
-
     localize::localize();
 
     let (config_handler, config) = match cosmic_config::Config::new(App::APP_ID, CONFIG_VERSION) {
