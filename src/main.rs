@@ -2642,7 +2642,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.config, &self.key_binds)]
+        vec![menu_bar(&self.core, &self.config, &self.key_binds)]
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
