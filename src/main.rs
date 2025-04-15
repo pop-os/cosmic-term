@@ -108,10 +108,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return Ok(());
             }
             Some("--no-daemon") => {
-                // Only disable daemonization under Redox
-                if cfg!(target_os = "redox") {
-                    daemonize = false;
-                }
+                daemonize = false;
             }
             Some("-e") | Some("--command") => {
                 // Handle the '--command' or '-e' flag
