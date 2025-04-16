@@ -33,12 +33,12 @@ settings = Beállítások
 ### Appearance
 appearance = Megjelenés
 theme = Téma
-match-desktop = Asztallal egyező
+match-desktop = Rendszertéma
 dark = Sötét
 light = Világos
 syntax-dark = Sötét színséma
 syntax-light = Világos színséma
-default-zoom-step = Nagyítási lépések
+default-zoom-step = Nagyítási lépték
 opacity = Háttér átlátszósága
 
 ### Font
@@ -83,7 +83,7 @@ copy = Másolás
 paste = Beillesztés
 select-all = Összes kijelölése
 find = Keresés
-clear-scrollback = Visszagörgetési puffer törlése
+clear-scrollback = Görgetési előzmények törlése
 
 ## View
 view = Nézet
@@ -97,4 +97,4 @@ split-vertical = Függőleges felosztás
 pane-toggle-maximize = Panel maximalizálása
 menu-color-schemes = Színsémák...
 menu-settings = Beállítások...
-menu-about = A COSMIC Terminálról...
+menu-about = A COSMIC Terminál névjegye...

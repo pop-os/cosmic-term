@@ -15,13 +15,13 @@
   <name xml:lang="pt">Terminal</name>
   <summary>Terminal emulator for the COSMIC desktop</summary>
   <summary xml:lang="pl">Emulator terminala dla pulpitu COSMIC</summary>
-  <summary xml:lang="hu">Terminálemulátor a COSMIC asztalhoz</summary>
+  <summary xml:lang="hu">Terminálemulátor a COSMIC asztali környezethez</summary>
   <summary xml:lang="pt_BR">Emulador de terminal do desktop COSMIC</summary>
   <summary xml:lang="pt">Emulador de terminal do desktop COSMIC</summary>
   <description>
     <p>Terminal emulator for the COSMIC desktop</p>
     <p xml:lang="pl">Emulator terminala dla pulpitu COSMIC</p>
-    <p xml:lang="hu">Terminálemulátor a COSMIC asztalhoz</p>
+    <p xml:lang="hu">Terminálemulátor a COSMIC asztali környezethez</p>
     <p xml:lang="pt_BR">Emulador de terminal do desktop COSMIC</p>
     <p xml:lang="pt">Emulador de terminal do desktop COSMIC</p>
   </description>
