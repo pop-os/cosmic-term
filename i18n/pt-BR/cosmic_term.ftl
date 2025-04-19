@@ -33,7 +33,7 @@ settings = Configurações
 ### Appearance
 appearance = Aparência
 theme = Tema
-match-desktop = Acompanhar o tema do desktop
+match-desktop = Acompanhar o tema da área de trabalho
 dark = Escuro
 light = Claro
 syntax-dark = Esquema de cores escuro
@@ -58,7 +58,7 @@ focus-follow-mouse = Foco de digitação segue o mouse
 
 ### Advanced
 advanced = Avançado
-show-headerbar = Mostrar barra de título
+show-headerbar = Mostrar a barra de título
 show-header-description = Mostrar a barra de título pela janela no menu de contexto
 
 # Find
