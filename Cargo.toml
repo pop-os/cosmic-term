@@ -49,7 +49,7 @@ features = ["monospace_fallback", "shape-run-cache"]
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
-features = ["a11y", "multi-window", "tokio", "winit"]
+features = ["a11y", "multi-window", "tokio", "winit", "surface-message"]
 
 [target.'cfg(unix)'.dependencies]
 fork = "0.2"
@@ -61,6 +61,10 @@ wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+[patch.crates-io]
+# https://github.com/smol-rs/polling/pull/235
+polling = { git = "https://github.com/jackpot51/polling.git", branch = "master" }
+xdg-mime = { git = "https://github.com/ellieplayswow/xdg-mime-rs", branch = "feature/get-same-as" }
 
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { path = "../libcosmic" }

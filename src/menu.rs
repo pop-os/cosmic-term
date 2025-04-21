@@ -3,6 +3,7 @@
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{items as menu_items, menu_button, root as menu_root, Item as MenuItem};
 use cosmic::{
+    app::Core,
     iced::{
         widget::{column, horizontal_space},
         Background, Length,
@@ -11,13 +12,16 @@ use cosmic::{
     widget::{
         self, divider,
         menu::{ItemHeight, ItemWidth, MenuBar, Tree as MenuTree},
-        segmented_button,
+        responsive_menu_bar, segmented_button,
     },
     Element,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::LazyLock};
 
 use crate::{fl, Action, ColorSchemeId, ColorSchemeKind, Config, Message};
+
+static MENU_ID: LazyLock<cosmic::widget::Id> =
+    LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
 
 pub fn context_menu<'a>(
     config: &Config,
@@ -143,7 +147,11 @@ pub fn color_scheme_menu<'a>(
         .into()
 }
 
-pub fn menu_bar<'a>(config: &Config, key_binds: &HashMap<KeyBind, Action>) -> Element<'a, Message> {
+pub fn menu_bar<'a>(
+    core: &Core,
+    config: &Config,
+    key_binds: &HashMap<KeyBind, Action>,
+) -> Element<'a, Message> {
     let mut profile_items = Vec::with_capacity(config.profiles.len());
     for (name, id) in config.profile_names() {
         profile_items.push(MenuItem::Button(name, None, Action::ProfileOpen(id)));
@@ -151,73 +159,74 @@ pub fn menu_bar<'a>(config: &Config, key_binds: &HashMap<KeyBind, Action>) -> El
 
     //TODO: what to do if there are no profiles?
 
-    MenuBar::new(vec![
-        MenuTree::with_children(
-            menu_root(fl!("file")),
-            menu_items(
-                key_binds,
-                vec![
-                    MenuItem::Button(fl!("new-tab"), None, Action::TabNew),
-                    MenuItem::Button(fl!("new-window"), None, Action::WindowNew),
-                    MenuItem::Divider,
-                    MenuItem::Folder(fl!("profile"), profile_items),
-                    MenuItem::Button(fl!("menu-profiles"), None, Action::Profiles),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("close-tab"), None, Action::TabClose),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("quit"), None, Action::WindowClose),
-                ],
-            ),
-        ),
-        MenuTree::with_children(
-            menu_root(fl!("edit")),
-            menu_items(
-                key_binds,
-                vec![
-                    MenuItem::Button(fl!("copy"), None, Action::Copy),
-                    MenuItem::Button(fl!("paste"), None, Action::Paste),
-                    MenuItem::Button(fl!("select-all"), None, Action::SelectAll),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("clear-scrollback"), None, Action::ClearScrollback),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("find"), None, Action::Find),
-                ],
-            ),
-        ),
-        MenuTree::with_children(
-            menu_root(fl!("view")),
-            menu_items(
-                key_binds,
-                vec![
-                    MenuItem::Button(fl!("zoom-in"), None, Action::ZoomIn),
-                    MenuItem::Button(fl!("zoom-reset"), None, Action::ZoomReset),
-                    MenuItem::Button(fl!("zoom-out"), None, Action::ZoomOut),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("next-tab"), None, Action::TabNext),
-                    MenuItem::Button(fl!("previous-tab"), None, Action::TabPrev),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("split-horizontal"), None, Action::PaneSplitHorizontal),
-                    MenuItem::Button(fl!("split-vertical"), None, Action::PaneSplitVertical),
-                    MenuItem::Button(
-                        fl!("pane-toggle-maximize"),
-                        None,
-                        Action::PaneToggleMaximized,
-                    ),
-                    MenuItem::Divider,
-                    MenuItem::Button(
-                        fl!("menu-color-schemes"),
-                        None,
-                        Action::ColorSchemes(config.color_scheme_kind()),
-                    ),
-                    MenuItem::Button(fl!("menu-settings"), None, Action::Settings),
-                    MenuItem::Divider,
-                    MenuItem::Button(fl!("menu-about"), None, Action::About),
-                ],
-            ),
-        ),
-    ])
-    .item_height(ItemHeight::Dynamic(40))
-    .item_width(ItemWidth::Uniform(240))
-    .spacing(4.0)
-    .into()
+    responsive_menu_bar()
+        .item_height(ItemHeight::Dynamic(40))
+        .item_width(ItemWidth::Uniform(240))
+        .spacing(4.0)
+        .into_element(
+            core,
+            key_binds,
+            MENU_ID.clone(),
+            Message::Surface,
+            vec![
+                (
+                    fl!("file"),
+                    vec![
+                        MenuItem::Button(fl!("new-tab"), None, Action::TabNew),
+                        MenuItem::Button(fl!("new-window"), None, Action::WindowNew),
+                        MenuItem::Divider,
+                        MenuItem::Folder(fl!("profile"), profile_items),
+                        MenuItem::Button(fl!("menu-profiles"), None, Action::Profiles),
+                        MenuItem::Divider,
+                        MenuItem::Button(fl!("close-tab"), None, Action::TabClose),
+                        MenuItem::Divider,
+                        MenuItem::Button(fl!("quit"), None, Action::WindowClose),
+                    ],
+                ),
+                (
+                    fl!("edit"),
+                    vec![
+                        MenuItem::Button(fl!("copy"), None, Action::Copy),
+                        MenuItem::Button(fl!("paste"), None, Action::Paste),
+                        MenuItem::Button(fl!("select-all"), None, Action::SelectAll),
+                        MenuItem::Divider,
+                        MenuItem::Button(fl!("clear-scrollback"), None, Action::ClearScrollback),
+                        MenuItem::Divider,
+                        MenuItem::Button(fl!("find"), None, Action::Find),
+                    ],
+                ),
+                (
+                    fl!("view"),
+                    vec![
+                        MenuItem::Button(fl!("zoom-in"), None, Action::ZoomIn),
+                        MenuItem::Button(fl!("zoom-reset"), None, Action::ZoomReset),
+                        MenuItem::Button(fl!("zoom-out"), None, Action::ZoomOut),
+                        MenuItem::Divider,
+                        MenuItem::Button(fl!("next-tab"), None, Action::TabNext),
+                        MenuItem::Button(fl!("previous-tab"), None, Action::TabPrev),
+                        MenuItem::Divider,
+                        MenuItem::Button(
+                            fl!("split-horizontal"),
+                            None,
+                            Action::PaneSplitHorizontal,
+                        ),
+                        MenuItem::Button(fl!("split-vertical"), None, Action::PaneSplitVertical),
+                        MenuItem::Button(
+                            fl!("pane-toggle-maximize"),
+                            None,
+                            Action::PaneToggleMaximized,
+                        ),
+                        MenuItem::Divider,
+                        MenuItem::Button(
+                            fl!("menu-color-schemes"),
+                            None,
+                            Action::ColorSchemes(config.color_scheme_kind()),
+                        ),
+                        MenuItem::Button(fl!("menu-settings"), None, Action::Settings),
+                        MenuItem::Divider,
+                        MenuItem::Button(fl!("menu-about"), None, Action::About),
+                    ],
+                ),
+            ],
+        )
 }

@@ -2,8 +2,9 @@
 [Desktop Entry]
 Name=COSMIC Terminal
 Name[pl]=Terminal COSMIC
-Name[pt-BR]=Terminal do COSMIC
+Name[pt_BR]=Terminal
 Name[hu]=COSMIC Terminál
+Name[pt]=Terminal
 Exec=cosmic-term
 Terminal=false
 Type=Application
@@ -12,5 +13,6 @@ Icon=com.system76.CosmicTerm
 Categories=COSMIC;System;TerminalEmulator;
 Keywords=Command;Shell;Terminal;
 Keywords[pl]=Cli;WierszPoleceń;Powłoka;Terminal;
-Keywords[pt-BR]=Comando;Shell;Terminal;
+Keywords[pt_BR]=Comando;Shell;Terminal;
 Keywords[hu]=parancssor;terminál;
+Keywords[pt]=Comando;Shell;Terminal;Console;

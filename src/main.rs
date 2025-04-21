@@ -7,9 +7,9 @@ use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::DndDestination;
-use cosmic::Apply;
 use cosmic::{
-    app::{command, context_drawer, message, Core, Settings, Task},
+    action,
+    app::{context_drawer, Core, Settings, Task},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
@@ -25,6 +25,7 @@ use cosmic::{
     widget::{self, button, pane_grid, segmented_button, PaneGrid},
     Application, ApplicationExt, Element,
 };
+use cosmic::{surface, Apply};
 use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult};
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
 use localize::LANGUAGE_SORTER;
@@ -78,33 +79,30 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 }
 
 /// Runs application with these settings
-#[rustfmt::skip]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut shell_program_opt = None;
-    let mut shell_args = Vec::new();
-    let mut parse_flags = true;
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+
     let mut daemonize = true;
-    for arg in env::args().skip(1) {
-        if parse_flags {
-            match arg.as_str() {
-                // These flags indicate the end of parsing flags
-                "-e" | "--command" | "--" => {
-                    parse_flags = false;
-                }
-                "--no-daemon" => {
-                    daemonize = false;
-                }
-                _ => {
-                    //TODO: should this throw an error?
-                    log::warn!("ignored argument {:?}", arg);
-                }
+    let mut args_iter = env::args().fuse();
+    // more performant than an iterator adapter
+    _ = args_iter.next();
+    for arg in args_iter.by_ref() {
+        match arg.as_str() {
+            // These flags indicate the end of parsing flags
+            "-e" | "--command" | "--" => {
+                break;
             }
-        } else if shell_program_opt.is_none() {
-            shell_program_opt = Some(arg);
-        } else {
-            shell_args.push(arg);
+            "--no-daemon" => {
+                daemonize = false;
+            }
+            _ => {
+                //TODO: should this throw an error?
+                log::warn!("ignored argument {:?}", arg);
+            }
         }
     }
+    let shell_program_opt = args_iter.next();
+    let shell_args = Vec::from_iter(args_iter);
 
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
@@ -117,8 +115,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
     localize::localize();
 
@@ -339,6 +335,7 @@ pub enum Message {
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
+    Surface(surface::Action),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
@@ -515,7 +512,7 @@ impl App {
         self.core.window.show_headerbar = self.config.show_headerbar;
 
         // Update application theme
-        cosmic::app::command::set_theme(theme)
+        cosmic::command::set_theme(theme)
     }
 
     fn update_render_active_pane_zoom(&mut self, zoom_message: Message) -> Task<Message> {
@@ -791,7 +788,7 @@ impl App {
                                 value,
                             )
                         })
-                        .on_submit(Message::ColorSchemeRenameSubmit)
+                        .on_submit(|_| Message::ColorSchemeRenameSubmit)
                         .into(),
                     popover.into(),
                 ]),
@@ -943,7 +940,7 @@ impl App {
                         .add(
                             //TODO: rename to color-scheme-dark?
                             widget::settings::item::builder(fl!("syntax-dark")).control(
-                                widget::dropdown(
+                                widget::dropdown::popup_dropdown(
                                     &self.theme_names_dark,
                                     dark_selected,
                                     move |theme_i| {
@@ -953,6 +950,9 @@ impl App {
                                             theme_i,
                                         )
                                     },
+                                    self.core.main_window_id().unwrap_or(window::Id::RESERVED),
+                                    Message::Surface,
+                                    |a| a,
                                 ),
                             ),
                         )
@@ -1972,7 +1972,10 @@ impl Application for App {
                 if let Ok(value) = shlex::try_join(data.paths.iter().filter_map(|p| p.to_str())) {
                     return Task::batch([
                         self.update_focus(),
-                        command::message::app(Message::PasteValue(Some(entity), value)),
+                        cosmic::task::message(action::app(Message::PasteValue(
+                            Some(entity),
+                            value,
+                        ))),
                     ]);
                 }
             }
@@ -2035,8 +2038,8 @@ impl Application for App {
                 return Task::batch([
                     self.update_focus(),
                     clipboard::read_primary().map(move |value_opt| match value_opt {
-                        Some(value) => message::app(Message::PasteValue(entity_opt, value)),
-                        None => message::none(),
+                        Some(value) => action::app(Message::PasteValue(entity_opt, value)),
+                        None => action::none(),
                     }),
                 ]);
             }
@@ -2113,14 +2116,14 @@ impl Application for App {
             Message::PaneDragged(_) => {}
             Message::Paste(entity_opt) => {
                 return clipboard::read().map(move |value_opt| match value_opt {
-                    Some(value) => message::app(Message::PasteValue(entity_opt, value)),
-                    None => message::none(),
+                    Some(value) => action::app(Message::PasteValue(entity_opt, value)),
+                    None => action::none(),
                 });
             }
             Message::PastePrimary(entity_opt) => {
                 return clipboard::read_primary().map(move |value_opt| match value_opt {
-                    Some(value) => message::app(Message::PasteValue(entity_opt, value)),
-                    None => message::none(),
+                    Some(value) => action::app(Message::PasteValue(entity_opt, value)),
+                    None => action::none(),
                 });
             }
             Message::PasteValue(entity_opt, value) => {
@@ -2421,7 +2424,7 @@ impl Application for App {
                                     //TODO: what to do when data_opt is None?
                                     callback(&data_opt.unwrap_or_default());
                                     // We don't need to do anything else
-                                    message::none()
+                                    action::none()
                                 });
                             }
                             term::ClipboardType::Selection => {
@@ -2613,6 +2616,11 @@ impl Application for App {
                 self.reset_terminal_panes_zoom();
                 return self.update_config();
             }
+            Message::Surface(a) => {
+                return cosmic::task::message(cosmic::Action::Cosmic(
+                    cosmic::app::Action::Surface(a),
+                ));
+            }
         }
 
         Task::none()
@@ -2647,7 +2655,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<Self::Message>> {
-        vec![menu_bar(&self.config, &self.key_binds)]
+        vec![menu_bar(&self.core, &self.config, &self.key_binds)]
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
@@ -2738,10 +2746,12 @@ impl Application for App {
                 .on_input(Message::FindSearchValueChanged)
                 // This is inverted for ease of use, usually in terminals you want to search
                 // upwards, which is FindPrevious
-                .on_submit(if self.modifiers.contains(Modifiers::SHIFT) {
-                    Message::FindNext
-                } else {
-                    Message::FindPrevious
+                .on_submit(|_| {
+                    if self.modifiers.contains(Modifiers::SHIFT) {
+                        Message::FindNext
+                    } else {
+                        Message::FindPrevious
+                    }
                 })
                 .width(Length::Fixed(320.0))
                 .trailing_icon(
