@@ -22,6 +22,7 @@ use cosmic::{
     iced_core::{
         Border, Shell,
         clipboard::Clipboard,
+        input_method::{self, InputMethod},
         keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
@@ -233,6 +234,19 @@ where
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
+    }
+
+    fn input_method<'b>(&self, state: &'b State, layout: Layout<'_>) -> InputMethod<&'b str> {
+        if state.is_focused {
+        } else {
+            return InputMethod::Disabled;
+        }
+
+        InputMethod::Enabled {
+            cursor: Rectangle::default(),
+            purpose: input_method::Purpose::Normal,
+            preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
+        }
     }
 }
 
@@ -848,6 +862,9 @@ where
                             shell.request_redraw();
                         }
                     }
+                    if state.is_focused {
+                        shell.request_input_method(&self.input_method(state, layout));
+                    }
                 }
                 cosmic::iced::window::Event::Unfocused => {
                     state.is_focused = false;
@@ -1119,6 +1136,30 @@ where
                     }
                 }
             }
+            Event::InputMethod(event) => match event {
+                input_method::Event::Opened | input_method::Event::Closed => {
+                    state.preedit = matches!(event, input_method::Event::Opened).then(|| {
+                        let preedit = input_method::Preedit::new();
+                        preedit
+                    });
+                }
+                input_method::Event::Preedit(content, selection) => {
+                    if state.is_focused {
+                        state.preedit = Some(input_method::Preedit {
+                            content: content.to_owned(),
+                            selection: selection.clone(),
+                            // text_size: Some(self.metrics.font_size.into()),
+                            text_size: Some(10.0.into()),
+                        })
+                    }
+                }
+                input_method::Event::Commit(text) => {
+                    if state.is_focused {
+                        terminal.paste(text.to_string());
+                        shell.capture_event();
+                    }
+                }
+            },
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
@@ -1823,6 +1864,7 @@ pub struct State {
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
     autoscroll: DragAutoscroll,
+    preedit: Option<input_method::Preedit>,
 }
 
 impl State {
@@ -1836,6 +1878,7 @@ impl State {
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
             autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
+            preedit: None,
         }
     }
 }
