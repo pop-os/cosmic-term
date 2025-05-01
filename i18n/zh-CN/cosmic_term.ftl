@@ -35,7 +35,7 @@ appearance = 外观
 theme = 主题
 match-desktop = 与桌面保持一致
 dark = 深色
-light = 浅色
+light = 亮色
 syntax-dark = 深色模式
 syntax-light = 亮色模式
 default-zoom-step = 缩放步长
@@ -83,6 +83,7 @@ copy = 复制
 paste = 粘贴
 select-all = 全选
 find = 查找
+clear-scrollback = 清除滚动缓冲区
 
 ## View
 view = 视图
