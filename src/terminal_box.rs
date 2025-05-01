@@ -236,14 +236,33 @@ where
         self
     }
 
-    fn input_method<'b>(&self, state: &'b State, layout: Layout<'_>) -> InputMethod<&'b str> {
+    fn input_method<'b>(
+        &self,
+        state: &'b State,
+        layout: Layout<'_>,
+        terminal: &std::sync::MutexGuard<'_, Terminal>,
+    ) -> InputMethod<&'b str> {
         if state.is_focused {
         } else {
             return InputMethod::Disabled;
         }
 
+        let view_position = layout.position() + [self.padding.left, self.padding.top].into();
+
+        // Draw cursor
+        let cursor = terminal.term.lock().renderable_content().cursor;
+        let col = cursor.point.column.0;
+        let line = cursor.point.line.0;
+        let width = terminal.size().cell_width;
+        let height = terminal.size().cell_height;
+        let bottom_left = view_position
+            + Vector::new(
+                (col as f32 * width).floor(),
+                ((line + 1) as f32 * height).floor(),
+            );
         InputMethod::Enabled {
-            position: Point::default(),
+            // TODO: better preedit position for lines contains non-fixed width letters.
+            position: bottom_left,
             purpose: input_method::Purpose::Normal,
             preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
         }
@@ -861,7 +880,7 @@ where
                 }
                 cosmic::iced::window::Event::RedrawRequested(_now) => {
                     if state.is_focused {
-                        shell.request_input_method(&self.input_method(state, layout));
+                        shell.request_input_method(&self.input_method(state, layout, &terminal));
                     }
                 }
                 _ => {}
