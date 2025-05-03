@@ -42,7 +42,7 @@
 
             LD_LIBRARY_PATH = lib.makeLibraryPath [
               libxkbcommon
-              mesa.drivers
+              mesa
               vulkan-loader
               xorg.libX11
               xorg.libXcursor
