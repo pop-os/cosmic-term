@@ -250,26 +250,21 @@ where
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
 
         // Draw cursor
-        let term = terminal.term.lock();
-        let content = term.renderable_content();
-        let cursor = content.cursor;
-        let col = cursor.point.column.0;
+        let cursor = terminal.term.lock().renderable_content().cursor;
+        let mut col = cursor.point.column.0;
         let line = cursor.point.line.0;
-        let wide_chars = content
-            .display_iter
-            .filter(|indexed| indexed.point.line.0 == line)
-            .take(col)
-            .filter(|indexed| indexed.cell.flags.contains(Flags::WIDE_CHAR))
-            .count();
-        // let width = terminal.size().cell_width;
+        let width = terminal.size().cell_width;
         let mut bottom_left = Vector::<f32>::ZERO;
         terminal.with_buffer(|buffer| {
             let layout = buffer.layout_runs().nth(line as usize).unwrap();
-            bottom_left.x = layout
-                .glyphs
-                .into_iter()
-                .take(col - wide_chars + 1)
-                .fold(0.0, |acc, glyph| acc + glyph.w);
+            for glyph in layout.glyphs {
+                bottom_left.x += glyph.w;
+                let ch_width = if glyph.w > width { 2 } else { 1 };
+                if ch_width > col {
+                    break;
+                }
+                col -= ch_width;
+            }
             bottom_left.y = layout.line_top + layout.line_height;
         });
 
