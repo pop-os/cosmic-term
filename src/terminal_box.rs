@@ -249,17 +249,25 @@ where
 
         // Draw cursor
         let cursor = terminal.term.lock().renderable_content().cursor;
-        let col = cursor.point.column.0;
+        let mut col = cursor.point.column.0;
         let line = cursor.point.line.0;
         let width = terminal.size().cell_width;
-        let height = terminal.size().cell_height;
-        let bottom_left = view_position
-            + Vector::new(
-                (col as f32 * width).floor(),
-                ((line + 1) as f32 * height).floor(),
-            );
+        let mut bottom_left = Vector::<f32>::ZERO;
+        terminal.with_buffer(|buffer| {
+            let layout = buffer.layout_runs().nth(line as usize).unwrap();
+            for glyph in layout.glyphs {
+                bottom_left.x += glyph.w;
+                let ch_width = if glyph.w > width { 2 } else { 1 };
+                if ch_width > col {
+                    break;
+                }
+                col -= ch_width;
+            }
+            bottom_left.y = layout.line_top + layout.line_height;
+        });
+
         InputMethod::Enabled {
-            cursor: Rectangle::new(bottom_left, Size::default()),
+            cursor: Rectangle::new(view_position + bottom_left, Size::default()),
             purpose: input_method::Purpose::Normal,
             preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
         }
