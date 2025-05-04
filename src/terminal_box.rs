@@ -1173,11 +1173,11 @@ where
                 }
                 input_method::Event::Preedit(content, selection) => {
                     if state.is_focused {
+                        let metrics = terminal.with_buffer(|buffer| buffer.metrics());
                         state.preedit = Some(input_method::Preedit {
                             content: content.to_owned(),
                             selection: selection.clone(),
-                            // text_size: Some(self.metrics.font_size.into()),
-                            text_size: Some(10.0.into()),
+                            text_size: Some(metrics.font_size.into()),
                         })
                     }
                 }
