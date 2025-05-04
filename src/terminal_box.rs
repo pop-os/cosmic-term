@@ -250,21 +250,31 @@ where
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
 
         // Draw cursor
-        let cursor = terminal.term.lock().renderable_content().cursor;
+        let term = terminal.term.lock();
+        let content = term.renderable_content();
+        let cursor = content.cursor;
         let col = cursor.point.column.0;
         let line = cursor.point.line.0;
-        let width = terminal.size().cell_width;
-        let height = terminal.size().cell_height;
-        let bottom_left = view_position
-            + Vector::new(
-                (col as f32 * width).floor(),
-                ((line + 1) as f32 * height).floor(),
-            );
+        let wide_chars = content
+            .display_iter
+            .filter(|indexed| indexed.point.line.0 == line)
+            .take(col)
+            .filter(|indexed| indexed.cell.flags.contains(Flags::WIDE_CHAR))
+            .count();
+        // let width = terminal.size().cell_width;
+        let mut bottom_left = Vector::<f32>::ZERO;
+        terminal.with_buffer(|buffer| {
+            let layout = buffer.layout_runs().nth(line as usize).unwrap();
+            bottom_left.x = layout
+                .glyphs
+                .into_iter()
+                .take(col - wide_chars + 1)
+                .fold(0.0, |acc, glyph| acc + glyph.w);
+            bottom_left.y = layout.line_top + layout.line_height;
+        });
+
         InputMethod::Enabled {
-            cursor: Rectangle::new(
-                bottom_left,
-                Size::default(),
-            ),
+            cursor: Rectangle::new(view_position + bottom_left, Size::default()),
             purpose: input_method::Purpose::Normal,
             preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
         }
