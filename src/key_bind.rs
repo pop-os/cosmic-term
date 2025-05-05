@@ -23,14 +23,12 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     // Standard key bindings
     bind!([Ctrl, Shift], Key::Character("A".into()), SelectAll);
     bind!([Ctrl, Shift], Key::Character("C".into()), Copy);
-    bind!([], Key::Named(Named::XF86Copy), Copy);
     bind!([Ctrl], Key::Character("c".into()), CopyOrSigint);
     bind!([Ctrl, Shift], Key::Character("F".into()), Find);
     bind!([Ctrl, Shift], Key::Character("N".into()), WindowNew);
     bind!([Ctrl, Shift], Key::Character("Q".into()), WindowClose);
     bind!([Ctrl, Shift], Key::Character("T".into()), TabNew);
     bind!([Ctrl, Shift], Key::Character("V".into()), Paste);
-    bind!([], Key::Named(Named::XF86Paste), Paste); 
     bind!([Shift], Key::Named(Named::Insert), PastePrimary);
     bind!([Ctrl, Shift], Key::Character("W".into()), TabClose);
     bind!([Ctrl], Key::Character(",".into()), Settings);
