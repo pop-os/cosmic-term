@@ -23,6 +23,9 @@ tab-title-description = Cambiar el título por defecto de la pestaña
 add-profile = Añadir perfil
 new-profile = Nuevo perfil
 make-default = Establecer como predeterminado
+working-directory = Directorio de trabajo
+hold = Mantener
+remain-open = Permanecer abierta después de que el proceso secundario termine.
 
 ## Settings
 settings = Ajustes
