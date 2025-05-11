@@ -254,7 +254,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
             opacity: 100,
-            padding: 8,
+            padding: AppTheme::System.theme().cosmic().space_xxs(),
             profiles: BTreeMap::new(),
             show_headerbar: true,
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
