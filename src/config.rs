@@ -2,7 +2,7 @@
 
 use cosmic::{
     cosmic_config::{self, cosmic_config_derive::CosmicConfigEntry, CosmicConfigEntry},
-    cosmic_theme, theme,
+    theme,
 };
 use cosmic_text::{Metrics, Stretch, Weight};
 use hex_color::HexColor;
