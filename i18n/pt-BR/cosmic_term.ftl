@@ -33,12 +33,12 @@ settings = Configurações
 ### Appearance
 appearance = Aparência
 theme = Tema
-match-desktop = Acompanhar o tema da área de trabalho
-dark = Escuro
-light = Claro
+match-desktop = Estilo do sistema
+dark = Estilo escuro
+light = Estilo claro
 syntax-dark = Esquema de cores escuro
 syntax-light = Esquema de cores claro
-default-zoom-step = Incrementos de zoom
+default-zoom-step = Incremento de zoom
 opacity = Opacidade do fundo
 
 ### Font
@@ -59,12 +59,12 @@ focus-follow-mouse = Foco de digitação segue o mouse
 ### Advanced
 advanced = Avançado
 show-headerbar = Mostrar a barra de título
-show-header-description = Mostrar a barra de título pela janela no menu de contexto
+show-header-description = Mostrar a barra de título da janela no menu de contexto
 
 # Find
-find-placeholder = Pesquisar...
-find-previous = Pesquisar anterior
-find-next = Pesquisar próximo
+find-placeholder = Localizar...
+find-previous = Localizar anterior
+find-next = Localizar próximo
 
 # Menu
 
@@ -82,11 +82,11 @@ edit = Editar
 copy = Copiar
 paste = Colar
 select-all = Selecionar tudo
-find = Pesquisar
+find = Localizar
 clear-scrollback = Limpar scrollback
 
 ## View
-view = Visualizar
+view = Exibir
 zoom-in = Aumentar texto
 zoom-reset = Redefinir zoom
 zoom-out = Diminuir texto
