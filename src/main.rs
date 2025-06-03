@@ -35,7 +35,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env, fs, process,
     rc::Rc,
-    sync::{atomic::Ordering, Mutex},
+    sync::{atomic::Ordering, LazyLock, Mutex},
 };
 use tokio::sync::mpsc;
 
@@ -69,9 +69,7 @@ mod terminal_theme;
 
 mod dnd;
 
-lazy_static::lazy_static! {
-    static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
-}
+static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
 
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();

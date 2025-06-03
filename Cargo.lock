@@ -1529,7 +1529,6 @@ dependencies = [
  "icu_provider",
  "indexmap",
  "itertools 0.14.0",
- "lazy_static",
  "libcosmic",
  "log",
  "open",
