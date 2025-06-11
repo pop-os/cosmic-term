@@ -1,4 +1,4 @@
-cosmic-terminal = COSMIC-terminal
+cosmic-terminal = COSMIC Terminal
 new-terminal = Nieuw terminalvenster
 
 # Context Pages
@@ -25,7 +25,7 @@ new-profile = Nieuw profiel
 make-default = Als standaard instellen
 working-directory = Werkmap
 hold = Behouden
-remain-open = Venster geopend houden nadat het subproces voltooid is.
+remain-open = Dit venster openhouden nadat het kind-proces eindigt.
 
 ## Settings
 settings = Instellingen
@@ -54,7 +54,7 @@ use-bright-bold = Vette tekst feller weergeven
 
 ### Splits
 splits = Splitsen
-focus-follow-mouse = Focus voor typen volgt de cursor
+focus-follow-mouse = Invoerfocus volgt de muis
 
 ### Advanced
 advanced = Geavanceerd
@@ -97,4 +97,4 @@ split-vertical = Verticaal splitsen
 pane-toggle-maximize = Naar volledig scherm omschakelen
 menu-color-schemes = Kleurenpaletten...
 menu-settings = Instellingen...
-menu-about = Over COSMIC-terminal...
+menu-about = Over COSMIC Terminal
