@@ -55,8 +55,9 @@ features = ["a11y", "multi-window", "tokio", "winit", "surface-message"]
 fork = "0.2"
 
 [features]
-default = ["wgpu"]
+default = ["wgpu", "wayland"]
 wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
+wayland = ["libcosmic/wayland", "cosmic-files/wayland"]
 
 [profile.release-with-debug]
 inherits = "release"
