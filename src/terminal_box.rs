@@ -43,7 +43,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{key_bind::key_binds, terminal::Metadata, Action, Terminal, TerminalScroll};
+use crate::{
+    key_bind::key_binds, mouse_reporter::MouseReporter, terminal::Metadata, Action, Terminal,
+    TerminalScroll,
+};
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -1195,33 +1198,43 @@ where
                         let row = y / terminal.size().cell_height;
                         terminal.scroll_mouse(delta, &state.modifiers, col as u32, row as u32);
                     } else {
-                        match delta {
-                            ScrollDelta::Lines { x: _, y } => {
-                                //TODO: this adjustment is just a guess!
-                                state.scroll_pixels = 0.0;
-                                let lines = (-y * 6.0) as i32;
-                                if lines != 0 {
-                                    terminal.scroll(TerminalScroll::Delta(-lines));
+                        if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
+                            MouseReporter::report_mouse_wheel_as_arrows(
+                                &terminal,
+                                terminal.size().cell_width,
+                                terminal.size().cell_height,
+                                delta,
+                            );
+                            status = Status::Captured;
+                        } else {
+                            match delta {
+                                ScrollDelta::Lines { x: _, y } => {
+                                    //TODO: this adjustment is just a guess!
+                                    state.scroll_pixels = 0.0;
+                                    let lines = (-y * 6.0) as i32;
+                                    if lines != 0 {
+                                        terminal.scroll(TerminalScroll::Delta(-lines));
+                                    }
+                                    status = Status::Captured;
                                 }
-                                status = Status::Captured;
-                            }
-                            ScrollDelta::Pixels { x: _, y } => {
-                                //TODO: this adjustment is just a guess!
-                                state.scroll_pixels -= y * 6.0;
-                                let mut lines = 0;
-                                let metrics = terminal.with_buffer(|buffer| buffer.metrics());
-                                while state.scroll_pixels <= -metrics.line_height {
-                                    lines -= 1;
-                                    state.scroll_pixels += metrics.line_height;
+                                ScrollDelta::Pixels { x: _, y } => {
+                                    //TODO: this adjustment is just a guess!
+                                    state.scroll_pixels -= y * 6.0;
+                                    let mut lines = 0;
+                                    let metrics = terminal.with_buffer(|buffer| buffer.metrics());
+                                    while state.scroll_pixels <= -metrics.line_height {
+                                        lines -= 1;
+                                        state.scroll_pixels += metrics.line_height;
+                                    }
+                                    while state.scroll_pixels >= metrics.line_height {
+                                        lines += 1;
+                                        state.scroll_pixels -= metrics.line_height;
+                                    }
+                                    if lines != 0 {
+                                        terminal.scroll(TerminalScroll::Delta(-lines));
+                                    }
+                                    status = Status::Captured;
                                 }
-                                while state.scroll_pixels >= metrics.line_height {
-                                    lines += 1;
-                                    state.scroll_pixels -= metrics.line_height;
-                                }
-                                if lines != 0 {
-                                    terminal.scroll(TerminalScroll::Delta(-lines));
-                                }
-                                status = Status::Captured;
                             }
                         }
                     }
