@@ -211,6 +211,7 @@ pub enum Action {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    ToggleFullscreen,
     WindowClose,
     WindowNew,
     ZoomIn,
@@ -258,6 +259,7 @@ impl Action {
             Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
+            Self::ToggleFullscreen => Message::ToggleFullscreen,
             Self::WindowClose => Message::WindowClose,
             Self::WindowNew => Message::WindowNew,
             Self::ZoomIn => Message::ZoomIn,
@@ -351,6 +353,7 @@ pub enum Message {
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
+    ToggleFullscreen,
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
@@ -1844,6 +1847,11 @@ impl Application for App {
                     log::warn!("Failed to get focused pane");
                 }
                 return self.update_focus();
+            }
+            Message::ToggleFullscreen => {
+                if let Some(window_id) = self.core.main_window_id() {
+                    return cosmic::command::toggle_maximize(window_id);
+                }
             }
             Message::CopyPrimary(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
