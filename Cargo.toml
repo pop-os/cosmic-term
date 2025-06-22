@@ -67,10 +67,6 @@ debug = true
 polling = { git = "https://github.com/jackpot51/polling.git", branch = "master" }
 xdg-mime = { git = "https://github.com/ellieplayswow/xdg-mime-rs", branch = "feature/get-same-as" }
 
-# Fix text rendering being cut off on the right
-[patch.'https://github.com/pop-os/cosmic-text']
-cosmic-text = { git = "https://github.com/pop-os/cosmic-text//", rev = "b017d7c" }
-
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
