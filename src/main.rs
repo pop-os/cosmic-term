@@ -69,6 +69,10 @@ mod terminal_theme;
 
 mod dnd;
 
+use clap_lex::RawArgs;
+
+use std::error::Error;
+
 lazy_static::lazy_static! {
     static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
 }
@@ -79,21 +83,39 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 }
 
 /// Runs application with these settings
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+#[rustfmt::skip]
+fn main() -> Result<(), Box<dyn Error>> {
+    let raw_args = RawArgs::from_args();
+    let mut cursor = raw_args.cursor();
 
+    let mut shell_program_opt = None;
+    let mut shell_args = Vec::new();
     let mut daemonize = true;
-    let mut args_iter = env::args().fuse();
-    // more performant than an iterator adapter
-    _ = args_iter.next();
-    for arg in args_iter.by_ref() {
-        match arg.as_str() {
-            // These flags indicate the end of parsing flags
-            "-e" | "--command" | "--" => {
+    // Parse the arguments using clap_lex
+    while let Some(arg) = raw_args.next_os(&mut cursor) {
+        match arg.to_str() {
+            Some("--help") | Some("-h") => {
+                print_help();
+                return Ok(());
+            }
+            Some("--version") | Some("-V") => {
+                println!(
+                    "cosmic-term {} (git commit {})",
+                    env!("CARGO_PKG_VERSION"),
+                    env!("VERGEN_GIT_SHA")
+                );
+                return Ok(());
+            }
+            Some("--no-daemon") => {
+                daemonize = false;
+            }
+            Some("-e") | Some("--command") => {
+                // Handle the '--command' or '-e' flag
                 break;
             }
-            "--no-daemon" => {
-                daemonize = false;
+            Some("--") => {
+                // End of flags, the next args are shell-related
+                break;
             }
             _ => {
                 //TODO: should this throw an error?
@@ -101,8 +123,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    let shell_program_opt = args_iter.next();
-    let shell_args = Vec::from_iter(args_iter);
+    // After flags, process remaining shell program and args
+    while let Some(arg) = raw_args.next_os(&mut cursor) {
+        if let Some(program) = shell_program_opt.take() {
+            shell_args.push(arg.to_string_lossy().to_string());
+        } else {
+            shell_program_opt = Some(arg.to_string_lossy().to_string());
+        }
+    }
+
+    // Platform-specific daemonization logic
 
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
@@ -145,25 +175,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    // Terminal config setup
     let term_config = term::Config::default();
     // Set up environmental variables for terminal
     tty::setup_env();
     // Override TERM for better compatibility
     env::set_var("TERM", "xterm-256color");
 
+    // Set settings
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
+    // Flags
     let flags = Flags {
         config_handler,
         config,
         startup_options,
         term_config,
     };
+    
+    // Run the cosmic app
     cosmic::app::run::<App>(settings, flags)?;
 
     Ok(())
+}
+
+fn print_help() {
+    println!(
+        r#"COSMIC Terminal
+Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based terminal emulator.
+        
+Project home page: https://github.com/pop-os/cosmic-term
+Options:
+  --help     Show this message
+  --version  Show the version of cosmic-term"#
+    );
 }
 
 #[derive(Clone, Debug)]
