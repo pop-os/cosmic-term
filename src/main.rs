@@ -2808,6 +2808,14 @@ impl Application for App {
         pane_grid.into()
     }
 
+    fn system_theme_update(
+        &mut self,
+        _keys: &[&'static str],
+        new_theme: &cosmic::cosmic_theme::Theme,
+    ) -> Task<Self::Message> {
+        self.update(Message::SystemThemeChange)
+    }
+
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
@@ -2858,23 +2866,6 @@ impl Application for App {
                 }
                 Message::Config(update.config)
             }),
-            cosmic_config::config_subscription::<_, cosmic_theme::Theme>(
-                TypeId::of::<ThemeSubscription>(),
-                if self.core.system_theme_mode().is_dark {
-                    cosmic_theme::DARK_THEME_ID
-                } else {
-                    cosmic_theme::LIGHT_THEME_ID
-                }
-                .into(),
-                cosmic_theme::Theme::VERSION,
-            )
-            .map(|_update| Message::SystemThemeChange),
-            cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
-                TypeId::of::<ThemeModeSubscription>(),
-                cosmic_theme::THEME_MODE_ID.into(),
-                cosmic_theme::ThemeMode::VERSION,
-            )
-            .map(|_update| Message::SystemThemeChange),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
                 None => Subscription::none(),
