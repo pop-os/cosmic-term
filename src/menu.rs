@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::widget::menu::{items as menu_items, menu_button, root as menu_root, Item as MenuItem};
+use cosmic::widget::menu::{menu_button, Item as MenuItem};
 use cosmic::{
     app::Core,
     iced::{
+        advanced::widget::text::Style as TextStyle,
         widget::{column, horizontal_space},
         Background, Length,
     },
     iced_core::Border,
+    theme,
     widget::{
         self, divider,
-        menu::{ItemHeight, ItemWidth, MenuBar, Tree as MenuTree},
+        menu::{ItemHeight, ItemWidth},
         responsive_menu_bar, segmented_button,
     },
     Element,
@@ -36,13 +38,22 @@ pub fn context_menu<'a>(
         }
         String::new()
     };
+    fn key_style(theme: &cosmic::Theme) -> TextStyle {
+        let mut color = theme.cosmic().background.component.on;
+        color.alpha *= 0.75;
+        TextStyle {
+            color: Some(color.into()),
+        }
+    }
 
     let menu_item = |label, action| {
         let key = find_key(&action);
         menu_button(vec![
             widget::text(label).into(),
             horizontal_space().into(),
-            widget::text(key).into(),
+            widget::text(key)
+                .class(theme::Text::Custom(key_style))
+                .into(),
         ])
         .on_press(Message::TabContextAction(entity, action))
     };

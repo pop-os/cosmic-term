@@ -2866,8 +2866,6 @@ impl Application for App {
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
-        struct ThemeSubscription;
-        struct ThemeModeSubscription;
 
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
