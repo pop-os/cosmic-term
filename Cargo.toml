@@ -61,6 +61,9 @@ default = ["wgpu", "wayland"]
 wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 wayland = ["libcosmic/wayland", "cosmic-files/wayland"]
 
+[profile.release]
+lto = true
+
 [profile.release-with-debug]
 inherits = "release"
 debug = true
