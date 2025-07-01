@@ -26,7 +26,7 @@ use cosmic::{
     Application, ApplicationExt, Element,
 };
 use cosmic::{surface, Apply};
-use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult};
+use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
 use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
 use localize::LANGUAGE_SORTER;
 use std::{
@@ -1667,10 +1667,9 @@ impl Application for App {
                 } {
                     if self.dialog_opt.is_none() {
                         let (dialog, command) = Dialog::new(
-                            DialogKind::SaveFile {
+                            DialogSettings::new().kind(DialogKind::SaveFile {
                                 filename: format!("{}.ron", color_scheme_name),
-                            },
-                            None,
+                            }),
                             Message::DialogMessage,
                             move |result| {
                                 Message::ColorSchemeExportResult(
@@ -1769,8 +1768,7 @@ impl Application for App {
                 if self.dialog_opt.is_none() {
                     self.color_scheme_errors.clear();
                     let (dialog, command) = Dialog::new(
-                        DialogKind::OpenMultipleFiles,
-                        None,
+                        DialogSettings::new().kind(DialogKind::OpenMultipleFiles),
                         Message::DialogMessage,
                         move |result| Message::ColorSchemeImportResult(color_scheme_kind, result),
                     );
