@@ -224,9 +224,8 @@ impl MouseReporter {
         };
 
         //Generate term codes
-        //TODO: std::iter::repeat_n only available in 1.82
-        let x_iter = itertools::repeat_n(button_no_x, lines_x.unsigned_abs() as _);
-        let y_iter = itertools::repeat_n(button_no_y, lines_y.unsigned_abs() as _);
+        let x_iter = std::iter::repeat(lines_x.unsigned_abs()).take(button_no_x);
+        let y_iter = std::iter::repeat(lines_y.unsigned_abs()).take(button_no_y);
 
         x_iter
             .chain(y_iter)
