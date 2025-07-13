@@ -14,8 +14,6 @@ alacritty_terminal = { git = "https://github.com/alacritty/alacritty", rev = "ca
 env_logger = "0.11"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
-#TODO: for repeat_n, which is in std in 1.82
-itertools = "0.14"
 lazy_static = "1"
 log = "0.4"
 open = "5.3.2"
