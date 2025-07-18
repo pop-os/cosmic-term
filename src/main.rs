@@ -1114,18 +1114,27 @@ impl App {
         let mut split_list = widget::column().spacing(8);
 
         for (i, split) in self.layout_editor_splits.iter().enumerate() {
-
             let split_row = widget::column()
-                .push(text(format!("{} Split {}", 
-                    if split.axis == config::SplitAxis::Horizontal { "H" } else { "V" }, 
-                    i + 1)))
-                .push(widget::row()
-                    .push(text(format!("{:.2}", split.ratio)))
-                    .push(slider(0.1..=0.9, split.ratio, move |ratio| {
-                        Message::UpdateSplitRatio(profile_id, i, ratio)
-                    }).step(0.01))
-                    .push(button::standard("×").on_press(Message::RemoveSplit(profile_id, i)))
-                    .spacing(4)
+                .push(text(format!(
+                    "{} Split {}",
+                    if split.axis == config::SplitAxis::Horizontal {
+                        "H"
+                    } else {
+                        "V"
+                    },
+                    i + 1
+                )))
+                .push(
+                    widget::row()
+                        .push(text(format!("{:.2}", split.ratio)))
+                        .push(
+                            slider(0.1..=0.9, split.ratio, move |ratio| {
+                                Message::UpdateSplitRatio(profile_id, i, ratio)
+                            })
+                            .step(0.01),
+                        )
+                        .push(button::standard("×").on_press(Message::RemoveSplit(profile_id, i)))
+                        .spacing(4),
                 )
                 .spacing(4);
 
@@ -1136,9 +1145,15 @@ impl App {
         let add_controls = widget::column()
             .push(
                 widget::row()
-                    .push(button::standard("+ H Split").on_press(Message::AddSplit(profile_id, config::SplitAxis::Horizontal)))
-                    .push(button::standard("+ V Split").on_press(Message::AddSplit(profile_id, config::SplitAxis::Vertical)))
-                    .spacing(4)
+                    .push(
+                        button::standard("+ H Split")
+                            .on_press(Message::AddSplit(profile_id, config::SplitAxis::Horizontal)),
+                    )
+                    .push(
+                        button::standard("+ V Split")
+                            .on_press(Message::AddSplit(profile_id, config::SplitAxis::Vertical)),
+                    )
+                    .spacing(4),
             )
             .push(button::standard("Clear").on_press(Message::ClearLayout(profile_id)))
             .spacing(8);
@@ -1149,8 +1164,11 @@ impl App {
             .push(
                 widget::row()
                     .push(button::standard("Revert").on_press(Message::ReverLayout))
-                    .push(button::standard("Cancel").on_press(Message::ToggleContextPage(ContextPage::Settings)))
-                    .spacing(4)
+                    .push(
+                        button::standard("Cancel")
+                            .on_press(Message::ToggleContextPage(ContextPage::Settings)),
+                    )
+                    .spacing(4),
             )
             .spacing(8);
 
@@ -1380,12 +1398,16 @@ impl App {
         // Clear current panes and create new layout
         let model = segmented_button::ModelBuilder::default().build();
         self.pane_model = TerminalPaneGrid::new(model);
+        
+        // Clear and repopulate terminal_ids for the new layout
+        self.terminal_ids.clear();
+        self.terminal_ids.insert(self.pane_model.focused(), widget::Id::unique());
 
         let mut tasks = Vec::new();
 
         // Create a terminal in the initial pane
         let init_pane = self.pane_model.focused();
-        tasks.push(self.create_and_focus_new_terminal(init_pane, None));
+        tasks.push(self.create_new_terminal_unfocused(init_pane, None));
 
         // Apply each split in sequence
         for split in layout.splits {
@@ -1406,34 +1428,150 @@ impl App {
                     // Set split ratio using the split handle returned from split()
                     self.pane_model.panes.resize(split_handle, split.ratio);
 
+                    // Add terminal ID for the new pane
+                    self.terminal_ids.insert(new_pane, widget::Id::unique());
+                    
                     // create terminal in new pane
-                    tasks.push(self.create_and_focus_new_terminal(new_pane, None));
+                    tasks.push(self.create_new_terminal_unfocused(new_pane, None));
                 }
             }
         }
 
+        tasks.push(Task::perform(async move { init_pane }, |pane| {
+            cosmic::Action::App(Message::PaneClicked(pane))
+        }));
+
         Task::batch(tasks)
     }
 
-    fn get_current_layout(&self) -> LayoutDefinition {
-        let mut splits = Vec::new();
-        let panes: Vec<pane_grid::Pane> = self
-            .pane_model
-            .panes
-            .iter()
-            .map(|(pane, _)| *pane)
-            .collect();
+    fn create_new_terminal_unfocused(
+        &mut self,
+        pane: pane_grid::Pane,
+        profile_id_opt: Option<ProfileId>,
+    ) -> Task<Message> {
+        match &self.term_event_tx_opt {
+            Some(term_event_tx) => {
+                let colors = self
+                    .themes
+                    .get(&self.config.syntax_theme(profile_id_opt))
+                    .or_else(|| match self.config.color_scheme_kind() {
+                        ColorSchemeKind::Dark => self
+                            .themes
+                            .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
+                        ColorSchemeKind::Light => self.themes.get(&(
+                            config::COSMIC_THEME_LIGHT.to_string(),
+                            ColorSchemeKind::Light,
+                        )),
+                    });
 
-        // First implementation, needs improvement
-        for (i, _pane) in panes.iter().enumerate().skip(1) {
-            splits.push(config::SplitDefinition {
-                axis: config::SplitAxis::Vertical, // Default to vertical
-                ratio: 0.5,                        // Default ratio
-                target_pane: 0,                    // Default to first pane
-            });
+                match colors {
+                    Some(colors) => {
+                        let current_pane = pane;
+                        if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                            // Use the startup options, profile options, or defaults
+                            let (options, tab_title_override) = match self.startup_options.take() {
+                                Some(options) => (options, None),
+                                None => match profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                                {
+                                    Some(profile) => {
+                                        let mut shell = None;
+                                        if let Some(mut args) = shlex::split(&profile.command) {
+                                            if !args.is_empty() {
+                                                let command = args.remove(0);
+                                                shell = Some(tty::Shell::new(command, args));
+                                            }
+                                        }
+
+                                        let working_directory =
+                                            (!profile.working_directory.is_empty())
+                                                .then(|| profile.working_directory.clone().into());
+
+                                        let options = tty::Options {
+                                            shell,
+                                            working_directory,
+                                            hold: profile.hold,
+                                            env: HashMap::new(),
+                                        };
+
+                                        let tab_title_override = if profile.tab_title.is_empty() {
+                                            None
+                                        } else {
+                                            Some(profile.tab_title.clone())
+                                        };
+
+                                        (options, tab_title_override)
+                                    }
+                                    None => (Options::default(), None),
+                                },
+                            };
+
+                            let entity = tab_model
+                                .insert()
+                                .text(
+                                    tab_title_override
+                                        .clone()
+                                        .unwrap_or_else(|| fl!("new-terminal")),
+                                )
+                                .closable()
+                                .activate()
+                                .id();
+
+                            match Terminal::new(
+                                current_pane,
+                                entity,
+                                term_event_tx.clone(),
+                                self.term_config.clone(),
+                                options,
+                                &self.config,
+                                *colors,
+                                profile_id_opt,
+                                tab_title_override,
+                            ) {
+                                Ok(mut terminal) => {
+                                    terminal.set_config(&self.config, &self.themes);
+                                    tab_model
+                                        .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                }
+                                Err(e) if profile_id_opt.is_some() => {
+                                    // Create a tab without a profile if the selected profile doesn't work
+                                    let name = profile_id_opt
+                                        .and_then(|id| self.config.profiles.get(&id))
+                                        .map(|profile| profile.name.as_str())
+                                        .unwrap_or_default();
+
+                                    log::error!("failed to open `{name}`: {e}");
+
+                                    tab_model.remove(entity);
+
+                                    return self.update(Message::TabNewNoProfile);
+                                }
+                                Err(e) => {
+                                    log::error!("failed to open terminal: {e}");
+
+                                    // Cleanup partially created tab
+                                    return self.update(Message::TabClose(Some(entity)));
+                                }
+                            }
+                        } else {
+                            log::error!("Found no active pane");
+                        }
+                    }
+                    None => {
+                        log::error!(
+                            "failed to find terminal theme {:?}",
+                            self.config.syntax_theme(profile_id_opt)
+                        );
+
+                        // TODO: fall back to known good theme
+                    }
+                }
+            }
+            None => {
+                log::warn!("tried to create new tab before having event channel");
+            }
         }
-
-        LayoutDefinition { splits }
+        self.update_title(Some(pane))
     }
 
     fn create_and_focus_new_terminal(
@@ -2998,7 +3136,7 @@ impl Application for App {
                 self.profile_layout(profile_id),
                 Message::ToggleContextPage(ContextPage::Profiles),
             )
-            .title("Profile Layouts"), // Add fl! translation
+            .title(fl!("profile-layouts")),
             ContextPage::Settings => context_drawer::context_drawer(
                 self.settings(),
                 Message::ToggleContextPage(ContextPage::Settings),

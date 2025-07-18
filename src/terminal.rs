@@ -352,7 +352,7 @@ impl Terminal {
             term,
             use_bright_bold,
             zoom_adj: Default::default(),
-            is_focused: true,
+            is_focused: false,
         })
     }
 
