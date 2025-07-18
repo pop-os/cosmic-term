@@ -1398,10 +1398,11 @@ impl App {
         // Clear current panes and create new layout
         let model = segmented_button::ModelBuilder::default().build();
         self.pane_model = TerminalPaneGrid::new(model);
-        
+
         // Clear and repopulate terminal_ids for the new layout
         self.terminal_ids.clear();
-        self.terminal_ids.insert(self.pane_model.focused(), widget::Id::unique());
+        self.terminal_ids
+            .insert(self.pane_model.focused(), widget::Id::unique());
 
         let mut tasks = Vec::new();
 
@@ -1430,7 +1431,7 @@ impl App {
 
                     // Add terminal ID for the new pane
                     self.terminal_ids.insert(new_pane, widget::Id::unique());
-                    
+
                     // create terminal in new pane
                     tasks.push(self.create_new_terminal_unfocused(new_pane, None));
                 }
