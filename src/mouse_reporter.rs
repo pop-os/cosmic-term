@@ -224,8 +224,8 @@ impl MouseReporter {
         };
 
         //Generate term codes
-        let x_iter = std::iter::repeat(button_no_x).take(lines_x.unsigned_abs());
-        let y_iter = std::iter::repeat(button_no_y).take(lines_y.unsigned_abs());
+        let x_iter = std::iter::repeat(button_no_x).take(lines_x.unsigned_abs() as _);
+        let y_iter = std::iter::repeat(button_no_y).take(lines_y.unsigned_abs() as _);
 
         x_iter
             .chain(y_iter)
