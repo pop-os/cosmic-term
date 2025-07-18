@@ -181,6 +181,28 @@ pub struct ColorScheme {
     pub dim: ColorSchemeAnsi,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct LayoutDefinition {
+    pub splits: Vec<SplitDefinition>,
+}
+
+impl Eq for LayoutDefinition {}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct SplitDefinition {
+    pub axis: SplitAxis,
+    pub ratio: f32,         // 0.0 - 1.0
+    pub target_pane: usize, // Which pane to split (0-based index)
+}
+
+impl Eq for SplitDefinition {}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub enum SplitAxis {
+    Horizontal,
+    Vertical,
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(transparent)]
 pub struct ProfileId(pub u64);
@@ -200,6 +222,8 @@ pub struct Profile {
     pub working_directory: String,
     #[serde(default)]
     pub hold: bool,
+    #[serde(default)]
+    pub custom_layout: Option<LayoutDefinition>,
 }
 
 impl Default for Profile {
@@ -212,6 +236,7 @@ impl Default for Profile {
             tab_title: String::new(),
             working_directory: String::new(),
             hold: false,
+            custom_layout: None,
         }
     }
 }
