@@ -1424,7 +1424,7 @@ dependencies = [
 [[package]]
 name = "cosmic-files"
 version = "0.1.0"
-source = "git+https://github.com/pop-os/cosmic-files.git#4f0c5c1ec14d969c07bbee963f69a52fcde60154"
+source = "git+https://github.com/pop-os/cosmic-files.git#3390ef7ea81c6d4ea22906581d5251384cd0c27d"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3842,9 +3842,9 @@ dependencies = [
 
 [[package]]
 name = "io-uring"
-version = "0.7.8"
+version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b86e202f00093dcba4275d4636b93ef9dd75d025ae560d2521b45ea28ab49013"
+checksum = "d93587f37623a1a17d94ef2bc9ada592f5465fe7732084ab7beefabe5c77c0c4"
 dependencies = [
  "bitflags 2.9.1",
  "cfg-if",
