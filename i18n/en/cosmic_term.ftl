@@ -26,6 +26,7 @@ make-default = Make default
 working-directory = Working directory
 hold = Hold
 remain-open = Remain open after child process exits.
+profile-layouts = Profile Layouts
 
 ## Settings
 settings = Settings
