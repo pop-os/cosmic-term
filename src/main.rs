@@ -107,12 +107,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some("--no-daemon") => {
                 daemonize = false;
             }
-            Some("-e") | Some("--command") => {
+            Some("-e") | Some("--command") | Some("--") => {
                 // Handle the '--command' or '-e' flag
-                break;
-            }
-            Some("--") => {
-                // End of flags, the next args are shell-related
                 break;
             }
             _ => {
@@ -123,7 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     // After flags, process remaining shell program and args
     while let Some(arg) = raw_args.next_os(&mut cursor) {
-        if let Some(program) = shell_program_opt.take() {
+        if shell_program_opt.is_some() {
             shell_args.push(arg.to_string_lossy().to_string());
         } else {
             shell_program_opt = Some(arg.to_string_lossy().to_string());
@@ -192,7 +188,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         startup_options,
         term_config,
     };
-    
+
     // Run the cosmic app
     cosmic::app::run::<App>(settings, flags)?;
 
@@ -203,7 +199,7 @@ fn print_help() {
     println!(
         r#"COSMIC Terminal
 Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based terminal emulator.
-        
+
 Project home page: https://github.com/pop-os/cosmic-term
 Options:
   --help     Show this message
