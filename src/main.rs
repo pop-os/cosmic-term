@@ -941,6 +941,9 @@ impl App {
                                         .on_input(move |text| {
                                             Message::ProfileName(profile_id, text)
                                         })
+                                        .on_paste(move |text| {
+                                            Message::ProfileName(profile_id, text)
+                                        })
                                         .into(),
                                 ])
                                 .spacing(space_xxxs)
@@ -949,6 +952,9 @@ impl App {
                                     widget::text(fl!("command-line")).into(),
                                     widget::text_input("", &profile.command)
                                         .on_input(move |text| {
+                                            Message::ProfileCommand(profile_id, text)
+                                        })
+                                        .on_paste(move |text| {
                                             Message::ProfileCommand(profile_id, text)
                                         })
                                         .into(),
@@ -961,6 +967,9 @@ impl App {
                                         .on_input(move |text| {
                                             Message::ProfileDirectory(profile_id, text)
                                         })
+                                        .on_paste(move |text| {
+                                            Message::ProfileDirectory(profile_id, text)
+                                        })
                                         .into(),
                                 ])
                                 .spacing(space_xxxs)
@@ -969,6 +978,9 @@ impl App {
                                     widget::text(fl!("tab-title")).into(),
                                     widget::text_input("", &profile.tab_title)
                                         .on_input(move |text| {
+                                            Message::ProfileTabTitle(profile_id, text)
+                                        })
+                                        .on_paste(move |text| {
                                             Message::ProfileTabTitle(profile_id, text)
                                         })
                                         .into(),
