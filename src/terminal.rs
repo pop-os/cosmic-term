@@ -39,7 +39,7 @@ use tokio::sync::mpsc;
 pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
-    config::{ColorSchemeKind, Config as AppConfig, ProfileId},
+    config::{ColorSchemeKind, Config as AppConfig, ProfileId, SearchFlags},
     mouse_reporter::MouseReporter,
 };
 
@@ -254,6 +254,7 @@ pub struct Terminal {
     notifier: Notifier,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
+    search_flags: SearchFlags,
     size: Size,
     use_bright_bold: bool,
     zoom_adj: i8,
@@ -347,6 +348,7 @@ impl Terminal {
             profile_id_opt,
             search_regex_opt: None,
             search_value: String::new(),
+            search_flags: app_config.search_flags(),
             size,
             tab_title_override,
             term,
@@ -480,17 +482,38 @@ impl Terminal {
             None
         }
     }
-
-    pub fn search(&mut self, value: &str, forwards: bool) {
+    pub fn search(&mut self, value: &str, forwards: bool, search_flags: SearchFlags) {
         //TODO: set max lines, run in thread?
         {
             let mut term = self.term.lock();
 
-            if self.search_value != value {
-                match RegexSearch::new(value) {
+            if self.search_value != value || self.search_flags != search_flags {
+                // TODO: enable unicode word boundaries (can't due to internal regex engine)
+
+                let value_escaped = if !search_flags.contains_all(SearchFlags::USE_REGEX) {
+                    Cow::from(crate::config::escape_regex(value))
+                } else {
+                    Cow::from(value)
+                };
+                let mut search_prepend = String::new();
+                let mut search_append = String::new();
+                search_prepend += if search_flags.contains_all(SearchFlags::CASE_SENSITIVE) {
+                    "(?-i)"
+                } else {
+                    "(?i)"
+                };
+                if search_flags.contains_all(SearchFlags::WHOLE_WORDS) {
+                    search_prepend += r"(?-u:\b{start})";
+                    search_append += r"(?-u:\b{end})";
+                }
+
+                let search_value = format!("{search_prepend}{value_escaped}{search_append}");
+
+                match RegexSearch::new(&search_value) {
                     Ok(search_regex) => {
                         self.search_regex_opt = Some(search_regex);
                         self.search_value = value.to_string();
+                        self.search_flags = search_flags;
                         term.selection = None;
                     }
                     Err(err) => {
