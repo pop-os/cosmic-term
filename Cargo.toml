@@ -64,6 +64,9 @@ inherits = "release"
 debug = true
 
 
+[patch.'https://github.com/pop-os/libcosmic']
+libcosmic = { git = "https://github.com/kenz-gelsoft/libcosmic.git", branch = "backport-input-method" }
+
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
