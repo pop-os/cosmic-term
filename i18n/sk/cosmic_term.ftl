@@ -1,99 +1,100 @@
 cosmic-terminal = Terminál COSMIC
 new-terminal = Nový terminál
 
-# Context Pages
+# Kontextové stránky
 
-## About
-git-description = Git commit {$hash} on {$date}
+## O aplikácii
+git-description = Git commit {$hash} dňa {$date}
 
-## Color schemes
+## Farebné schémy
 color-schemes = Farebné schémy
 rename = Premenovať
 export = Exportovať
 delete = Odstrániť
 import = Importovať
-import-errors = Importovať chyby
+import-errors = Chyby importu
 
-## Profiles
+## Profily
 profiles = Profily
 name = Názov
-command-line = Príkaz
+command-line = Príkazový riadok
 tab-title = Názov karty
-tab-title-description = Prepíše predvolený názov karty
+tab-title-description = Prepísať predvolený názov karty
 add-profile = Pridať profil
 new-profile = Nový profil
 make-default = Nastaviť ako predvolený
-working-directory = Pracovný priečinok
+working-directory = Pracovný adresár
 hold = Podržať
-remain-open = Zostane otvorený aj po skončení procesu
+remain-open = Zostať otvorené po ukončení podriadeného procesu.
 
-## Settings
+## Nastavenia
 settings = Nastavenia
 
-### Appearance
+### Vzhľad
 appearance = Vzhľad
 theme = Téma
 match-desktop = Podľa systému
-dark = Tmavý
-light = Svetlý
-syntax-dark = Tmavá farebná schéma
-syntax-light = Svetlá farebná schéma
+dark = Tmavá
+light = Svetlá
+syntax-dark = Farebná schéma tmavá
+syntax-light = Farebná schéma svetlá
 default-zoom-step = Kroky priblíženia
 opacity = Priehľadnosť pozadia
 
-### Font
+### Písmo
 font = Písmo
 advanced-font-settings = Pokročilé nastavenia písma
 default-font = Písmo
 default-font-size = Veľkosť písma
-default-font-stretch = Šírka písma
+default-font-stretch = Rozťahovanie písma
 default-font-weight = Normálna hrúbka písma
-default-dim-font-weight = Stmaviť váhu písma
-default-bold-font-weight = Hrúbka tučného písma
-use-bright-bold = Zjasnite tučný text
+default-dim-font-weight = Tlmená hrúbka písma
+default-bold-font-weight = Tučná hrúbka písma
+use-bright-bold = Zvýrazniť tučný text
 
-### Splits
+### Rozdelenia
 splits = Rozdelenia
-focus-follow-mouse = Písanie sleduje pohyb myši
+focus-follow-mouse = Zameranie písania sleduje myš
 
-### Advanced
+### Pokročilé
 advanced = Pokročilé
-show-headerbar = Zobraziť horný panel
-show-header-description = Horný panel je možné odhaliť prostredníctvom kontextovej ponuky
+show-headerbar = Zobraziť hlavičku
+show-header-description = Zobraziť hlavičku cez kontextové menu.
 
-# Find
-find-placeholder = Nájsť...
-find-previous = Nájsť predchádzajúci výskyt
-find-next = Nájsť ďalší výskyt
+# Hľadať
+find-placeholder = Hľadať...
+find-previous = Predchádzajúce
+find-next = Ďalšie
 
 # Menu
 
-## File
+## Súbor
 file = Súbor
 new-tab = Nová karta
 new-window = Nové okno
 profile = Profil
 menu-profiles = Profily...
-close-tab = Zatvoriť kartu
+close-tab = Zavrieť kartu
 quit = Ukončiť
 
-## Edit
+## Upraviť
 edit = Upraviť
 copy = Kopírovať
 paste = Prilepiť
-select-all = Vybrať všetko
-find = Nájsť
+select-all = Označiť všetko
+find = Hľadať
+clear-scrollback = Vymazať históriu
 
-## View
+## Zobraziť
 view = Zobraziť
-zoom-in = Zväčšiť text
+zoom-in = Väčší text
 zoom-reset = Predvolená veľkosť textu
-zoom-out = Zmenšiť text
+zoom-out = Menší text
 next-tab = Ďalšia karta
 previous-tab = Predchádzajúca karta
 split-horizontal = Rozdeliť horizontálne
 split-vertical = Rozdeliť vertikálne
-pane-toggle-maximize = Maximalizovať panel
+pane-toggle-maximize = Prepnúť maximalizáciu
 menu-color-schemes = Farebné schémy...
 menu-settings = Nastavenia...
-menu-about = O aplikácií...
+menu-about = O Termináli COSMIC...
