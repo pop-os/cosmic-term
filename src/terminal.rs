@@ -303,7 +303,7 @@ impl Terminal {
             buffer.set_wrap(font_system, Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced);
+            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced, None);
             let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
             buffer.set_monospace_width(font_system, Some(w));
@@ -686,7 +686,13 @@ impl Terminal {
                 buffer.set_wrap(font_system.raw(), Wrap::None);
 
                 // Use size of space to determine cell size
-                buffer.set_text(font_system.raw(), " ", &default_attrs, Shaping::Advanced);
+                buffer.set_text(
+                    font_system.raw(),
+                    " ",
+                    &default_attrs,
+                    Shaping::Advanced,
+                    None,
+                );
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
                 buffer.set_monospace_width(font_system.raw(), Some(w));
