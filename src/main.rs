@@ -22,7 +22,7 @@ use cosmic::{
         stream, window, Alignment, Color, Event, Length, Limits, Padding, Point, Subscription,
     },
     style,
-    widget::{self, button, pane_grid, segmented_button, PaneGrid},
+    widget::{self, button, container, pane_grid, segmented_button, slider, text, PaneGrid},
     Application, ApplicationExt, Element,
 };
 use cosmic::{surface, Apply};
@@ -64,6 +64,7 @@ mod terminal;
 
 use terminal_box::terminal_box;
 
+use crate::config::LayoutDefinition;
 use crate::dnd::DndDrop;
 mod terminal_box;
 
@@ -405,6 +406,17 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    // Custom profile additions
+    ApplyProfileLayout(ProfileId),
+    SaveProfileLayout(ProfileId, LayoutDefinition),
+    EditProfileLayout(ProfileId),
+    PreviewLayout(LayoutDefinition),
+    ReverLayout,
+    AddSplit(ProfileId, config::SplitAxis),
+    RemoveSplit(ProfileId, usize),
+    ClearLayout(ProfileId),
+    SaveCurrentLayout(ProfileId),
+    UpdateSplitRatio(ProfileId, usize, f32),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -412,6 +424,7 @@ pub enum ContextPage {
     About,
     ColorSchemes(ColorSchemeKind),
     Profiles,
+    ProfileLayout(ProfileId),
     Settings,
 }
 
@@ -456,6 +469,9 @@ pub struct App {
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
+    preview_layout: Option<LayoutDefinition>,
+    current_editing_profile: Option<ProfileId>,
+    layout_editor_splits: Vec<config::SplitDefinition>,
 }
 
 impl App {
@@ -750,11 +766,11 @@ impl App {
                 ))
                 .into(),
                 widget::text::title3(fl!("cosmic-terminal")).into(),
-                widget::button::link(repository)
+                button::link(repository)
                     .on_press(Message::LaunchUrl(repository.to_string()))
                     .padding(0)
                     .into(),
-                widget::button::link(fl!(
+                button::link(fl!(
                     "git-description",
                     hash = short_hash.as_str(),
                     date = date
@@ -799,10 +815,10 @@ impl App {
             };
 
             let button = if expanded {
-                widget::button::custom(icon_cache_get("view-more-symbolic", 16))
+                button::custom(icon_cache_get("view-more-symbolic", 16))
                     .on_press(Message::ColorSchemeCollapse)
             } else {
-                widget::button::custom(icon_cache_get("view-more-symbolic", 16)).on_press(
+                button::custom(icon_cache_get("view-more-symbolic", 16)).on_press(
                     Message::ColorSchemeExpand(color_scheme_kind, color_scheme_id_opt),
                 )
             }
@@ -844,7 +860,7 @@ impl App {
         sections.push(
             widget::row::with_children(vec![
                 widget::horizontal_space().into(),
-                widget::button::standard(fl!("import"))
+                button::standard(fl!("import"))
                     .on_press(Message::ColorSchemeImport(color_scheme_kind))
                     .into(),
             ])
@@ -903,15 +919,15 @@ impl App {
                 profiles_section = profiles_section.add(
                     widget::settings::item::builder(profile_name).control(
                         widget::row::with_children(vec![
-                            widget::button::custom(icon_cache_get("edit-delete-symbolic", 16))
+                            button::custom(icon_cache_get("edit-delete-symbolic", 16))
                                 .on_press(Message::ProfileRemove(profile_id))
                                 .class(style::Button::Icon)
                                 .into(),
                             if expanded {
-                                widget::button::custom(icon_cache_get("go-up-symbolic", 16))
+                                button::custom(icon_cache_get("go-up-symbolic", 16))
                                     .on_press(Message::ProfileCollapse(profile_id))
                             } else {
-                                widget::button::custom(icon_cache_get("go-down-symbolic", 16))
+                                button::custom(icon_cache_get("go-down-symbolic", 16))
                                     .on_press(Message::ProfileExpand(profile_id))
                             }
                             .class(style::Button::Icon)
@@ -986,6 +1002,13 @@ impl App {
                                         .into(),
                                     widget::text::caption(fl!("tab-title-description")).into(),
                                 ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![button::standard(
+                                    "Edit Layout",
+                                )
+                                .on_press(Message::EditProfileLayout(profile_id))
+                                .into()])
                                 .spacing(space_xxxs)
                                 .into(),
                             ])
@@ -1067,13 +1090,98 @@ impl App {
 
         let add_profile = widget::row::with_children(vec![
             widget::horizontal_space().into(),
-            widget::button::standard(fl!("add-profile"))
+            button::standard(fl!("add-profile"))
                 .on_press(Message::ProfileNew)
                 .into(),
         ]);
         sections.push(add_profile.into());
 
         widget::settings::view_column(sections).into()
+    }
+
+    fn profile_layout(&self, profile_id: ProfileId) -> Element<Message> {
+        let profile = self.config.profiles.get(&profile_id);
+        let profile_name = profile.map(|prof| prof.name.as_str()).unwrap_or("Unknown");
+
+        let title = text(format!("Edit Layout for {profile_name}")).size(20);
+
+        // Layout preview area
+        let preview =
+            container(text("Layout Preview\n(Changes are applied in real-time)").size(14))
+                .padding(16);
+
+        // Split List
+        let mut split_list = widget::column().spacing(8);
+
+        for (i, split) in self.layout_editor_splits.iter().enumerate() {
+            let split_row = widget::column()
+                .push(text(format!(
+                    "{} Split {}",
+                    if split.axis == config::SplitAxis::Horizontal {
+                        "H"
+                    } else {
+                        "V"
+                    },
+                    i + 1
+                )))
+                .push(
+                    widget::row()
+                        .push(text(format!("{:.2}", split.ratio)))
+                        .push(
+                            slider(0.1..=0.9, split.ratio, move |ratio| {
+                                Message::UpdateSplitRatio(profile_id, i, ratio)
+                            })
+                            .step(0.01),
+                        )
+                        .push(button::standard("×").on_press(Message::RemoveSplit(profile_id, i)))
+                        .spacing(4),
+                )
+                .spacing(4);
+
+            split_list = split_list.push(split_row);
+        }
+
+        // Add split controls - use shorter button text and stack vertically
+        let add_controls = widget::column()
+            .push(
+                widget::row()
+                    .push(
+                        button::standard("+ H Split")
+                            .on_press(Message::AddSplit(profile_id, config::SplitAxis::Horizontal)),
+                    )
+                    .push(
+                        button::standard("+ V Split")
+                            .on_press(Message::AddSplit(profile_id, config::SplitAxis::Vertical)),
+                    )
+                    .spacing(4),
+            )
+            .push(button::standard("Clear").on_press(Message::ClearLayout(profile_id)))
+            .spacing(8);
+
+        // Action buttons - stack vertically to save space
+        let actions = widget::column()
+            .push(button::standard("Save Layout").on_press(Message::SaveCurrentLayout(profile_id)))
+            .push(
+                widget::row()
+                    .push(button::standard("Revert").on_press(Message::ReverLayout))
+                    .push(
+                        button::standard("Cancel")
+                            .on_press(Message::ToggleContextPage(ContextPage::Settings)),
+                    )
+                    .spacing(4),
+            )
+            .spacing(8);
+
+        widget::column()
+            .push(title)
+            .push(preview)
+            .push(text("Splits:").size(16))
+            .push(split_list)
+            .push(add_controls)
+            .push(actions)
+            .spacing(16)
+            .padding(16)
+            .into()
     }
 
     fn settings(&self) -> Element<Message> {
@@ -1187,10 +1295,10 @@ impl App {
             .add(
                 widget::settings::item::builder(fl!("advanced-font-settings")).control(
                     if self.show_advanced_font_settings {
-                        widget::button::custom(icon_cache_get("go-up-symbolic", 16))
+                        button::custom(icon_cache_get("go-up-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(false))
                     } else {
-                        widget::button::custom(icon_cache_get("go-down-symbolic", 16))
+                        button::custom(icon_cache_get("go-down-symbolic", 16))
                             .on_press(Message::ShowAdvancedFontSettings(true))
                     }
                     .class(style::Button::Icon),
@@ -1273,6 +1381,198 @@ impl App {
     }
     fn get_default_profile(&self) -> Option<ProfileId> {
         self.config.default_profile
+    }
+
+    fn get_pane_by_index(&self, index: usize) -> Option<pane_grid::Pane> {
+        let panes: Vec<pane_grid::Pane> = self
+            .pane_model
+            .panes
+            .iter()
+            .map(|(pane, _)| *pane)
+            .collect();
+
+        panes.get(index).copied()
+    }
+
+    fn apply_custom_layout(&mut self, layout: LayoutDefinition) -> Task<Message> {
+        // Clear current panes and create new layout
+        let model = segmented_button::ModelBuilder::default().build();
+        self.pane_model = TerminalPaneGrid::new(model);
+
+        // Clear and repopulate terminal_ids for the new layout
+        self.terminal_ids.clear();
+        self.terminal_ids
+            .insert(self.pane_model.focused(), widget::Id::unique());
+
+        let mut tasks = Vec::new();
+
+        // Create a terminal in the initial pane
+        let init_pane = self.pane_model.focused();
+        tasks.push(self.create_new_terminal_unfocused(init_pane, None));
+
+        // Apply each split in sequence
+        for split in layout.splits {
+            let axis = match split.axis {
+                config::SplitAxis::Horizontal => pane_grid::Axis::Horizontal,
+                config::SplitAxis::Vertical => pane_grid::Axis::Vertical,
+            };
+
+            // Get the pane to split
+            let target_pane = self.get_pane_by_index(split.target_pane);
+
+            if let Some(pane) = target_pane {
+                if let Some((new_pane, split_handle)) = self.pane_model.panes.split(
+                    axis,
+                    pane,
+                    segmented_button::ModelBuilder::default().build(),
+                ) {
+                    // Set split ratio using the split handle returned from split()
+                    self.pane_model.panes.resize(split_handle, split.ratio);
+
+                    // Add terminal ID for the new pane
+                    self.terminal_ids.insert(new_pane, widget::Id::unique());
+
+                    // create terminal in new pane
+                    tasks.push(self.create_new_terminal_unfocused(new_pane, None));
+                }
+            }
+        }
+
+        tasks.push(Task::perform(async move { init_pane }, |pane| {
+            cosmic::Action::App(Message::PaneClicked(pane))
+        }));
+
+        Task::batch(tasks)
+    }
+
+    fn create_new_terminal_unfocused(
+        &mut self,
+        pane: pane_grid::Pane,
+        profile_id_opt: Option<ProfileId>,
+    ) -> Task<Message> {
+        match &self.term_event_tx_opt {
+            Some(term_event_tx) => {
+                let colors = self
+                    .themes
+                    .get(&self.config.syntax_theme(profile_id_opt))
+                    .or_else(|| match self.config.color_scheme_kind() {
+                        ColorSchemeKind::Dark => self
+                            .themes
+                            .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
+                        ColorSchemeKind::Light => self.themes.get(&(
+                            config::COSMIC_THEME_LIGHT.to_string(),
+                            ColorSchemeKind::Light,
+                        )),
+                    });
+
+                match colors {
+                    Some(colors) => {
+                        let current_pane = pane;
+                        if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                            // Use the startup options, profile options, or defaults
+                            let (options, tab_title_override) = match self.startup_options.take() {
+                                Some(options) => (options, None),
+                                None => match profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                                {
+                                    Some(profile) => {
+                                        let mut shell = None;
+                                        if let Some(mut args) = shlex::split(&profile.command) {
+                                            if !args.is_empty() {
+                                                let command = args.remove(0);
+                                                shell = Some(tty::Shell::new(command, args));
+                                            }
+                                        }
+
+                                        let working_directory =
+                                            (!profile.working_directory.is_empty())
+                                                .then(|| profile.working_directory.clone().into());
+
+                                        let options = tty::Options {
+                                            shell,
+                                            working_directory,
+                                            hold: profile.hold,
+                                            env: HashMap::new(),
+                                        };
+
+                                        let tab_title_override = if profile.tab_title.is_empty() {
+                                            None
+                                        } else {
+                                            Some(profile.tab_title.clone())
+                                        };
+
+                                        (options, tab_title_override)
+                                    }
+                                    None => (Options::default(), None),
+                                },
+                            };
+
+                            let entity = tab_model
+                                .insert()
+                                .text(
+                                    tab_title_override
+                                        .clone()
+                                        .unwrap_or_else(|| fl!("new-terminal")),
+                                )
+                                .closable()
+                                .activate()
+                                .id();
+
+                            match Terminal::new(
+                                current_pane,
+                                entity,
+                                term_event_tx.clone(),
+                                self.term_config.clone(),
+                                options,
+                                &self.config,
+                                *colors,
+                                profile_id_opt,
+                                tab_title_override,
+                            ) {
+                                Ok(mut terminal) => {
+                                    terminal.set_config(&self.config, &self.themes);
+                                    tab_model
+                                        .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
+                                }
+                                Err(e) if profile_id_opt.is_some() => {
+                                    // Create a tab without a profile if the selected profile doesn't work
+                                    let name = profile_id_opt
+                                        .and_then(|id| self.config.profiles.get(&id))
+                                        .map(|profile| profile.name.as_str())
+                                        .unwrap_or_default();
+
+                                    log::error!("failed to open `{name}`: {e}");
+
+                                    tab_model.remove(entity);
+
+                                    return self.update(Message::TabNewNoProfile);
+                                }
+                                Err(e) => {
+                                    log::error!("failed to open terminal: {e}");
+
+                                    // Cleanup partially created tab
+                                    return self.update(Message::TabClose(Some(entity)));
+                                }
+                            }
+                        } else {
+                            log::error!("Found no active pane");
+                        }
+                    }
+                    None => {
+                        log::error!(
+                            "failed to find terminal theme {:?}",
+                            self.config.syntax_theme(profile_id_opt)
+                        );
+
+                        // TODO: fall back to known good theme
+                    }
+                }
+            }
+            None => {
+                log::warn!("tried to create new tab before having event channel");
+            }
+        }
+        self.update_title(Some(pane))
     }
 
     fn create_and_focus_new_terminal(
@@ -1582,6 +1882,9 @@ impl Application for App {
             profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
+            preview_layout: None,
+            current_editing_profile: None,
+            layout_editor_splits: Vec::new(),
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -2225,8 +2528,20 @@ impl Application for App {
                 return self.save_profiles();
             }
             Message::ProfileOpen(profile_id) => {
-                return self
-                    .create_and_focus_new_terminal(self.pane_model.focused(), Some(profile_id));
+                if let Some(profile) = self.config.profiles.get(&profile_id) {
+                    if let Some(layout) = &profile.custom_layout {
+                        // Apply the profile's custom layout (this clears current layout)
+                        return self.apply_custom_layout(layout.clone());
+                    } else {
+                        // No custom layout - create a fresh single-pane layout with this profile
+                        let model = segmented_button::ModelBuilder::default().build();
+                        self.pane_model = TerminalPaneGrid::new(model);
+                        let pane = self.pane_model.focused();
+                        return self.create_and_focus_new_terminal(pane, Some(profile_id));
+                    }
+                }
+
+                return Task::none();
             }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
@@ -2667,6 +2982,132 @@ impl Application for App {
                     cosmic::app::Action::Surface(a),
                 ));
             }
+            Message::ApplyProfileLayout(profile_id) => {
+                if let Some(profile) = self.config.profiles.get(&profile_id) {
+                    if let Some(layout) = &profile.custom_layout {
+                        return self.apply_custom_layout(layout.clone());
+                    }
+                }
+                return Task::none();
+            }
+            Message::SaveProfileLayout(profile_id, layout) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.custom_layout = Some(layout);
+                    return self.update_config();
+                }
+                return Task::none();
+            }
+            Message::EditProfileLayout(profile_id) => {
+                self.context_page = ContextPage::ProfileLayout(profile_id);
+                self.current_editing_profile = Some(profile_id);
+
+                // Init layout editor w/ current profile layout or empty
+                self.layout_editor_splits = self
+                    .config
+                    .profiles
+                    .get(&profile_id)
+                    .and_then(|p| p.custom_layout.as_ref())
+                    .map(|layout| layout.splits.clone())
+                    .unwrap_or_default();
+
+                return Task::none();
+            }
+            Message::PreviewLayout(layout) => {
+                self.preview_layout = Some(layout.clone());
+                return self.apply_custom_layout(layout);
+            }
+            Message::ReverLayout => {
+                self.preview_layout = None;
+                if let Some(profile_id) = self.current_editing_profile {
+                    if let Some(profile) = self.config.profiles.get(&profile_id) {
+                        if let Some(layout) = &profile.custom_layout {
+                            return self.apply_custom_layout(layout.clone());
+                        }
+                    }
+                }
+
+                return Task::none();
+            }
+            Message::AddSplit(profile_id, axis) => {
+                if self.current_editing_profile == Some(profile_id) {
+                    let new_split = config::SplitDefinition {
+                        axis,
+                        ratio: 0.5,
+                        target_pane: 0,
+                    };
+                    self.layout_editor_splits.push(new_split);
+
+                    // Preview change
+                    let layout = LayoutDefinition {
+                        splits: self.layout_editor_splits.clone(),
+                    };
+
+                    return Task::perform(async move { layout }, |layout| {
+                        cosmic::Action::App(Message::PreviewLayout(layout))
+                    });
+                }
+                return Task::none();
+            }
+            Message::RemoveSplit(profile_id, index) => {
+                if self.current_editing_profile == Some(profile_id)
+                    && index < self.layout_editor_splits.len()
+                {
+                    self.layout_editor_splits.remove(index);
+
+                    // Preview the change
+                    let layout = LayoutDefinition {
+                        splits: self.layout_editor_splits.clone(),
+                    };
+
+                    return Task::perform(async move { layout }, |layout| {
+                        cosmic::Action::App(Message::PreviewLayout(layout))
+                    });
+                }
+                return Task::none();
+            }
+            Message::ClearLayout(profile_id) => {
+                if self.current_editing_profile == Some(profile_id) {
+                    self.layout_editor_splits.clear();
+
+                    // Reset to single pane
+                    let model = segmented_button::ModelBuilder::default().build();
+                    self.pane_model = TerminalPaneGrid::new(model);
+                    return self.create_and_focus_new_terminal(self.pane_model.focused(), None);
+                }
+            }
+            Message::SaveCurrentLayout(profile_id) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    let layout = LayoutDefinition {
+                        splits: self.layout_editor_splits.clone(),
+                    };
+
+                    profile.custom_layout = Some(layout);
+                    let _ = self.save_profiles();
+
+                    // Return to settings page
+                    self.context_page = ContextPage::Settings;
+                    self.current_editing_profile = None;
+                    self.layout_editor_splits.clear();
+                }
+                return Task::none();
+            }
+            Message::UpdateSplitRatio(profile_id, index, ratio) => {
+                if self.current_editing_profile == Some(profile_id)
+                    && index < self.layout_editor_splits.len()
+                {
+                    self.layout_editor_splits[index].ratio = ratio;
+
+                    // Preview the change
+                    let layout = LayoutDefinition {
+                        splits: self.layout_editor_splits.clone(),
+                    };
+
+                    return Task::perform(async move { layout }, |layout| {
+                        cosmic::Action::App(Message::PreviewLayout(layout))
+                    });
+                }
+                return Task::none();
+            }
         }
 
         Task::none()
@@ -2692,6 +3133,11 @@ impl Application for App {
                 Message::ToggleContextPage(ContextPage::Profiles),
             )
             .title(fl!("profiles")),
+            ContextPage::ProfileLayout(profile_id) => context_drawer::context_drawer(
+                self.profile_layout(profile_id),
+                Message::ToggleContextPage(ContextPage::Profiles),
+            )
+            .title(fl!("profile-layouts")),
             ContextPage::Settings => context_drawer::context_drawer(
                 self.settings(),
                 Message::ToggleContextPage(ContextPage::Settings),
@@ -2705,13 +3151,11 @@ impl Application for App {
     }
 
     fn header_end(&self) -> Vec<Element<Self::Message>> {
-        vec![
-            widget::button::custom(icon_cache_get("list-add-symbolic", 16))
-                .on_press(Message::TabNew)
-                .padding(8)
-                .class(style::Button::Icon)
-                .into(),
-        ]
+        vec![button::custom(icon_cache_get("list-add-symbolic", 16))
+            .on_press(Message::TabNew)
+            .padding(8)
+            .class(style::Button::Icon)
+            .into()]
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<Message> {
