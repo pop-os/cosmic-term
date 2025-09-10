@@ -1,6 +1,6 @@
 use cosmic::{
     iced::mouse::{Event as MouseEvent, ScrollDelta},
-    iced::{keyboard::Modifiers, mouse::Button, Event},
+    iced::{Event, keyboard::Modifiers, mouse::Button},
 };
 
 use crate::terminal::Terminal;

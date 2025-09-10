@@ -1,4 +1,5 @@
 use alacritty_terminal::{
+    Term,
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
@@ -6,14 +7,14 @@ use alacritty_terminal::{
     selection::{Selection, SelectionType},
     sync::FairMutex,
     term::{
+        Config, TermDamage, TermMode,
         cell::Flags,
         color::{self, Colors},
         search::RegexSearch,
-        viewport_to_point, Config, TermDamage, TermMode,
+        viewport_to_point,
     },
     tty::{self, Options},
     vte::ansi::{Color, CursorShape, NamedColor, Rgb},
-    Term,
 };
 use cosmic::{
     iced::{advanced::graphics::text::font_system, mouse::ScrollDelta},
@@ -29,8 +30,8 @@ use std::{
     collections::HashMap,
     io, mem,
     sync::{
-        atomic::{AtomicU32, Ordering},
         Arc, Mutex, Weak,
+        atomic::{AtomicU32, Ordering},
     },
     time::Instant,
 };

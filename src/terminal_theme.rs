@@ -3,11 +3,11 @@ use alacritty_terminal::{
     vte::ansi::{NamedColor, Rgb},
 };
 use hex_color::HexColor;
-use palette::{encoding::Srgb, rgb::Rgb as PRgb, FromColor, Okhsl};
+use palette::{FromColor, Okhsl, encoding::Srgb, rgb::Rgb as PRgb};
 use std::{collections::HashMap, fs};
 
 use crate::config::{
-    ColorScheme, ColorSchemeAnsi, ColorSchemeKind, COSMIC_THEME_DARK, COSMIC_THEME_LIGHT,
+    COSMIC_THEME_DARK, COSMIC_THEME_LIGHT, ColorScheme, ColorSchemeAnsi, ColorSchemeKind,
 };
 
 // Fill missing dim/bright colors with derived values from normal ones.
