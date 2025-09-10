@@ -2,9 +2,9 @@
 name = "cosmic-term"
 version = "0.1.0"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
-edition = "2021"
+edition = "2024"
 license = "GPL-3.0-only"
-rust-version = "1.80"
+rust-version = "1.85"
 
 [build-dependencies]
 vergen = { version = "8", features = ["git", "gitcl"] }

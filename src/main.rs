@@ -4,30 +4,29 @@
 use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
+use cosmic::widget::DndDestination;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::widget::DndDestination;
 use cosmic::{
-    action,
-    app::{context_drawer, Core, Settings, Task},
+    Application, ApplicationExt, Element, action,
+    app::{Core, Settings, Task, context_drawer},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
-        self,
+        self, Alignment, Color, Event, Length, Limits, Padding, Point, Subscription,
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
-        stream, window, Alignment, Color, Event, Length, Limits, Padding, Point, Subscription,
+        stream, window,
     },
     style,
-    widget::{self, button, pane_grid, segmented_button, PaneGrid},
-    Application, ApplicationExt, Element,
+    widget::{self, PaneGrid, button, pane_grid, segmented_button},
 };
-use cosmic::{surface, Apply};
+use cosmic::{Apply, surface};
 use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
-use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
+use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
 use localize::LANGUAGE_SORTER;
 use std::{
     any::TypeId,
@@ -37,13 +36,13 @@ use std::{
     error::Error,
     fs, process,
     rc::Rc,
-    sync::{atomic::Ordering, LazyLock, Mutex},
+    sync::{LazyLock, Mutex, atomic::Ordering},
 };
 use tokio::sync::mpsc;
 
 use config::{
-    AppTheme, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile, ProfileId,
-    CONFIG_VERSION,
+    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile,
+    ProfileId,
 };
 mod config;
 mod mouse_reporter;
@@ -174,7 +173,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Set up environmental variables for terminal
     tty::setup_env();
     // Override TERM for better compatibility
-    env::set_var("TERM", "xterm-256color");
+    unsafe {
+        env::set_var("TERM", "xterm-256color");
+    }
 
     // Set settings
     let mut settings = Settings::default();
@@ -736,7 +737,7 @@ impl App {
         }
     }
 
-    fn about(&self) -> Element<Message> {
+    fn about(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
         let repository = "https://github.com/pop-os/cosmic-term";
         let hash = env!("VERGEN_GIT_SHA");
@@ -768,7 +769,7 @@ impl App {
         .into()
     }
 
-    fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<Message> {
+    fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<'_, Message> {
         let cosmic_theme::Spacing { space_xxxs, .. } = self.core().system_theme().cosmic().spacing;
 
         let mut sections = Vec::with_capacity(3 + self.color_scheme_errors.len());
@@ -880,7 +881,7 @@ impl App {
         widget::settings::view_column(sections).into()
     }
 
-    fn profiles(&self) -> Element<Message> {
+    fn profiles(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing {
             space_s,
             space_xs,
@@ -1076,7 +1077,7 @@ impl App {
         widget::settings::view_column(sections).into()
     }
 
-    fn settings(&self) -> Element<Message> {
+    fn settings(&self) -> Element<'_, Message> {
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1482,7 +1483,9 @@ impl Application for App {
         };
 
         if font_name_faces_map.is_empty() {
-            log::error!("at least one monospace font with normal/bold weights and default stretch is required");
+            log::error!(
+                "at least one monospace font with normal/bold weights and default stretch is required"
+            );
             log::error!("no monospace fonts to select from, exiting");
             process::exit(1);
         }
@@ -2422,10 +2425,10 @@ impl Application for App {
                 return self.create_and_focus_new_terminal(
                     self.pane_model.focused(),
                     self.get_default_profile(),
-                )
+                );
             }
             Message::TabNewNoProfile => {
-                return self.create_and_focus_new_terminal(self.pane_model.focused(), None)
+                return self.create_and_focus_new_terminal(self.pane_model.focused(), None);
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2672,7 +2675,7 @@ impl Application for App {
         Task::none()
     }
 
-    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<'_, Message>> {
         if !self.core.window.show_context {
             return None;
         }
@@ -2700,11 +2703,11 @@ impl Application for App {
         })
     }
 
-    fn header_start(&self) -> Vec<Element<Self::Message>> {
+    fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
         vec![menu_bar(&self.core, &self.config, &self.key_binds)]
     }
 
-    fn header_end(&self) -> Vec<Element<Self::Message>> {
+    fn header_end(&self) -> Vec<Element<'_, Self::Message>> {
         vec![
             widget::button::custom(icon_cache_get("list-add-symbolic", 16))
                 .on_press(Message::TabNew)
@@ -2714,7 +2717,7 @@ impl Application for App {
         ]
     }
 
-    fn view_window(&self, window_id: window::Id) -> Element<Message> {
+    fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
         match &self.dialog_opt {
             Some(dialog) => dialog.view(window_id),
             None => widget::text("Unknown window ID").into(),
@@ -2722,7 +2725,7 @@ impl Application for App {
     }
 
     /// Creates a view after each update.
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
 
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
@@ -2870,7 +2873,7 @@ impl Application for App {
     fn system_theme_update(
         &mut self,
         _keys: &[&'static str],
-        new_theme: &cosmic::cosmic_theme::Theme,
+        _new_theme: &cosmic::cosmic_theme::Theme,
     ) -> Task<Self::Message> {
         self.update(Message::SystemThemeChange)
     }

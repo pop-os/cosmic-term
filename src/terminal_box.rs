@@ -3,34 +3,34 @@
 use alacritty_terminal::{
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
-    term::{cell::Flags, TermMode},
+    term::{TermMode, cell::Flags},
     vte::ansi::{CursorShape, NamedColor},
 };
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
-    cosmic_theme::palette::{blend::Compose, WithAlpha},
+    Renderer,
+    cosmic_theme::palette::{WithAlpha, blend::Compose},
     iced::{
+        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
         advanced::graphics::text::Raw,
         event::{Event, Status},
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{self, Button, Event as MouseEvent, ScrollDelta},
-        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
     },
     iced_core::{
+        Border, Shell,
         clipboard::Clipboard,
         keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
         text::Renderer as _,
         widget::{
-            self,
+            self, Id, Widget,
             operation::{self, Operation},
-            tree, Id, Widget,
+            tree,
         },
-        Border, Shell,
     },
     theme::Theme,
-    Renderer,
 };
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
@@ -44,8 +44,8 @@ use std::{
 };
 
 use crate::{
-    key_bind::key_binds, mouse_reporter::MouseReporter, terminal::Metadata, Action, Terminal,
-    TerminalScroll,
+    Action, Terminal, TerminalScroll, key_bind::key_binds, mouse_reporter::MouseReporter,
+    terminal::Metadata,
 };
 
 pub struct TerminalBox<'a, Message> {

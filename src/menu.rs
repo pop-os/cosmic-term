@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::widget::menu::{menu_button, Item as MenuItem};
+use cosmic::widget::menu::{Item as MenuItem, menu_button};
 use cosmic::{
+    Element,
     app::Core,
     iced::{
+        Background, Length,
         advanced::widget::text::Style as TextStyle,
         widget::{column, horizontal_space},
-        Background, Length,
     },
     iced_core::Border,
     theme,
@@ -16,11 +17,10 @@ use cosmic::{
         menu::{ItemHeight, ItemWidth},
         responsive_menu_bar, segmented_button,
     },
-    Element,
 };
 use std::{collections::HashMap, sync::LazyLock};
 
-use crate::{fl, Action, ColorSchemeId, ColorSchemeKind, Config, Message};
+use crate::{Action, ColorSchemeId, ColorSchemeKind, Config, Message, fl};
 
 static MENU_ID: LazyLock<cosmic::widget::Id> =
     LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
