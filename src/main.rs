@@ -4,7 +4,6 @@
 use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
-use cosmic::widget::DndDestination;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
@@ -22,7 +21,7 @@ use cosmic::{
         stream, window,
     },
     style,
-    widget::{self, PaneGrid, button, pane_grid, segmented_button},
+    widget::{self, DndDestination, PaneGrid, about::About, button, pane_grid, segmented_button},
 };
 use cosmic::{Apply, surface};
 use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
@@ -97,9 +96,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             Some("--version") | Some("-V") => {
                 println!(
-                    "cosmic-term {} (git commit {})",
+                    "cosmic-term {}",
                     env!("CARGO_PKG_VERSION"),
-                    env!("VERGEN_GIT_SHA")
                 );
                 return Ok(());
             }
@@ -419,6 +417,7 @@ pub enum ContextPage {
 /// The [`App`] stores application-specific state.
 pub struct App {
     core: Core,
+    about: About,
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
@@ -735,38 +734,6 @@ impl App {
         {
             self.config.bold_font_weight = Weight::BOLD.0;
         }
-    }
-
-    fn about(&self) -> Element<'_, Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-        let repository = "https://github.com/pop-os/cosmic-term";
-        let hash = env!("VERGEN_GIT_SHA");
-        let short_hash: String = hash.chars().take(7).collect();
-        let date = env!("VERGEN_GIT_COMMIT_DATE");
-        widget::column::with_children(vec![
-                widget::svg(widget::svg::Handle::from_memory(
-                    &include_bytes!(
-                        "../res/icons/hicolor/128x128/apps/com.system76.CosmicTerm.svg"
-                    )[..],
-                ))
-                .into(),
-                widget::text::title3(fl!("cosmic-terminal")).into(),
-                widget::button::link(repository)
-                    .on_press(Message::LaunchUrl(repository.to_string()))
-                    .padding(0)
-                    .into(),
-                widget::button::link(fl!(
-                    "git-description",
-                    hash = short_hash.as_str(),
-                    date = date
-                ))
-                    .on_press(Message::LaunchUrl(format!("{repository}/commits/{hash}")))
-                    .padding(0)
-                .into(),
-            ])
-        .align_x(Alignment::Center)
-        .spacing(space_xxs)
-        .into()
     }
 
     fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<'_, Message> {
@@ -1546,8 +1513,24 @@ impl Application for App {
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focused(), widget::Id::unique());
 
+        let about = About::default()
+            .name(fl!("cosmic-terminal"))
+            .icon(widget::icon::from_name(Self::APP_ID))
+            .version(env!("CARGO_PKG_VERSION"))
+            .author("System76")
+            .license("GPL-3.0-only")
+            .developers([("Jeremy Soller", "jeremy@system76.com")])
+            .links([
+                (fl!("repository"), "https://github.com/pop-os/cosmic-term"),
+                (
+                    fl!("support"),
+                    "https://github.com/pop-os/cosmic-term/issues",
+                ),
+            ]);
+
         let mut app = Self {
             core,
+            about,
             pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
@@ -2681,8 +2664,9 @@ impl Application for App {
         }
 
         Some(match self.context_page {
-            ContextPage::About => context_drawer::context_drawer(
-                self.about(),
+            ContextPage::About => context_drawer::about(
+                &self.about,
+                Message::LaunchUrl,
                 Message::ToggleContextPage(ContextPage::About),
             ),
             ContextPage::ColorSchemes(color_scheme_kind) => context_drawer::context_drawer(
