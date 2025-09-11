@@ -49,15 +49,17 @@ features = ["about", "multi-window", "tokio", "winit", "surface-message"]
 fork = "0.2"
 
 [features]
-default = ["wgpu", "wayland"]
+default = ["dbus-config", "wgpu", "wayland"]
+dbus-config = ["libcosmic/dbus-config"]
 wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 wayland = ["libcosmic/wayland", "cosmic-files/wayland"]
 
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+
 [patch.crates-io]
-xdg-mime = { git = "https://github.com/ellieplayswow/xdg-mime-rs", branch = "feature/get-same-as" }
+license = { git = "https://github.com/evenorog/license.git" }
 
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { path = "../libcosmic" }
