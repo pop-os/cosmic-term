@@ -1,6 +1,7 @@
 #TODO: more build-out, desktop actions, translations?
 [Desktop Entry]
 Name=COSMIC Terminal
+Name[ar]=طرفية COSMIC
 Name[zh_CN]=COSMIC 终端
 Name[pl]=Terminal COSMIC
 Name[pt_BR]=Terminal
@@ -8,6 +9,7 @@ Name[hu]=COSMIC Terminál
 Name[pt]=Terminal
 Name[sk]=Terminál COSMIC
 Comment=Terminal emulator for the COSMIC desktop
+Comment[ar]=محاكي طرفي لسطح مكتب COSMIC
 Comment[sk]=Emulátor terminálu pre pracovné prostredie COSMIC
 Exec=cosmic-term
 Terminal=false
