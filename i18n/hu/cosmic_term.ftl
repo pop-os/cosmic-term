@@ -4,7 +4,8 @@ new-terminal = Új terminál
 # Context Pages
 
 ## About
-git-description = Git commit {$hash} ekkor: {$date}
+repository = Tároló
+support = Támogatás
 
 ## Color schemes
 color-schemes = Színsémák
@@ -19,10 +20,10 @@ profiles = Profilok
 name = Név
 command-line = Parancssor
 tab-title = Lap címe
-tab-title-description = Alapértelmezett lap cím felülírása
+tab-title-description = Alapértelmezett lapcím felülírása
 add-profile = Profil hozzáadása
 new-profile = Új profil
-make-default = Legyen alapértelmezett
+make-default = Beállítás alapértelmezettként
 working-directory = Munkakönyvtár
 hold = Maradjon nyitva
 remain-open = Maradjon nyitva a gyermekfolyamat kilépése után.
