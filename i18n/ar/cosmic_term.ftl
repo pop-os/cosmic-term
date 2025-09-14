@@ -34,9 +34,9 @@ settings = الإعدادات
 ### Appearance
 appearance = المظهر
 theme = السمة
-match-desktop = مطابقة سطح المكتب
-dark = داكن
-light = فاتح
+match-desktop = طابق سطح المكتب
+dark = داكنة
+light = فاتحة
 syntax-dark = صياغة السمة الداكنة
 syntax-light = صياغة السمة الفاتحة
 default-zoom-step = خطوات التكبير
