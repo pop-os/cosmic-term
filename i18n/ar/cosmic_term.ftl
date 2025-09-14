@@ -1,10 +1,11 @@
-cosmic-terminal = طرفية كوزميك
+cosmic-terminal = طرفية COSMIC
 new-terminal = طرفية جديدة
 
 # Context Pages
 
 ## About
-git-description = إيداع جِت {$hash} بتاريخ {$date}
+repository = المستودع
+support = الدعم
 
 ## Color schemes
 color-schemes = مخططات الألوان
@@ -15,17 +16,17 @@ import = استورِد
 import-errors = تعذَّر الاستيراد
 
 ## Profiles
-profiles = اللاحات
+profiles = ملفات التعريف
 name = الاسم
 command-line = سطر الأوامر
 tab-title = عنوان اللسان
 tab-title-description = يتجاوز عنوان اللسان المبدئي
-add-profile = أضِف لاحة
-new-profile = لاحة جديدة
+add-profile = أضِف ملف تعريف
+new-profile = ملف تعريف جديد
 make-default = اجعله المبدئي
 working-directory = دليل العمل
 hold = التعليق
-remain-open = إبقائه مفتوحُا بعد مغادرة العمليات البنوية.
+remain-open = إبقائه مفتوحًا بعد مغادرة العمليات البنوية.
 
 ## Settings
 settings = الإعدادات
@@ -72,18 +73,18 @@ find-next = اعثر التالي
 file = ملف
 new-tab = لسان جديد
 new-window = نافذة جديدة
-profile = اللاحة
-menu-profiles = اللاحات...
+profile = ملف التعريف
+menu-profiles = ملفات التعريف...
 close-tab = أغلِق اللسان
 quit = غادِر
 
 ## Edit
-edit = تعديل
+edit = عدِّل
 copy = انسِخ
 paste = ألصِق
 select-all = حدِّد الكل
 find = اعثر
-clear-scrollback = امحِ التمرير الخلفي
+clear-scrollback = امحُ التمرير الخلفي
 
 ## View
 view = عرض
@@ -97,4 +98,4 @@ split-vertical = اقسِم عموديًا
 pane-toggle-maximize = بدِّل التكبير
 menu-color-schemes = مخططات الألوان...
 menu-settings = الإعدادات...
-menu-about = عَنْ طرفية كوزميك...
+menu-about = عَنْ طرفية COSMIC...
