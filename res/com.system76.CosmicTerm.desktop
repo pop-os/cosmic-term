@@ -11,6 +11,7 @@ Name[sk]=Terminál COSMIC
 Comment=Terminal emulator for the COSMIC desktop
 Comment[ar]=محاكي طرفي لسطح مكتب COSMIC
 Comment[sk]=Emulátor terminálu pre pracovné prostredie COSMIC
+Comment[hu]=Terminálemulátor a COSMIC asztali környezethez
 Exec=cosmic-term
 Terminal=false
 Type=Application
