@@ -26,8 +26,7 @@ i18n-embed = { version = "0.16", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.10"
-icu_collator = "1.5"
-icu_provider = { version = "1.5", features = ["sync"] }
+icu = { version = "2.0.0", features = ["compiled_data"] }
 rust-embed = "8"
 url = "2.5"
 

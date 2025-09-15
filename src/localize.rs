@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{str::FromStr, sync::LazyLock};
-
 use i18n_embed::{
     DefaultLocalizer, LanguageLoader, Localizer,
     fluent::{FluentLanguageLoader, fluent_language_loader},
 };
-use icu_collator::{Collator, CollatorOptions, Numeric};
-use icu_provider::DataLocale;
+use icu::collator::{
+    Collator, CollatorBorrowed, CollatorPreferences, options::CollatorOptions,
+    preferences::CollationNumericOrdering,
+};
+use icu::locale::Locale;
 use rust_embed::RustEmbed;
+use std::sync::LazyLock;
 
 #[derive(RustEmbed)]
 #[folder = "i18n/"]
@@ -24,19 +26,26 @@ pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     loader
 });
 
-pub static LANGUAGE_SORTER: LazyLock<Collator> = LazyLock::new(|| {
-    let mut options = CollatorOptions::new();
-    options.numeric = Some(Numeric::On);
+pub static LANGUAGE_SORTER: LazyLock<CollatorBorrowed> = LazyLock::new(|| {
+    let create_collator = |locale: Locale| {
+        let mut prefs = CollatorPreferences::from(locale);
+        prefs.numeric_ordering = Some(CollationNumericOrdering::True);
+        Collator::try_new(prefs, CollatorOptions::default()).ok()
+    };
 
-    DataLocale::from_str(&LANGUAGE_LOADER.current_language().to_string())
-            .or_else(|_| DataLocale::from_str(&LANGUAGE_LOADER.fallback_language().to_string()))
+    Locale::try_from_str(&LANGUAGE_LOADER.current_language().to_string())
             .ok()
-            .and_then(|locale| Collator::try_new(&locale, options).ok())
+            .and_then(create_collator)
             .or_else(|| {
-                let locale = DataLocale::from_str("en-US").expect("en-US is a valid BCP-47 tag");
-                Collator::try_new(&locale, options).ok()
+                Locale::try_from_str(&LANGUAGE_LOADER.fallback_language().to_string())
+                    .ok()
+                    .and_then(create_collator)
             })
-            .expect("Creating a collator from the system's current language, the fallback language, or American English should succeed")
+            .unwrap_or_else(|| {
+                let locale = Locale::try_from_str("en-US").expect("en-US is a valid BCP-47 tag");
+                create_collator(locale)
+                    .expect("Creating a collator from the system's current language, the fallback language, or American English should succeed")
+            })
 });
 
 #[macro_export]
@@ -60,6 +69,6 @@ pub fn localize() {
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
 
     if let Err(error) = localizer.select(&requested_languages) {
-        eprintln!("Error while loading language for App List {error}");
+        eprintln!("Error while loading language for COSMIC Terminal {error}");
     }
 }
