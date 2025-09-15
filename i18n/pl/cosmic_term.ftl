@@ -4,7 +4,8 @@ new-terminal = Nowy terminal
 # Context Pages
 
 ## About
-git-description = Git commit {$hash} z {$date}
+repository = Repozytorium
+support = Wsparcie
 
 ## Color schemes
 color-schemes = Schemat kolorów
