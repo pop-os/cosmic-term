@@ -3,10 +3,13 @@ new-terminal = Nuovo terminale
 
 # Context Pages
 
+
 ## About
-git-description = Git commit {$hash}, data {$date}
+
+git-description = Git commit { $hash }, data { $date }
 
 ## Color schemes
+
 color-schemes = Schema dei colori
 rename = Rinomina
 export = Esporta
@@ -15,6 +18,7 @@ import = Importa
 import-errors = Importa errori
 
 ## Profiles
+
 profiles = Profili
 name = Nome
 command-line = Riga di comando
@@ -28,9 +32,11 @@ hold = Mantieni
 remain-open = Rimani aperto dopo l'uscita del processo figlio.
 
 ## Settings
+
 settings = Impostazioni
 
 ### Appearance
+
 appearance = Aspetto
 theme = Tema
 match-desktop = Combacia col Desktop
@@ -42,6 +48,7 @@ default-zoom-step = Passi ingrandimento
 opacity = Opacità sfondo
 
 ### Font
+
 font = Carattere
 advanced-font-settings = Impostazioni avanzate del carattere
 default-font = Font predefinito
@@ -53,14 +60,15 @@ default-bold-font-weight = Spessore del carattere in grassetto
 use-bright-bold = Rendi il testo in grassetto più luminoso
 
 ### Splits
+
 splits = Suddivisioni
 focus-follow-mouse = Il focus di scrittura segue il mouse
 
 ### Advanced
+
 advanced = Avanzate
 show-headerbar = Mostra intestazione
 show-header-description = Mostra intestazione dal menu click destro.
-
 # Find
 find-placeholder = Trova...
 find-previous = Trova precendente
@@ -68,7 +76,9 @@ find-next = Trova successivo
 
 # Menu
 
+
 ## File
+
 file = File
 new-tab = Nuova scheda
 new-window = Nuova finestra
@@ -78,6 +88,7 @@ close-tab = Chiudi scheda
 quit = Esci
 
 ## Edit
+
 edit = Modifica
 copy = Copia
 paste = Incolla
@@ -86,6 +97,7 @@ find = Trova
 clear-scrollback = Cancella lo scrollback
 
 ## View
+
 view = Visualizza
 zoom-in = Ingrandisci testo
 zoom-reset = Dimensioni testo predefinite
@@ -98,3 +110,4 @@ pane-toggle-maximize = Abilita o disabilita schermo intero
 menu-color-schemes = Schemi di colore...
 menu-settings = Impostazioni...
 menu-about = Informazioni su COSMIC Terminal...
+support = Supporto
