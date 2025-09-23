@@ -98,9 +98,9 @@ find = Sök
 ## Visa
 
 view = Visa
-zoom-in = Zooma in
+zoom-in = Större text
 zoom-reset = Återställ zoom
-zoom-out = Zooma ut
+zoom-out = Mindre text
 next-tab = Nästa flik
 previous-tab = Föregående flik
 split-horizontal = Dela horisontellt
@@ -110,5 +110,5 @@ clear-scrollback = Rensa tillbakarullning
 menu-color-schemes = Färgscheman…
 menu-settings = Inställningar…
 menu-about = Om COSMIC Terminal…
-repository = Arkiv
+repository = Källkod
 support = Support

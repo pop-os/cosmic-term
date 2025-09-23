@@ -3,10 +3,13 @@ new-terminal = Nový terminál
 
 # Kontextové stránky
 
+
 ## O aplikácii
-git-description = Git commit {$hash} dňa {$date}
+
+git-description = Git commit { $hash } dňa { $date }
 
 ## Farebné schémy
+
 color-schemes = Farebné schémy
 rename = Premenovať
 export = Exportovať
@@ -15,6 +18,7 @@ import = Importovať
 import-errors = Chyby importu
 
 ## Profily
+
 profiles = Profily
 name = Názov
 command-line = Príkazový riadok
@@ -28,9 +32,11 @@ hold = Podržať
 remain-open = Zostať otvorené po ukončení podriadeného procesu.
 
 ## Nastavenia
+
 settings = Nastavenia
 
 ### Vzhľad
+
 appearance = Vzhľad
 theme = Téma
 match-desktop = Podľa systému
@@ -42,6 +48,7 @@ default-zoom-step = Kroky priblíženia
 opacity = Priehľadnosť pozadia
 
 ### Písmo
+
 font = Písmo
 advanced-font-settings = Pokročilé nastavenia písma
 default-font = Písmo
@@ -53,14 +60,15 @@ default-bold-font-weight = Tučná hrúbka písma
 use-bright-bold = Zvýrazniť tučný text
 
 ### Rozdelenia
+
 splits = Rozdelenia
 focus-follow-mouse = Zameranie písania sleduje myš
 
 ### Pokročilé
+
 advanced = Pokročilé
 show-headerbar = Zobraziť hlavičku
 show-header-description = Zobraziť hlavičku cez kontextové menu.
-
 # Hľadať
 find-placeholder = Hľadať...
 find-previous = Predchádzajúce
@@ -68,7 +76,9 @@ find-next = Ďalšie
 
 # Menu
 
+
 ## Súbor
+
 file = Súbor
 new-tab = Nová karta
 new-window = Nové okno
@@ -78,6 +88,7 @@ close-tab = Zavrieť kartu
 quit = Ukončiť
 
 ## Upraviť
+
 edit = Upraviť
 copy = Kopírovať
 paste = Prilepiť
@@ -86,6 +97,7 @@ find = Hľadať
 clear-scrollback = Vymazať históriu
 
 ## Zobraziť
+
 view = Zobraziť
 zoom-in = Väčší text
 zoom-reset = Predvolená veľkosť textu
@@ -98,3 +110,5 @@ pane-toggle-maximize = Prepnúť maximalizáciu
 menu-color-schemes = Farebné schémy...
 menu-settings = Nastavenia...
 menu-about = O Termináli COSMIC...
+repository = Repozitár
+support = Podpora
