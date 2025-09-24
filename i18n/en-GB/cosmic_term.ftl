@@ -3,10 +3,13 @@ new-terminal = New terminal
 
 # Context Pages
 
+
 ## About
-git-description = Git commit {$hash} on {$date}
+
+git-description = Git commit { $hash } on { $date }
 
 ## Colour schemes
+
 color-schemes = Colour schemes
 rename = Rename
 export = Export
@@ -15,6 +18,7 @@ import = Import
 import-errors = Import errors
 
 ## Profiles
+
 profiles = Profiles
 name = Name
 command-line = Command line
@@ -28,9 +32,11 @@ hold = Hold
 remain-open = Remain open after child process exits.
 
 ## Settings
+
 settings = Settings
 
 ### Appearance
+
 appearance = Appearance
 theme = Theme
 match-desktop = Match desktop
@@ -42,6 +48,7 @@ default-zoom-step = Zoom steps
 opacity = Background opacity
 
 ### Font
+
 font = Font
 advanced-font-settings = Advanced font settings
 default-font = Font
@@ -53,14 +60,15 @@ default-bold-font-weight = Bold font weight
 use-bright-bold = Make bold text brighter
 
 ### Splits
+
 splits = Splits
 focus-follow-mouse = Typing focus follows mouse
 
 ### Advanced
+
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
-
 # Find
 find-placeholder = Find...
 find-previous = Find previous
@@ -68,7 +76,9 @@ find-next = Find next
 
 # Menu
 
+
 ## File
+
 file = File
 new-tab = New tab
 new-window = New window
@@ -78,6 +88,7 @@ close-tab = Close tab
 quit = Quit
 
 ## Edit
+
 edit = Edit
 copy = Copy
 paste = Paste
@@ -86,6 +97,7 @@ find = Find
 clear-scrollback = Clear scrollback
 
 ## View
+
 view = View
 zoom-in = Larger text
 zoom-reset = Default text size
@@ -98,3 +110,5 @@ pane-toggle-maximize = Toggle maximized
 menu-color-schemes = Colour schemes...
 menu-settings = Settings...
 menu-about = About COSMIC Terminal...
+repository = Repository
+support = Support
