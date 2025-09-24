@@ -39,22 +39,22 @@ settings = Impostazioni
 
 appearance = Aspetto
 theme = Tema
-match-desktop = Combacia col Desktop
+match-desktop = Sistema
 dark = Scuro
 light = Chiaro
 syntax-dark = Schema colori scuro
 syntax-light = Schema colori chiaro
-default-zoom-step = Passi ingrandimento
+default-zoom-step = Livello zoom
 opacity = Opacità sfondo
 
 ### Font
 
 font = Carattere
 advanced-font-settings = Impostazioni avanzate del carattere
-default-font = Font predefinito
-default-font-size = Dimensione predefinita del carattere
-default-font-stretch = Espansione predefinita del carattere
-default-font-weight = Spessore predefinito del carattere
+default-font = Carattere
+default-font-size = Dimensione del carattere
+default-font-stretch = Espansione del carattere
+default-font-weight = Spessore del carattere predefinito
 default-dim-font-weight = Spessore del carattere attenuato
 default-bold-font-weight = Spessore del carattere in grassetto
 use-bright-bold = Rendi il testo in grassetto più luminoso
@@ -71,7 +71,7 @@ show-headerbar = Mostra intestazione
 show-header-description = Mostra intestazione dal menu click destro.
 # Find
 find-placeholder = Trova...
-find-previous = Trova precendente
+find-previous = Trova precedente
 find-next = Trova successivo
 
 # Menu
@@ -100,7 +100,7 @@ clear-scrollback = Cancella lo scrollback
 
 view = Visualizza
 zoom-in = Ingrandisci testo
-zoom-reset = Dimensioni testo predefinite
+zoom-reset = Dimensione testo predefinita
 zoom-out = Rimpicciolisci testo
 next-tab = Scheda successiva
 previous-tab = Scheda precedente
