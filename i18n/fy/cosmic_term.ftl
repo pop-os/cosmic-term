@@ -1,0 +1,2 @@
+support = Stipe
+repository = Argyf
