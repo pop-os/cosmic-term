@@ -21,7 +21,7 @@ import-errors = Importfouten
 
 profiles = Profielen
 name = Naam
-command-line = Commandoregel
+command-line = Opdrachtregel
 tab-title = Tabbladtitel
 tab-title-description = De standaard tabbladtitel overschrijven
 add-profile = Profiel toevoegen
@@ -29,7 +29,7 @@ new-profile = Nieuw profiel
 make-default = Als standaard instellen
 working-directory = Werkmap
 hold = Behouden
-remain-open = Dit venster openhouden nadat het kind-proces eindigt.
+remain-open = Dit venster openhouden nadat het onderliggende proces is beëindigd.
 
 ## Settings
 
@@ -111,3 +111,4 @@ menu-color-schemes = Kleurenpaletten...
 menu-settings = Instellingen...
 menu-about = Over COSMIC Terminal
 support = Ondersteuning
+repository = Archief
