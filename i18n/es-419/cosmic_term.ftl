@@ -44,7 +44,7 @@ dark = Oscuro
 light = Claro
 syntax-dark = Esquema de color oscuro
 syntax-light = Esquema de color claro
-default-zoom-step = Escalas de zum
+default-zoom-step = Granularidad de ampliación
 opacity = Opacidad de fondo
 
 ### Font
@@ -85,7 +85,7 @@ new-window = Nueva ventana
 profile = Perfil
 menu-profiles = Perfiles...
 close-tab = Cerrar ventana
-quit = Cerrar
+quit = Salir
 
 ## Edit
 
