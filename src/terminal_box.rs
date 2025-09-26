@@ -1092,16 +1092,19 @@ where
 
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
-                        if let Some(match_) = terminal
-                            .regex_matches
-                            .iter()
-                            .find(|bounds| bounds.contains(&location))
-                        {
-                            let term = terminal.term.lock();
-                            let hyperlink = term.bounds_to_string(*match_.start(), *match_.end());
-                            shell.publish(on_open_hyperlink(hyperlink));
-                            status = Status::Captured;
+                    if state.modifiers.control() {
+                        if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
+                            if let Some(match_) = terminal
+                                .regex_matches
+                                .iter()
+                                .find(|bounds| bounds.contains(&location))
+                            {
+                                let term = terminal.term.lock();
+                                let hyperlink =
+                                    term.bounds_to_string(*match_.start(), *match_.end());
+                                shell.publish(on_open_hyperlink(hyperlink));
+                                status = Status::Captured;
+                            }
                         }
                     }
 
