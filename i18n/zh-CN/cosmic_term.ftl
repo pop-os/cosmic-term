@@ -29,7 +29,7 @@ new-profile = 新建配置文件
 make-default = 设为默认配置
 working-directory = 工作目录
 hold = 保留
-remain-open = 子进程结束后保持打开
+remain-open = 子进程结束后保持开启
 
 ## Settings
 
@@ -39,10 +39,10 @@ settings = 设置
 
 appearance = 外观
 theme = 主题
-match-desktop = 与桌面保持一致
-dark = 深色
-light = 亮色
-syntax-dark = 深色模式
+match-desktop = 匹配桌面
+dark = 暗色模式
+light = 亮色模式
+syntax-dark = 暗色模式
 syntax-light = 亮色模式
 default-zoom-step = 缩放步长
 opacity = 背景不透明度
@@ -68,11 +68,11 @@ focus-follow-mouse = 聚焦窗口跟随鼠标
 
 advanced = 高级
 show-headerbar = 显示标题栏
-show-header-description = 从右键菜单显示标题栏
+show-header-description = 右键菜单显示标题栏
 # Find
 find-placeholder = 查找...
 find-previous = 上一个
-find-next = 下一个
+find-next = 查找下一个
 
 # Menu
 

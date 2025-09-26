@@ -1,5 +1,5 @@
 cosmic-terminal = COSMIC Terminal
-new-terminal = Nieuw terminalvenster
+new-terminal = Nieuwe terminal
 
 # Context Pages
 
@@ -10,18 +10,18 @@ git-description = Git commit { $hash } op { $date }
 
 ## Color schemes
 
-color-schemes = Kleurenpaletten
-rename = Hernoemen
-export = Exporteren
-delete = Verwijderen
-import = Importeren
+color-schemes = Kleurenschema's
+rename = Hernoem
+export = Exporteer
+delete = Verwijder
+import = Importeer
 import-errors = Importfouten
 
 ## Profiles
 
 profiles = Profielen
 name = Naam
-command-line = Commandoregel
+command-line = Opdrachtregel
 tab-title = Tabbladtitel
 tab-title-description = De standaard tabbladtitel overschrijven
 add-profile = Profiel toevoegen
@@ -29,7 +29,7 @@ new-profile = Nieuw profiel
 make-default = Als standaard instellen
 working-directory = Werkmap
 hold = Behouden
-remain-open = Dit venster openhouden nadat het kind-proces eindigt.
+remain-open = Dit venster openhouden nadat het onderliggende proces is beëindigd.
 
 ## Settings
 
@@ -85,7 +85,7 @@ new-window = Nieuw venster
 profile = Profiel
 menu-profiles = Profielen...
 close-tab = Tabblad sluiten
-quit = Sluiten
+quit = Sluit
 
 ## Edit
 
@@ -109,5 +109,6 @@ split-vertical = Verticaal splitsen
 pane-toggle-maximize = Naar volledig scherm omschakelen
 menu-color-schemes = Kleurenpaletten...
 menu-settings = Instellingen...
-menu-about = Over COSMIC Terminal
+menu-about = Over COSMIC Terminal…
 support = Ondersteuning
+repository = Archief

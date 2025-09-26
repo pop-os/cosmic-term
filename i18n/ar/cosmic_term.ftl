@@ -51,7 +51,7 @@ opacity = عتمة الخلفية
 ### Font
 
 font = الخط
-advanced-font-settings = إعدادات الخط المتقدمة
+advanced-font-settings = إعدادات الخط المتقدّمة
 default-font = الخط
 default-font-size = حجم الخط
 default-font-stretch = تمدد الخط
