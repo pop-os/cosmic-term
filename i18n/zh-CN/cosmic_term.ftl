@@ -29,7 +29,7 @@ new-profile = 新建配置文件
 make-default = 设为默认配置
 working-directory = 工作目录
 hold = 保留
-remain-open = 子进程结束后保持开启
+remain-open = 子进程结束后保持开启。
 
 ## Settings
 
@@ -68,7 +68,7 @@ focus-follow-mouse = 聚焦窗口跟随鼠标
 
 advanced = 高级
 show-headerbar = 显示标题栏
-show-header-description = 右键菜单显示标题栏
+show-header-description = 右键菜单显示标题栏。
 # Find
 find-placeholder = 查找...
 find-previous = 上一个
