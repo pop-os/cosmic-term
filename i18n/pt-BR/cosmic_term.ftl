@@ -3,11 +3,14 @@ new-terminal = Novo terminal
 
 # Context Pages
 
+
 ## About
+
 repository = Repositório
 support = Suporte
 
 ## Color schemes
+
 color-schemes = Esquemas de cores
 rename = Renomear
 export = Exportar
@@ -16,6 +19,7 @@ import = Importar
 import-errors = Erros de Importação
 
 ## Profiles
+
 profiles = Perfis
 name = Nome
 command-line = Linha de comando
@@ -29,9 +33,11 @@ hold = Manter
 remain-open = Continuar aberto depois que o processo secundário terminar.
 
 ## Settings
+
 settings = Configurações
 
 ### Appearance
+
 appearance = Aparência
 theme = Tema
 match-desktop = Estilo do sistema
@@ -43,6 +49,7 @@ default-zoom-step = Incremento de zoom
 opacity = Opacidade do fundo
 
 ### Font
+
 font = Fonte
 advanced-font-settings = Configurações avançadas de fonte
 default-font = Fonte
@@ -54,22 +61,25 @@ default-bold-font-weight = Peso da fonte em negrito
 use-bright-bold = Usar negrito brilhante
 
 ### Splits
+
 splits = Divisões
 focus-follow-mouse = Foco de digitação segue o mouse
 
 ### Advanced
+
 advanced = Avançado
 show-headerbar = Mostrar a barra de título
-show-header-description = Mostrar a barra de título da janela no menu de contexto
-
+show-header-description = Mostrar a barra de título da janela no menu de contexto.
 # Find
 find-placeholder = Localizar...
 find-previous = Localizar anterior
-find-next = Localizar próximo
+find-next = Localizar o próximo
 
 # Menu
 
+
 ## File
+
 file = Arquivo
 new-tab = Nova aba
 new-window = Nova janela
@@ -79,6 +89,7 @@ close-tab = Fechar aba
 quit = Sair
 
 ## Edit
+
 edit = Editar
 copy = Copiar
 paste = Colar
@@ -87,6 +98,7 @@ find = Localizar
 clear-scrollback = Limpar scrollback
 
 ## View
+
 view = Exibir
 zoom-in = Aumentar texto
 zoom-reset = Redefinir zoom

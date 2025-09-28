@@ -42,8 +42,8 @@ theme = Téama
 match-desktop = Meaitseáil deasc
 dark = Dorcha
 light = Solas
-syntax-dark = Scéim Dathanna Dorcha
-syntax-light = Scéim Dathanna Solas
+syntax-dark = Scéim dathanna dorcha
+syntax-light = Scéim dathanna solas
 default-zoom-step = Céimeanna súmála
 opacity = Teimhneacht cúlra
 
