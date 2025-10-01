@@ -61,7 +61,7 @@ use-bright-bold = Hacer el texto en negrita más brillante
 
 ### Splits
 
-splits = Paneles
+splits = Divisiones
 focus-follow-mouse = El enfoque de escritura sigue al mouse
 
 ### Advanced
@@ -85,7 +85,7 @@ new-window = Nueva ventana
 profile = Perfil
 menu-profiles = Perfiles...
 close-tab = Cerrar ventana
-quit = Salir
+quit = Cerrar
 
 ## Edit
 

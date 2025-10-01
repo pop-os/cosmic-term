@@ -43,3 +43,7 @@ repository = Tarkvarahoidla
 find-placeholder = Otsi...
 view = Vaata
 menu-settings = Seadistused...
+syntax-dark = Tume värvide palett
+syntax-light = Hele värvide palett
+find-previous = Otsi järgmist
+find-next = Otsi eelmist
