@@ -1,7 +1,7 @@
 settings = Nastavení
 appearance = Vzhled
 theme = Téma
-match-desktop = Dle systému
+match-desktop = Podle systému
 dark = Tmavé
 light = Světlé
 file = Soubor

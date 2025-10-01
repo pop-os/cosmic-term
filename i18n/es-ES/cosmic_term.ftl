@@ -3,10 +3,13 @@ new-terminal = Nuevo terminal
 
 # Context Pages
 
+
 ## About
-git-description = Commit de Git {$hash} el {$date}
+
+git-description = Commit de Git { $hash } el { $date }
 
 ## Color schemes
+
 color-schemes = Esquemas de color
 rename = Renombrar
 export = Exportar
@@ -15,6 +18,7 @@ import = Importar
 import-errors = Errores de importación
 
 ## Profiles
+
 profiles = Perfiles
 name = Nombre
 command-line = Línea de comando
@@ -28,9 +32,11 @@ hold = Mantener
 remain-open = Permanecer abierta después de que el proceso secundario termine.
 
 ## Settings
+
 settings = Ajustes
 
 ### Appearance
+
 appearance = Apariencia
 theme = Tema
 match-desktop = Automático
@@ -42,6 +48,7 @@ default-zoom-step = Escalas de zoom
 opacity = Opacidad de fondo
 
 ### Font
+
 font = Fuente
 advanced-font-settings = Ajustes avanzados de fuente
 default-font = Fuente
@@ -53,14 +60,15 @@ default-bold-font-weight = Peso de fuente en negritas
 use-bright-bold = Mostrar negritas en colores claros
 
 ### Splits
-splits = Splits
+
+splits = Divisiones
 focus-follow-mouse = Enfoque del tecleo sigue el ratón
 
 ### Advanced
+
 advanced = Avanzado
 show-headerbar = Mostrar encabezado
 show-header-description = Mostrar encabezado desde el menú del clic secundario.
-
 # Find
 find-placeholder = Buscar...
 find-previous = Buscar previo
@@ -68,7 +76,9 @@ find-next = Buscar siguiente
 
 # Menu
 
+
 ## File
+
 file = Archivo
 new-tab = Nueva pestaña
 new-window = Nueva ventana
@@ -78,6 +88,7 @@ close-tab = Cerrar pestaña
 quit = Salir
 
 ## Edit
+
 edit = Editar
 copy = Copiar
 paste = Pegar
@@ -85,6 +96,7 @@ select-all = Seleccionar todo
 find = Buscar
 
 ## View
+
 view = Vista
 zoom-in = Texto más grande
 zoom-reset = Tamaño de fuente por defecto

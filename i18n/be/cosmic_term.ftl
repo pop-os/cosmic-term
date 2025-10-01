@@ -3,10 +3,13 @@ new-terminal = Новы тэрмінал
 
 # Context Pages
 
+
 ## About
-git-description = Git каміт {$hash} ад {$date}
+
+git-description = Git каміт { $hash } ад { $date }
 
 ## Color schemes
+
 color-schemes = Колеравыя схемы
 rename = Перайменаваць
 export = Экспартаваць
@@ -15,6 +18,7 @@ import = Імпартаваць
 import-errors = Памылкі імпарту
 
 ## Profiles
+
 profiles = Профілі
 name = Назва
 command-line = Камандны радок
@@ -28,9 +32,11 @@ hold = Утрымліваць
 remain-open = Захоўваць адкрытым пасля завяршэння даччыных працэсаў.
 
 ## Settings
+
 settings = Налады
 
 ### Appearance
+
 appearance = Выгляд
 theme = Тэма
 match-desktop = Як у сістэме
@@ -42,6 +48,7 @@ default-zoom-step = Крок маштабавання
 opacity = Непразрыстаць фону
 
 ### Font
+
 font = Шрыфт
 advanced-font-settings = Пашыраныя налады шрыфту
 default-font = Шрыфт
@@ -53,14 +60,15 @@ default-bold-font-weight = Вага тоўстага шрыфту
 use-bright-bold = Зрабіць тоўсты штрыфт больш яркім
 
 ### Splits
+
 splits = Падзяленні
 focus-follow-mouse = Фокус уводу ідзе за мышкай
 
 ### Advanced
+
 advanced = Пашыраныя
 show-headerbar = Паказваць загаловак
 show-header-description = Паказаць загаловак на націску правай кнопкі мышы.
-
 # Find
 find-placeholder = Знайсці...
 find-previous = Знайсці папярэдні
@@ -68,7 +76,9 @@ find-next = Знайсці наступны
 
 # Menu
 
+
 ## File
+
 file = Файл
 new-tab = Новая ўкладка
 new-window = Новае акно
@@ -78,6 +88,7 @@ close-tab = Закрыць укладку
 quit = Выйсці
 
 ## Edit
+
 edit = Рэдагаваць
 copy = Скапіяваць
 paste = Уставіць
@@ -85,6 +96,7 @@ select-all = Вылучыць усё
 find = Знайсці
 
 ## View
+
 view = Выгляд
 zoom-in = Большы тэкст
 zoom-reset = Прадв. памер тэксту
@@ -97,3 +109,5 @@ pane-toggle-maximize = Пераключыць разгорнутасць
 menu-color-schemes = Колеравыя схемы...
 menu-settings = Налады...
 menu-about = Пра Тэрмінал COSMIC...
+repository = Рэпазіторый
+support = Падтрымка
