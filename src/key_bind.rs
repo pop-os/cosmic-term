@@ -45,6 +45,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
         Key::Character("X".into()),
         PaneToggleMaximized
     );
+    #[cfg(feature = "password_manager")]
     bind!([Ctrl, Alt], Key::Character("p".into()), PasswordManager);
 
     // Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs

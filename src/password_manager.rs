@@ -1,6 +1,23 @@
-use cosmic::{Element, Task, iced::Length, widget};
+use cosmic::{
+    Element, Task,
+    iced::Length,
+    widget::{self, pane_grid},
+};
 
 use crate::{Message, fl};
+
+#[derive(Clone, Debug)]
+pub enum PasswordManagerMessage {
+    Error(String),
+    PasswordFetch(String),
+    Password(secstr::SecUtf8, pane_grid::Pane),
+    PasswordAdd,
+    PasswordDelete(String),
+    PasswordDescriptionSubmit(String),
+    PasswordListRefresh(),
+    PasswordListRefreshed(Vec<String>),
+    PasswordValueSubmit(String),
+}
 
 pub struct PasswordManager {
     pub input_description: String,
@@ -33,10 +50,12 @@ impl PasswordManager {
         if let Some(pane) = self.pane {
             cosmic::task::future(async move {
                 match store::get_password(identifier.clone()).await {
-                    Ok(password) => Message::Password(password, pane),
-                    Err(err) => {
-                        Message::Error(format!("Failed to fetch password {identifier}: {err}"))
+                    Ok(password) => {
+                        Message::PasswordManager(PasswordManagerMessage::Password(password, pane))
                     }
+                    Err(err) => Message::PasswordManager(PasswordManagerMessage::Error(format!(
+                        "Failed to fetch password {identifier}: {err}"
+                    ))),
                 }
             })
         } else {
@@ -48,8 +67,12 @@ impl PasswordManager {
     pub fn refresh_password_list(&self) -> Task<cosmic::Action<Message>> {
         cosmic::task::future(async {
             match store::fetch_password_list().await {
-                Ok(list) => Message::PasswordListRefreshed(list),
-                Err(err) => Message::Error(format!("Failed to fetch password list: {err}")),
+                Ok(list) => {
+                    Message::PasswordManager(PasswordManagerMessage::PasswordListRefreshed(list))
+                }
+                Err(err) => Message::PasswordManager(PasswordManagerMessage::Error(format!(
+                    "Failed to fetch password list: {err}"
+                ))),
             }
         })
     }
@@ -57,11 +80,17 @@ impl PasswordManager {
     pub fn delete_password(&mut self, identifier: String) -> Task<cosmic::Action<Message>> {
         cosmic::task::future(async move {
             if let Err(err) = store::delete_password(identifier.clone()).await {
-                return Message::Error(format!("Failed to delete password {identifier}: {err}"));
+                return Message::PasswordManager(PasswordManagerMessage::Error(format!(
+                    "Failed to delete password {identifier}: {err}"
+                )));
             }
             match store::fetch_password_list().await {
-                Ok(list) => Message::PasswordListRefreshed(list),
-                Err(err) => Message::Error(format!("Failed to fetch password list: {err}")),
+                Ok(list) => {
+                    Message::PasswordManager(PasswordManagerMessage::PasswordListRefreshed(list))
+                }
+                Err(err) => Message::PasswordManager(PasswordManagerMessage::Error(format!(
+                    "Failed to fetch password list: {err}"
+                ))),
             }
         })
     }
@@ -73,9 +102,11 @@ impl PasswordManager {
         self.input_password.clear();
         cosmic::task::future(async move {
             if let Err(err) = store::add_password(identifier.clone(), password.clone()).await {
-                Message::Error(format!("Failed to add password {identifier}: {err}"))
+                Message::PasswordManager(PasswordManagerMessage::Error(format!(
+                    "Failed to add password {identifier}: {err}"
+                )))
             } else {
-                Message::PasswordListRefresh()
+                Message::PasswordManager(PasswordManagerMessage::PasswordListRefresh())
             }
         })
     }
@@ -91,12 +122,16 @@ impl PasswordManager {
                     .push(
                         widget::button::text(label.clone())
                             .width(Length::Fixed(280.0))
-                            .on_press(Message::PasswordFetch(label.clone())),
+                            .on_press(Message::PasswordManager(
+                                PasswordManagerMessage::PasswordFetch(label.clone()),
+                            )),
                     )
                     .push(
                         widget::button::text("-")
                             .width(Length::Fixed(40.0))
-                            .on_press(Message::PasswordDelete(label.clone())),
+                            .on_press(Message::PasswordManager(
+                                PasswordManagerMessage::PasswordDelete(label.clone()),
+                            )),
                     ),
             );
         }
@@ -112,13 +147,23 @@ impl PasswordManager {
                     fl!("password-input-description"),
                     &self.input_description,
                 )
-                .on_input(Message::PasswordDescriptionSubmit),
+                .on_input(|description| {
+                    Message::PasswordManager(PasswordManagerMessage::PasswordDescriptionSubmit(
+                        description,
+                    ))
+                }),
             )
             .add(
                 widget::text_input::text_input(fl!("password-input"), &self.input_password)
-                    .on_input(Message::PasswordValueSubmit),
+                    .on_input(|value| {
+                        Message::PasswordManager(PasswordManagerMessage::PasswordValueSubmit(value))
+                    }),
             )
-            .add(widget::button::text("Add").on_press(Message::PasswordAdd));
+            .add(
+                widget::button::text("Add").on_press(Message::PasswordManager(
+                    PasswordManagerMessage::PasswordAdd,
+                )),
+            );
 
         widget::settings::view_column(vec![
             passwords_view.into(),
