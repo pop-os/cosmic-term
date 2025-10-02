@@ -19,12 +19,12 @@ profiles = プロファイル
 name = 名前
 command-line = コマンドライン
 tab-title = タブタイトル
-tab-title-description = デフォルトのタブタイトルを無効にします
+tab-title-description = デフォルトのタブタイトルを上書きする
 add-profile = プロファイルを追加
 new-profile = 新しいプロファイル
 make-default = デフォルトにする
 working-directory = 作業ディレクトリ
-hold = 押さえる
+hold = 固定
 remain-open = 子プロセスが終了しても閉じない
 
 ## Settings
@@ -39,7 +39,7 @@ light = ライト
 syntax-dark = ダークシンタックスハイライト
 syntax-light = ライトシンタックスハイライト
 default-zoom-step = 拡大縮小の間隔
-opacity = 不透明度
+opacity = 透明度
 
 ### Font
 font = フォント
