@@ -6,7 +6,6 @@ new-terminal = Ny terminal
 
 ## Om
 
-git-description = Git commit { $hash } på { $date }
 
 ## Färgscheman
 

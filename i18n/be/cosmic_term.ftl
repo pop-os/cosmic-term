@@ -6,7 +6,6 @@ new-terminal = Новы тэрмінал
 
 ## About
 
-git-description = Git каміт { $hash } ад { $date }
 
 ## Color schemes
 
