@@ -42,7 +42,7 @@ match-desktop = システム設定に従う
 dark = ダーク
 light = ライト
 syntax-dark = ダークシンタックスハイライト
-syntax-light = ライトシンタックスハイライト
+syntax-light = 構文強調 ライト
 default-zoom-step = ズームステップ
 opacity = 透明度
 
@@ -50,7 +50,7 @@ opacity = 透明度
 
 font = フォント
 advanced-font-settings = フォントの詳細設定
-default-font = フォント名
+default-font = フォント
 default-font-size = サイズ
 default-font-stretch = 幅
 default-font-weight = スタイル
@@ -106,7 +106,7 @@ previous-tab = 前のタブ
 split-horizontal = 上下に分割
 split-vertical = 左右に分割
 pane-toggle-maximize = ペインの最大化を切替
-menu-color-schemes = カラースキーム...
+menu-color-schemes = カラースキーム…
 menu-settings = 設定...
 menu-about = COSMIC端末について...
 repository = リポジトリ
