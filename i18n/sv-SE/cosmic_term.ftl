@@ -112,3 +112,11 @@ menu-settings = Inställningar…
 menu-about = Om COSMIC Terminal…
 repository = Källkod
 support = Support
+
+# Lösenordshanterare
+menu-password-manager = Lösenord…
+password-manager = Hantera lösenord
+passwords = Lösenord
+add-password = Lägg till lösenord
+password-input = Lösenord
+password-input-description = Beskrivning
