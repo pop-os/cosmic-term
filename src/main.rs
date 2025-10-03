@@ -1519,6 +1519,7 @@ impl Application for App {
             .version(env!("CARGO_PKG_VERSION"))
             .author("System76")
             .license("GPL-3.0-only")
+            .license_url("https://spdx.org/licenses/GPL-3.0-only")
             .developers([("Jeremy Soller", "jeremy@system76.com")])
             .links([
                 (fl!("repository"), "https://github.com/pop-os/cosmic-term"),
