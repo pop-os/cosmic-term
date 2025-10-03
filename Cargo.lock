@@ -8784,8 +8784,3 @@ dependencies = [
  "syn 2.0.106",
  "winnow 0.7.13",
 ]
-
-[[patch.unused]]
-name = "license"
-version = "3.7.0+3.27.0"
-source = "git+https://github.com/evenorog/license.git#6dac4a556165c96b8e94fefe1a6ad75f45721891"
