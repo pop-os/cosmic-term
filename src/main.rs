@@ -2666,7 +2666,7 @@ impl Application for App {
         Some(match self.context_page {
             ContextPage::About => context_drawer::about(
                 &self.about,
-                Message::LaunchUrl,
+                |s| Message::LaunchUrl(s.to_string()),
                 Message::ToggleContextPage(ContextPage::About),
             ),
             ContextPage::ColorSchemes(color_scheme_kind) => context_drawer::context_drawer(
