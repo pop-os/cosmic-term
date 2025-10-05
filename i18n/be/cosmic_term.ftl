@@ -36,7 +36,7 @@ settings = Налады
 
 ### Appearance
 
-appearance = Выгляд
+appearance = Знешні выгляд
 theme = Тэма
 match-desktop = Як у сістэме
 dark = Цёмная
