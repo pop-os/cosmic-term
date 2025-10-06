@@ -57,3 +57,4 @@ show-headerbar = Näita päist
 show-header-description = Parema hiireklõpsuga näita päist.
 zoom-in = Suurem tekst
 clear-scrollback = Tühjenda tagasikerimispuhver
+default-font-stretch = Kirjatüübi venitamine
