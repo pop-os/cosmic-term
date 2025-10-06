@@ -2749,6 +2749,7 @@ impl Application for App {
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs)
+                    .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar);
 
                 if self.config.focus_follow_mouse {
