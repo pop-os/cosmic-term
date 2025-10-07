@@ -65,6 +65,7 @@ pub struct TerminalBox<'a, Message> {
     on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
+    sharp_corners: bool,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -89,6 +90,7 @@ where
             on_open_hyperlink: None,
             on_window_focused: None,
             on_window_unfocused: None,
+            sharp_corners: false,
         }
     }
 
@@ -142,6 +144,11 @@ where
 
     pub fn opacity(mut self, opacity: f32) -> Self {
         self.opacity = Some(opacity);
+        self
+    }
+
+    pub fn sharp_corners(mut self, sharp_corners: bool) -> Self {
+        self.sharp_corners = sharp_corners;
         self
     }
 
@@ -294,9 +301,12 @@ where
 
         let cosmic_theme = theme.cosmic();
         // matches the corners to the window border
-        let corner_radius = cosmic_theme
-            .radius_s()
-            .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
+        let corner_radius = if self.sharp_corners {
+            cosmic_theme.radius_0()
+        } else {
+            cosmic_theme.radius_s()
+        }
+        .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();

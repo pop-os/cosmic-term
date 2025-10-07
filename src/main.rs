@@ -1519,6 +1519,7 @@ impl Application for App {
             .version(env!("CARGO_PKG_VERSION"))
             .author("System76")
             .license("GPL-3.0-only")
+            .license_url("https://spdx.org/licenses/GPL-3.0-only")
             .developers([("Jeremy Soller", "jeremy@system76.com")])
             .links([
                 (fl!("repository"), "https://github.com/pop-os/cosmic-term"),
@@ -2666,7 +2667,7 @@ impl Application for App {
         Some(match self.context_page {
             ContextPage::About => context_drawer::about(
                 &self.about,
-                Message::LaunchUrl,
+                |s| Message::LaunchUrl(s.to_string()),
                 Message::ToggleContextPage(ContextPage::About),
             ),
             ContextPage::ColorSchemes(color_scheme_kind) => context_drawer::context_drawer(
@@ -2748,6 +2749,7 @@ impl Application for App {
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs)
+                    .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar);
 
                 if self.config.focus_follow_mouse {
