@@ -6,7 +6,6 @@ new-terminal = 新增 終端機
 
 ## About
 
-git-description = Git 提交 { $hash } 於 { $date }
 
 ## Color schemes
 

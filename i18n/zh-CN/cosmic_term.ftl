@@ -6,7 +6,6 @@ new-terminal = 新建终端
 
 ## About
 
-git-description = Git 提交 { $hash } 于 { $date }
 
 ## Color schemes
 

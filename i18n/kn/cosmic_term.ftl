@@ -2,9 +2,10 @@ cosmic-terminal = ಕಾಸ್ಮಿಕ್ ಟರ್ಮಿನಲ್
 new-terminal = ಹೊಸ ಟರ್ಮಿನಲ್
 
 ## About
-git-description = Git commit {$hash} ಆನ್ {$date}
+
 
 ## Color schemes
+
 color-schemes = ಬಣ್ಣದ ಯೋಜನೆಗಳು
 rename = ಮರುಹೆಸರಿಸು
 export = ರಫ್ತು
@@ -13,6 +14,7 @@ import = ಆಮದು
 import-errors = ಆಮದು ದೋಷಗಳು
 
 ## Profiles
+
 profiles = ಪ್ರೊಫೈಲುಗಳು
 name = ಹೆಸರು
 command-line = ಕಮಾಂಡ್ ಲೈನ್
@@ -26,9 +28,11 @@ hold = ಹಿಡಿ
 remain-open = ಶಿಶು ಪ್ರಕ್ರಿಯೆ ನಿರ್ಗಮಿಸಿದ ನಂತರ ತೆರೆಯಿರಿ.
 
 ## Settings
+
 settings = ಸೆಟ್ಟಿಂಗ್ಸ್
 
 ### Appearance
+
 appearance = ನೋಟ
 theme = ಥೀಮ್
 match-desktop = ಡೆಸ್ಕ್‌ಟಾಪ್ ಗೆ ಹೊಂದಿಸಿ
@@ -40,6 +44,7 @@ default-zoom-step = ಜೂಮ್ ಹಂತಗಳು
 opacity = ಹಿನ್ನಲೆ ಪಾರದರ್ಶಕತೆ
 
 ### Font
+
 font = ಫಾಂಟ್
 advanced-font-settings = ಆಧುನಿಕ ಫಾಂಟ್ ಸೆಟ್ಟಿಂಗ್ಸ್
 default-font = ಫಾಂಟ್
@@ -51,14 +56,15 @@ default-bold-font-weight = ಬೋಲ್ಡ್ ಫಾಂಟ್ ತೂಕ
 use-bright-bold = ದಪ್ಪ ಪಠ್ಯವನ್ನು ಪ್ರಕಾಶಮಾನವಾಗಿ ಮಾಡಿ
 
 ### Splits
+
 splits = ವಿಭಜನೆಗಳು
 focus-follow-mouse = ಟೈಪಿಂಗ್ ಫೋಕಸನ್ನು ಅನುಸರಿಸುತ್ತದೆ
 
 ### Advanced
+
 advanced = ಆಧುನಿಕ
 show-headerbar = ಹೆಡರ್ ತೋರಿಸು
 show-header-description = ಹೆಡರ್ ಅನ್ನು ಬಲ ಕ್ಲಿಕ್ ಮೆನುವಿನಿಂದ ಬಹಿರಂಗಗೊಳಿಸಿ.
-
 # Find
 find-placeholder = ಹುಡುಕಿ...
 find-previous = ಹಿಂದಿನ ಹುಡುಕು
@@ -66,7 +72,9 @@ find-next = ಮುಂದಿನ ಹುಡುಕು
 
 ## Menu
 
+
 ### File
+
 file = ಕಡತ
 new-tab = ಹೊಸ ಟ್ಯಾಬ್
 new-window = ಹೊಸ ವಿಂಡೋ
@@ -76,6 +84,7 @@ close-tab = ಟ್ಯಾಬ್ ಮುಚ್ಚು
 quit = ನಿಲ್ಲಿಸು
 
 ### Edit
+
 edit = ಸಂಪಾದನೆ
 copy = ಪ್ರತಿಕ್ರಿಯೆ
 paste = ಅಂಟಿಸು
@@ -84,6 +93,7 @@ find = ಹುಡುಕಿ
 clear-scrollback = ಕ್ಲಿಯರ್ ಸ್ಕ್ರೋಲ್ ಬ್ಯಾಕ್
 
 ### View
+
 view = ವೀಕ್ಷಣೆ
 zoom-in = ದೊಡ್ಡ ಪಠ್ಯ
 zoom-reset = ಡೀಫಾಲ್ಟ್ ಪಠ್ಯ ಗಾತ್ರ

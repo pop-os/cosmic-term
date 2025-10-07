@@ -6,7 +6,6 @@ new-terminal = Yeni uçbirim
 
 ## About
 
-git-description = Git commit { $hash }, { $date }
 
 ## Color schemes
 

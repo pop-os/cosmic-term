@@ -6,7 +6,6 @@ new-terminal = 新しい端末
 
 ## About
 
-git-description = { $date }の{ $hash }というGitコミット
 
 ## Color schemes
 
@@ -29,7 +28,7 @@ new-profile = 新しいプロファイル
 make-default = デフォルトにする
 working-directory = 作業ディレクトリ
 hold = 固定
-remain-open = 子プロセスが終了しても閉じない
+remain-open = 子プロセスが終了しても閉じない。
 
 ## Settings
 
@@ -43,7 +42,7 @@ match-desktop = システム設定に従う
 dark = ダーク
 light = ライト
 syntax-dark = ダークシンタックスハイライト
-syntax-light = ライトシンタックスハイライト
+syntax-light = 構文強調 ライト
 default-zoom-step = ズームステップ
 opacity = 透明度
 
@@ -51,7 +50,7 @@ opacity = 透明度
 
 font = フォント
 advanced-font-settings = フォントの詳細設定
-default-font = フォント名
+default-font = フォント
 default-font-size = サイズ
 default-font-stretch = 幅
 default-font-weight = スタイル
@@ -68,7 +67,7 @@ focus-follow-mouse = フォーカスをマウスに追従
 
 advanced = 高度な設定
 show-headerbar = ヘッダーを表示する
-show-header-description = 右クリックでヘッダーを表示する
+show-header-description = 右クリックでヘッダーを表示する。
 # Find
 find-placeholder = 検索…
 find-previous = 前を検索
@@ -107,7 +106,7 @@ previous-tab = 前のタブ
 split-horizontal = 上下に分割
 split-vertical = 左右に分割
 pane-toggle-maximize = ペインの最大化を切替
-menu-color-schemes = カラースキーム
+menu-color-schemes = カラースキーム…
 menu-settings = 設定...
 menu-about = COSMIC端末について...
 repository = リポジトリ

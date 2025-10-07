@@ -6,7 +6,6 @@ new-terminal = Nieuwe terminal
 
 ## About
 
-git-description = Git commit { $hash } op { $date }
 
 ## Color schemes
 

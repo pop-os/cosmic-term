@@ -6,7 +6,6 @@ new-terminal = Teirminéal nua
 
 ## About
 
-git-description = Git commit { $hash } ar { $date }
 
 ## Color schemes
 

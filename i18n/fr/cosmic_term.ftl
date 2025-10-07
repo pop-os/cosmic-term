@@ -3,10 +3,12 @@ new-terminal = Nouveau terminal
 
 # Context Pages
 
+
 ## About
-git-description = Git commit {$hash} le {$date}
+
 
 ## Color schemes
+
 color-schemes = Palettes de couleurs
 rename = Renommer
 export = Exporter
@@ -15,6 +17,7 @@ import = Importer
 import-errors = Importer erreurs
 
 ## Profiles
+
 profiles = Profils
 name = Nom
 command-line = Ligne de commande
@@ -28,9 +31,11 @@ hold = Maintenir
 remain-open = Rester ouvert après la fermeture du processus enfant.
 
 ## Settings
+
 settings = Paramètres
 
 ### Appearance
+
 appearance = Apparence
 theme = Thème
 match-desktop = Assortir au bureau
@@ -42,6 +47,7 @@ default-zoom-step = Pas du zoom
 opacity = Opacité de l'arrière-plan
 
 ### Font
+
 font = Police
 advanced-font-settings = Paramètres de police avancés
 default-font = Police
@@ -49,18 +55,19 @@ default-font-size = Taille de la police
 default-font-stretch = Étirement de la police
 default-font-weight = Graisse de caractère normale
 default-dim-font-weight = Graisse de caractère légère
-default-bold-font-weight = Graisse de caractère grasse 
+default-bold-font-weight = Graisse de caractère grasse
 use-bright-bold = Rendre le texte en gras plus clair
 
 ### Splits
+
 splits = Divisions
 focus-follow-mouse = Le focus de la saisie suit la souris
 
 ### Advanced
+
 advanced = Avancé
 show-headerbar = Afficher l'en-tête
 show-header-description = Révéler l'en-tête du menu contextuel.
-
 # Find
 find-placeholder = Rechercher...
 find-previous = Chercher précédent
@@ -68,7 +75,9 @@ find-next = Chercher suivant
 
 # Menu
 
+
 ## File
+
 file = Fichier
 new-tab = Nouvel onglet
 new-window = Nouvelle fenêtre
@@ -78,6 +87,7 @@ close-tab = Fermer l'onglet
 quit = Quitter
 
 ## Edit
+
 edit = Modifier
 copy = Copier
 paste = Coller
@@ -86,6 +96,7 @@ find = Rechercher
 clear-scrollback = Effacer le défilement
 
 ## View
+
 view = Affichage
 zoom-in = Texte plus grand
 zoom-reset = Taille de texte par défaut

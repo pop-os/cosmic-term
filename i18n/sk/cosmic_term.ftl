@@ -6,7 +6,6 @@ new-terminal = Nový terminál
 
 ## O aplikácii
 
-git-description = Git commit { $hash } dňa { $date }
 
 ## Farebné schémy
 

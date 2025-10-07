@@ -6,7 +6,6 @@ new-terminal = Новы тэрмінал
 
 ## About
 
-git-description = Git каміт { $hash } ад { $date }
 
 ## Color schemes
 
@@ -37,7 +36,7 @@ settings = Налады
 
 ### Appearance
 
-appearance = Выгляд
+appearance = Знешні выгляд
 theme = Тэма
 match-desktop = Як у сістэме
 dark = Цёмная

@@ -3,7 +3,6 @@ new-terminal = नया टर्मिनल
 
 ## About
 
-git-description = Git commit { $hash } तारीख { $date }
 
 ## Color schemes
 
