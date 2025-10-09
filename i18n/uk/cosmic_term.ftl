@@ -84,7 +84,7 @@ new-window = Нове вікно
 profile = Профіль
 menu-profiles = Профілі...
 close-tab = Закрити вкладку
-quit = Вийти
+quit = Закрити
 
 ## Edit
 
