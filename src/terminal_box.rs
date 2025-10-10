@@ -265,17 +265,19 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
-                let col = x / terminal.size().cell_width;
-                let row = y / terminal.size().cell_height;
+                if state.modifiers.contains(Modifiers::CTRL) {
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
 
-                let location = terminal
-                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                if let Some(_) = terminal
-                    .regex_matches
-                    .iter()
-                    .find(|bounds| bounds.contains(&location))
-                {
-                    return mouse::Interaction::Pointer;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    if terminal
+                        .regex_matches
+                        .iter()
+                        .any(|bounds| bounds.contains(&location))
+                    {
+                        return mouse::Interaction::Pointer;
+                    }
                 }
 
                 return mouse::Interaction::Text;
