@@ -84,7 +84,7 @@ new-window = Нове вікно
 profile = Профіль
 menu-profiles = Профілі...
 close-tab = Закрити вкладку
-quit = Закрити
+quit = Вийти
 
 ## Edit
 
@@ -96,7 +96,7 @@ find = Знайти
 
 ## View
 
-view = Перегляд
+view = Вигляд
 zoom-in = Збільшити текст
 zoom-reset = Типовий розмір тексту
 zoom-out = Зменшити текст

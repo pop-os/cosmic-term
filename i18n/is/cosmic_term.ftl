@@ -50,3 +50,6 @@ paste = Líma
 select-all = Velja allt
 find = Finna
 zoom-in = Stærri texta
+repository = Hugbúnaðarsafn
+view = Skoða
+menu-settings = Stillingar...

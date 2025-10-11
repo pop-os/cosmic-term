@@ -43,7 +43,7 @@ dark = Donker
 light = Licht
 syntax-dark = Donkere syntaxiskleuring
 syntax-light = Lichte syntaxiskleuring
-default-zoom-step = Zoomstappen
+default-zoom-step = Zoomstapgrootte
 opacity = Achtergronddoorzichtigheid
 
 ### Font
@@ -110,4 +110,3 @@ menu-color-schemes = Kleurenpaletten...
 menu-settings = Instellingen...
 menu-about = Over COSMIC Terminal…
 support = Ondersteuning
-repository = Archief

@@ -12,25 +12,25 @@ support = الدعم
 ## Color schemes
 
 color-schemes = مخططات الألوان
-rename = أعِد التسمية
-export = صدِّر
-delete = احذف
-import = استورِد
-import-errors = تعذَّر الاستيراد
+rename = إعادة التسمية
+export = تصدير
+delete = حذف
+import = استيراد
+import-errors = تعذر الاستيراد
 
 ## Profiles
 
 profiles = ملفات التعريف
 name = الاسم
 command-line = سطر الأوامر
-tab-title = عنوان اللسان
-tab-title-description = يتجاوز عنوان اللسان المبدئي
-add-profile = أضِف ملف تعريف
+tab-title = عنوان علامة التبويب
+tab-title-description = تجاوز عنوان علامة التبويب الافتراضي
+add-profile = إضافة ملف تعريف
 new-profile = ملف تعريف جديد
-make-default = اجعله المبدئي
-working-directory = دليل العمل
+make-default = اجعله افتراضيًا
+working-directory = مجلد العمل
 hold = التعليق
-remain-open = إبقائه مفتوحًا بعد مغادرة العمليات البنوية.
+remain-open = البقاء مفتوحًا بعد خروج العملية الفرعية.
 
 ## Settings
 
@@ -39,41 +39,41 @@ settings = الإعدادات
 ### Appearance
 
 appearance = المظهر
-theme = السمة
-match-desktop = طابق سطح المكتب
-dark = داكنة
-light = فاتحة
-syntax-dark = صياغة السمة الداكنة
-syntax-light = صياغة السمة الفاتحة
+theme = الثيم
+match-desktop = مطابقة مع سطح المكتب
+dark = داكن
+light = فاتح
+syntax-dark = مخطط الألوان الداكن
+syntax-light = مخطط الألوان الفاتح
 default-zoom-step = خطوات التكبير
-opacity = عتمة الخلفية
+opacity = شفافية الخلفية
 
 ### Font
 
 font = الخط
-advanced-font-settings = إعدادات الخط المتقدّمة
+advanced-font-settings = إعدادات الخط المتقدمة
 default-font = الخط
 default-font-size = حجم الخط
 default-font-stretch = تمدد الخط
 default-font-weight = وزن الخط العادي
 default-dim-font-weight = وزن الخط الخافت
 default-bold-font-weight = وزن الخط السميك
-use-bright-bold = جعل النص السميك ساطعًا
+use-bright-bold = جعل النصوص السميكة اكثر سطوعاً
 
 ### Splits
 
-splits = الانقسامات
-focus-follow-mouse = تركيز الكتابة يتبع الفأرة
+splits = انقسامات
+focus-follow-mouse = تركيز الكتابة يتبع الماوس
 
 ### Advanced
 
 advanced = متقدم
-show-headerbar = إظهار الترويسة
-show-header-description = يعرض الترويسة من خلال قائمة النقر باليمنى.
+show-headerbar = إظهار العنوان
+show-header-description = إظهار العنوان من قائمة النقر بزر الماوس الأيمن.
 # Find
-find-placeholder = اعثر...
-find-previous = اعثر السابق
-find-next = اعثر التالي
+find-placeholder = ابحث عن...
+find-previous = ابحث عن السابق
+find-next = ابحث عن التالي
 
 # Menu
 
@@ -81,33 +81,33 @@ find-next = اعثر التالي
 ## File
 
 file = ملف
-new-tab = لسان جديد
+new-tab = علامة تبويب جديدة
 new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...
-close-tab = أغلِق اللسان
-quit = غادِر
+close-tab = إغلاق علامة التبويب
+quit = خروج
 
 ## Edit
 
-edit = عدِّل
-copy = انسِخ
-paste = ألصِق
-select-all = حدِّد الكل
-find = اعثر
-clear-scrollback = امحُ التمرير الخلفي
+edit = تعديل
+copy = نسخ
+paste = لصق
+select-all = تحديد الكل
+find = ابحث عن
+clear-scrollback = مسح التمرير الخلفي
 
 ## View
 
 view = عرض
 zoom-in = نص أكبر
-zoom-reset = حجم النص المبدئي
+zoom-reset = حجم النص الافتراضي
 zoom-out = نص أصغر
-next-tab = اللسان التالي
-previous-tab = اللسان السابق
-split-horizontal = اقسم أفقيًا
-split-vertical = اقسِم عموديًا
-pane-toggle-maximize = بدِّل التكبير
+next-tab = علامة التبويب التالية
+previous-tab = علامة التبويب السابقة
+split-horizontal = تقسيم أفقيًا
+split-vertical = تقسيم عموديًا
+pane-toggle-maximize = تفعيل التكبير
 menu-color-schemes = مخططات الألوان...
 menu-settings = الإعدادات...
-menu-about = عَنْ طرفية COSMIC...
+menu-about = حول طرفية COSMIC...

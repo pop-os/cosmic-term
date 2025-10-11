@@ -41,7 +41,7 @@ theme = テーマ
 match-desktop = システム設定に従う
 dark = ダーク
 light = ライト
-syntax-dark = ダークシンタックスハイライト
+syntax-dark = 構文強調 ダーク
 syntax-light = 構文強調 ライト
 default-zoom-step = ズームステップ
 opacity = 透明度
@@ -98,14 +98,14 @@ clear-scrollback = スクロールバックを削除
 ## View
 
 view = 表示
-zoom-in = 拡大
+zoom-in = ズームイン
 zoom-reset = デフォルトに戻す
-zoom-out = 縮小
+zoom-out = ズームアウト
 next-tab = 次のタブ
 previous-tab = 前のタブ
 split-horizontal = 上下に分割
 split-vertical = 左右に分割
-pane-toggle-maximize = ペインの最大化を切替
+pane-toggle-maximize = 最大化を切替
 menu-color-schemes = カラースキーム…
 menu-settings = 設定...
 menu-about = COSMIC端末について...
