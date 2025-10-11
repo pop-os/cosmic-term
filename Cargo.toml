@@ -18,6 +18,7 @@ ron = "0.11"
 serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
 tokio = { version = "1", features = ["sync"] }
+rustix = { version = "1", features = ["process", "termios"] }
 # CLI arguments
 clap_lex = "0.7"
 # Internationalization
