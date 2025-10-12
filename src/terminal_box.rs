@@ -265,17 +265,19 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
-                let col = x / terminal.size().cell_width;
-                let row = y / terminal.size().cell_height;
+                if state.modifiers.contains(Modifiers::CTRL) {
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
 
-                let location = terminal
-                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                if let Some(_) = terminal
-                    .regex_matches
-                    .iter()
-                    .find(|bounds| bounds.contains(&location))
-                {
-                    return mouse::Interaction::Pointer;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    if terminal
+                        .regex_matches
+                        .iter()
+                        .any(|bounds| bounds.contains(&location))
+                    {
+                        return mouse::Interaction::Pointer;
+                    }
                 }
 
                 return mouse::Interaction::Text;
@@ -908,6 +910,25 @@ where
             }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
+
+                if modifiers.contains(Modifiers::CTRL) || terminal.active_regex_match.is_some() {
+                    //Might need to update the url regex highlight,
+                    //so we need to calculate the mouse position
+                    let location = if let Some(p) = cursor_position.position() {
+                        let x = (p.x - layout.bounds().x) - self.padding.left;
+                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+                        Some(terminal.viewport_to_point(TermPoint::new(
+                            row as usize,
+                            TermColumn(col as usize),
+                        )))
+                    } else {
+                        None
+                    };
+                    update_active_regex_match(&mut terminal, location, &state.modifiers);
+                }
             }
             Event::Keyboard(KeyEvent::KeyPressed {
                 text,
@@ -1161,7 +1182,7 @@ where
                     let row = y / terminal.size().cell_height;
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    update_active_regex_match(&mut terminal, location);
+                    update_active_regex_match(&mut terminal, Some(location), &state.modifiers);
 
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
@@ -1262,7 +1283,7 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(&mut terminal, location);
+                        update_active_regex_match(&mut terminal, Some(location), &state.modifiers);
                     }
                 }
             }
@@ -1275,8 +1296,23 @@ where
 
 fn update_active_regex_match(
     terminal: &mut std::sync::MutexGuard<'_, Terminal>,
-    location: TermPoint,
+    location: Option<TermPoint>,
+    modifiers: &Modifiers,
 ) {
+    if !modifiers.contains(Modifiers::CTRL) {
+        if terminal.active_regex_match.is_some() {
+            terminal.active_regex_match = None;
+            terminal.needs_update = true;
+        }
+        return;
+    }
+    let Some(location) = location else {
+        if terminal.active_regex_match.is_some() {
+            terminal.active_regex_match = None;
+            terminal.needs_update = true;
+        }
+        return;
+    };
     if let Some(match_) = terminal
         .regex_matches
         .iter()
