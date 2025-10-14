@@ -70,7 +70,7 @@ pub fn context_menu<'a>(
         .on_press(Message::TabContextAction(entity, action))
     };
 
-    widget::container(column!(
+    let mut content = column!(
         menu_item(fl!("copy"), Action::Copy),
         menu_item(fl!("paste"), Action::Paste),
         menu_item(fl!("select-all"), Action::SelectAll),
@@ -83,31 +83,39 @@ pub fn context_menu<'a>(
         divider::horizontal::light(),
         menu_item(fl!("new-tab"), Action::TabNew),
         menu_item(fl!("menu-settings"), Action::Settings),
-        menu_checkbox(
-            fl!("show-headerbar"),
-            config.show_headerbar,
-            Action::ShowHeaderBar(!config.show_headerbar)
-        ),
-    ))
-    .padding(1)
-    //TODO: move style to libcosmic
-    .style(|theme| {
-        let cosmic = theme.cosmic();
-        let component = &cosmic.background.component;
-        widget::container::Style {
-            icon_color: Some(component.on.into()),
-            text_color: Some(component.on.into()),
-            background: Some(Background::Color(component.base.into())),
-            border: Border {
-                radius: cosmic.radius_s().map(|x| x + 1.0).into(),
-                width: 1.0,
-                color: component.divider.into(),
-            },
-            ..Default::default()
-        }
-    })
-    .width(Length::Fixed(240.0))
-    .into()
+    );
+    #[cfg(feature = "password_manager")]
+    {
+        content = content.push(menu_item(
+            fl!("menu-password-manager"),
+            Action::PasswordManager,
+        ));
+    }
+    content = content.push(menu_checkbox(
+        fl!("show-headerbar"),
+        config.show_headerbar,
+        Action::ShowHeaderBar(!config.show_headerbar),
+    ));
+    widget::container(content)
+        .padding(1)
+        //TODO: move style to libcosmic
+        .style(|theme| {
+            let cosmic = theme.cosmic();
+            let component = &cosmic.background.component;
+            widget::container::Style {
+                icon_color: Some(component.on.into()),
+                text_color: Some(component.on.into()),
+                background: Some(Background::Color(component.base.into())),
+                border: Border {
+                    radius: cosmic.radius_s().map(|x| x + 1.0).into(),
+                    width: 1.0,
+                    color: component.divider.into(),
+                },
+                ..Default::default()
+            }
+        })
+        .width(Length::Fixed(240.0))
+        .into()
 }
 
 pub fn color_scheme_menu<'a>(
@@ -234,6 +242,12 @@ pub fn menu_bar<'a>(
                             Action::ColorSchemes(config.color_scheme_kind()),
                         ),
                         MenuItem::Button(fl!("menu-settings"), None, Action::Settings),
+                        #[cfg(feature = "password_manager")]
+                        MenuItem::Button(
+                            fl!("menu-password-manager"),
+                            None,
+                            Action::PasswordManager,
+                        ),
                         MenuItem::Divider,
                         MenuItem::Button(fl!("menu-about"), None, Action::About),
                     ],
