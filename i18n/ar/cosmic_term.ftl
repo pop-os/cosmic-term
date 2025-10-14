@@ -24,10 +24,10 @@ profiles = ملفات التعريف
 name = الاسم
 command-line = سطر الأوامر
 tab-title = عنوان علامة التبويب
-tab-title-description = تجاوز عنوان علامة التبويب الافتراضي
-add-profile = إضافة ملف تعريف
+tab-title-description = تجاوز عنوان اللسان المبدئي
+add-profile = أضف ملف تعريف
 new-profile = ملف تعريف جديد
-make-default = اجعله افتراضيًا
+make-default = اجعله المبدئي
 working-directory = مجلد العمل
 hold = التعليق
 remain-open = البقاء مفتوحًا بعد خروج العملية الفرعية.
@@ -39,7 +39,7 @@ settings = الإعدادات
 ### Appearance
 
 appearance = المظهر
-theme = الثيم
+theme = سمة
 match-desktop = مطابقة مع سطح المكتب
 dark = داكن
 light = فاتح
@@ -63,7 +63,7 @@ use-bright-bold = جعل النصوص السميكة اكثر سطوعاً
 ### Splits
 
 splits = انقسامات
-focus-follow-mouse = تركيز الكتابة يتبع الماوس
+focus-follow-mouse = تركيز الكتابة يتبع الفأرة
 
 ### Advanced
 
@@ -86,7 +86,7 @@ new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...
 close-tab = إغلاق علامة التبويب
-quit = خروج
+quit = أنهِ
 
 ## Edit
 
@@ -101,7 +101,7 @@ clear-scrollback = مسح التمرير الخلفي
 
 view = عرض
 zoom-in = نص أكبر
-zoom-reset = حجم النص الافتراضي
+zoom-reset = حجم النص المبدئي
 zoom-out = نص أصغر
 next-tab = علامة التبويب التالية
 previous-tab = علامة التبويب السابقة

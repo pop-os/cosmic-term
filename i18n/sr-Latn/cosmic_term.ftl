@@ -40,7 +40,7 @@ dark = Tamna
 light = Svetla
 syntax-dark = Tamna tema sintakse
 syntax-light = Svetla tema sintakse
-default-zoom-step = Podrazumevani korak uvećanja
+default-zoom-step = Stepeni uvećanja
 opacity = Neprozirnost pozadine
 
 ### Font
@@ -105,3 +105,5 @@ pane-toggle-maximize = Maksimizuj
 menu-color-schemes = Šeme boja...
 menu-settings = Podešavanja...
 menu-about = O COSMIC Terminalu...
+repository = Repozitorijum
+support = Podrška
