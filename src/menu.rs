@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use cosmic::iced::Point;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
 use cosmic::{
@@ -25,10 +26,17 @@ use crate::{Action, ColorSchemeId, ColorSchemeKind, Config, Message, fl};
 static MENU_ID: LazyLock<cosmic::widget::Id> =
     LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
 
+#[derive(Debug, Clone)]
+pub struct MenuState {
+    pub position: Option<Point>,
+    pub link: Option<String>,
+}
+
 pub fn context_menu<'a>(
     config: &Config,
     key_binds: &HashMap<KeyBind, Action>,
     entity: segmented_button::Entity,
+    link: Option<String>,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
         for (key_bind, key_action) in key_binds {
@@ -58,6 +66,21 @@ pub fn context_menu<'a>(
         .on_press(Message::TabContextAction(entity, action))
     };
 
+    let menu_item_conditional = |label, action, condition| {
+        let key = find_key(&action);
+        let mut button = menu_button(vec![
+            widget::text(label).into(),
+            horizontal_space().into(),
+            widget::text(key)
+                .class(theme::Text::Custom(key_style))
+                .into(),
+        ]);
+        if condition {
+            button = button.on_press(Message::TabContextAction(entity, action));
+        }
+        button
+    };
+
     let menu_checkbox = |label, value, action| {
         menu_button(vec![
             widget::text(label).into(),
@@ -74,6 +97,8 @@ pub fn context_menu<'a>(
         menu_item(fl!("copy"), Action::Copy),
         menu_item(fl!("paste"), Action::Paste),
         menu_item(fl!("select-all"), Action::SelectAll),
+        divider::horizontal::light(),
+        menu_item_conditional(fl!("open-link"), Action::LaunchUrlByMenu, link.is_some()),
         divider::horizontal::light(),
         menu_item(fl!("clear-scrollback"), Action::ClearScrollback),
         divider::horizontal::light(),
