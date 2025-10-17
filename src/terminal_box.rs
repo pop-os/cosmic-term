@@ -56,7 +56,7 @@ pub struct TerminalBox<'a, Message> {
     show_headerbar: bool,
     click_timing: Duration,
     context_menu: Option<Point>,
-    on_context_menu: Option<Box<dyn Fn(MenuState) -> Message + 'a>>,
+    on_context_menu: Option<Box<dyn Fn(Option<MenuState>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
@@ -124,7 +124,10 @@ where
         self
     }
 
-    pub fn on_context_menu(mut self, on_context_menu: impl Fn(MenuState) -> Message + 'a) -> Self {
+    pub fn on_context_menu(
+        mut self,
+        on_context_menu: impl Fn(Option<MenuState>) -> Message + 'a,
+    ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
         self
     }
@@ -1098,10 +1101,7 @@ where
                         // Update context menu state
                         if let Some(on_context_menu) = &self.on_context_menu {
                             shell.publish((on_context_menu)(match self.context_menu {
-                                Some(_) => MenuState {
-                                    position: None,
-                                    link: None,
-                                },
+                                Some(_) => None,
                                 None => match button {
                                     Button::Right => {
                                         let x = p.x - self.padding.left;
@@ -1120,15 +1120,12 @@ where
                                             None,
                                         );
                                         let link = get_hyperlink(&terminal, location);
-                                        MenuState {
+                                        Some(MenuState {
                                             position: Some(p),
                                             link,
-                                        }
+                                        })
                                     }
-                                    _ => MenuState {
-                                        position: None,
-                                        link: None,
-                                    },
+                                    _ => None,
                                 },
                             }));
                         }
@@ -1340,6 +1337,14 @@ fn update_active_regex_match(
     location: Option<TermPoint>,
     modifiers: Option<&Modifiers>,
 ) {
+    //Do not update any highlights if
+    //there is a context_menu shown
+    //to the user
+    if terminal.context_menu.is_some() {
+        return;
+    }
+
+    //Require CTRL for keyboard and mouse interaction
     if let Some(modifiers) = modifiers {
         if !modifiers.contains(Modifiers::CTRL) {
             if terminal.active_regex_match.is_some() {

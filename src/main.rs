@@ -400,7 +400,7 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(pane_grid::Pane, MenuState),
+    TabContextMenu(pane_grid::Pane, Option<MenuState>),
     TabNew,
     TabNewNoProfile,
     TabNext,
@@ -2469,7 +2469,7 @@ impl Application for App {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = Some(menu_state);
+                        terminal.context_menu = menu_state;
                     }
                 }
 
