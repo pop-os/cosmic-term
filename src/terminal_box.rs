@@ -1100,10 +1100,12 @@ where
                         }
                         // Update context menu state
                         if let Some(on_context_menu) = &self.on_context_menu {
-                            shell.publish((on_context_menu)(match self.context_menu {
-                                Some(_) => None,
-                                None => match button {
-                                    Button::Right => {
+                            match self.context_menu {
+                                Some(_) => {
+                                    shell.publish(on_context_menu(None));
+                                }
+                                None => {
+                                    if button == Button::Right {
                                         let x = p.x - self.padding.left;
                                         let y = p.y - self.padding.top;
                                         //TODO: better calculation of position
@@ -1120,14 +1122,13 @@ where
                                             None,
                                         );
                                         let link = get_hyperlink(&terminal, location);
-                                        Some(MenuState {
+                                        shell.publish(on_context_menu(Some(MenuState {
                                             position: Some(p),
                                             link,
-                                        })
+                                        })));
                                     }
-                                    _ => None,
-                                },
-                            }));
+                                }
+                            }
                         }
                         status = Status::Captured;
                     }
