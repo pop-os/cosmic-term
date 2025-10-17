@@ -12,7 +12,7 @@ use cosmic::{
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
-        self, Alignment, Color, Event, Length, Limits, Padding, Point, Subscription,
+        self, Alignment, Color, Event, Length, Limits, Padding, Subscription,
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
@@ -63,6 +63,7 @@ mod terminal;
 use terminal_box::terminal_box;
 
 use crate::dnd::DndDrop;
+use crate::menu::MenuState;
 mod terminal_box;
 
 #[cfg(feature = "password_manager")]
@@ -225,6 +226,7 @@ pub enum Action {
     CopyOrSigint,
     CopyPrimary,
     Find,
+    LaunchUrlByMenu,
     PaneFocusDown,
     PaneFocusLeft,
     PaneFocusRight,
@@ -275,6 +277,7 @@ impl Action {
             Self::CopyOrSigint => Message::CopyOrSigint(entity_opt),
             Self::CopyPrimary => Message::CopyPrimary(entity_opt),
             Self::Find => Message::Find(true),
+            Self::LaunchUrlByMenu => Message::LaunchUrlByMenu,
             Self::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Self::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
             Self::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
@@ -359,6 +362,7 @@ pub enum Message {
     FocusFollowMouse(bool),
     Key(Modifiers, Key),
     LaunchUrl(String),
+    LaunchUrlByMenu,
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
@@ -396,7 +400,7 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(pane_grid::Pane, Option<Point>),
+    TabContextMenu(pane_grid::Pane, Option<MenuState>),
     TabNew,
     TabNewNoProfile,
     TabNext,
@@ -2118,6 +2122,23 @@ impl Application for App {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
             }
+            Message::LaunchUrlByMenu => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Update context menu position
+                        let mut terminal = terminal.lock().unwrap();
+                        if let Some(url) =
+                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                        {
+                            if let Err(err) = open::that_detached(url) {
+                                log::warn!("failed to open {:?}: {}", url, err);
+                            }
+                        }
+                        terminal.context_menu = None;
+                    }
+                }
+            }
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
@@ -2413,14 +2434,25 @@ impl Application for App {
                         // Close context menu
                         {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = None;
+                            //Some actions need the menu_state,
+                            //so only clear the position for them.
+                            match action {
+                                Action::LaunchUrlByMenu => {
+                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
+                                        context_menu.position = None;
+                                    }
+                                }
+                                _ => {
+                                    terminal.context_menu = None;
+                                }
+                            }
                         }
                         // Run action's message
                         return self.update(action.message(Some(entity)));
                     }
                 }
             }
-            Message::TabContextMenu(pane, position_opt) => {
+            Message::TabContextMenu(pane, menu_state) => {
                 // Close any existing context menues
                 let panes: Vec<_> = self.pane_model.panes.iter().collect();
                 for (_pane, tab_model) in panes {
@@ -2437,7 +2469,7 @@ impl Application for App {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = position_opt;
+                        terminal.context_menu = menu_state;
                     }
                 }
 
@@ -2797,9 +2829,7 @@ impl Application for App {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal_box = terminal_box(terminal)
                     .id(terminal_id)
-                    .on_context_menu(move |position_opt| {
-                        Message::TabContextMenu(pane, position_opt)
-                    })
+                    .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .on_window_focused(|| Message::WindowFocused)
@@ -2815,14 +2845,22 @@ impl Application for App {
 
                 let context_menu = {
                     let terminal = terminal.lock().unwrap();
-                    terminal.context_menu
+                    terminal.context_menu.clone()
                 };
 
                 let tab_element: Element<'_, Message> = match context_menu {
-                    Some(point) => widget::popover(terminal_box.context_menu(point))
-                        .popup(menu::context_menu(&self.config, &self.key_binds, entity))
-                        .position(widget::popover::Position::Point(point))
-                        .into(),
+                    Some(menu_state) => match menu_state.position {
+                        Some(point) => widget::popover(terminal_box.context_menu(point))
+                            .popup(menu::context_menu(
+                                &self.config,
+                                &self.key_binds,
+                                entity,
+                                menu_state.link,
+                            ))
+                            .position(widget::popover::Position::Point(point))
+                            .into(),
+                        None => terminal_box.into(),
+                    },
                     None => terminal_box.into(),
                 };
                 tab_column = tab_column.push(tab_element);

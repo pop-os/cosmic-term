@@ -44,8 +44,8 @@ use std::{
 };
 
 use crate::{
-    Action, Terminal, TerminalScroll, key_bind::key_binds, mouse_reporter::MouseReporter,
-    terminal::Metadata,
+    Action, Terminal, TerminalScroll, key_bind::key_binds, menu::MenuState,
+    mouse_reporter::MouseReporter, terminal::Metadata,
 };
 
 pub struct TerminalBox<'a, Message> {
@@ -56,7 +56,7 @@ pub struct TerminalBox<'a, Message> {
     show_headerbar: bool,
     click_timing: Duration,
     context_menu: Option<Point>,
-    on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_context_menu: Option<Box<dyn Fn(Option<MenuState>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
@@ -126,7 +126,7 @@ where
 
     pub fn on_context_menu(
         mut self,
-        on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
+        on_context_menu: impl Fn(Option<MenuState>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
         self
@@ -927,7 +927,7 @@ where
                     } else {
                         None
                     };
-                    update_active_regex_match(&mut terminal, location, &state.modifiers);
+                    update_active_regex_match(&mut terminal, location, Some(&state.modifiers));
                 }
             }
             Event::Keyboard(KeyEvent::KeyPressed {
@@ -1100,13 +1100,35 @@ where
                         }
                         // Update context menu state
                         if let Some(on_context_menu) = &self.on_context_menu {
-                            shell.publish((on_context_menu)(match self.context_menu {
-                                Some(_) => None,
-                                None => match button {
-                                    Button::Right => Some(p),
-                                    _ => None,
-                                },
-                            }));
+                            match self.context_menu {
+                                Some(_) => {
+                                    shell.publish(on_context_menu(None));
+                                }
+                                None => {
+                                    if button == Button::Right {
+                                        let x = p.x - self.padding.left;
+                                        let y = p.y - self.padding.top;
+                                        //TODO: better calculation of position
+                                        let col = x / terminal.size().cell_width;
+                                        let row = y / terminal.size().cell_height;
+
+                                        let location = terminal.viewport_to_point(TermPoint::new(
+                                            row as usize,
+                                            TermColumn(col as usize),
+                                        ));
+                                        update_active_regex_match(
+                                            &mut terminal,
+                                            Some(location),
+                                            None,
+                                        );
+                                        let link = get_hyperlink(&terminal, location);
+                                        shell.publish(on_context_menu(Some(MenuState {
+                                            position: Some(p),
+                                            link,
+                                        })));
+                                    }
+                                }
+                            }
                         }
                         status = Status::Captured;
                     }
@@ -1125,14 +1147,7 @@ where
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
                     if state.modifiers.control() {
                         if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
-                            if let Some(match_) = terminal
-                                .regex_matches
-                                .iter()
-                                .find(|bounds| bounds.contains(&location))
-                            {
-                                let term = terminal.term.lock();
-                                let hyperlink =
-                                    term.bounds_to_string(*match_.start(), *match_.end());
+                            if let Some(hyperlink) = get_hyperlink(&terminal, location) {
                                 shell.publish(on_open_hyperlink(hyperlink));
                                 status = Status::Captured;
                             }
@@ -1182,7 +1197,11 @@ where
                     let row = y / terminal.size().cell_height;
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    update_active_regex_match(&mut terminal, Some(location), &state.modifiers);
+                    update_active_regex_match(
+                        &mut terminal,
+                        Some(location),
+                        Some(&state.modifiers),
+                    );
 
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
@@ -1283,7 +1302,11 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(&mut terminal, Some(location), &state.modifiers);
+                        update_active_regex_match(
+                            &mut terminal,
+                            Some(location),
+                            Some(&state.modifiers),
+                        );
                     }
                 }
             }
@@ -1294,17 +1317,43 @@ where
     }
 }
 
+fn get_hyperlink(
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) -> Option<String> {
+    if let Some(match_) = terminal
+        .regex_matches
+        .iter()
+        .find(|bounds| bounds.contains(&location))
+    {
+        let term = terminal.term.lock();
+        Some(term.bounds_to_string(*match_.start(), *match_.end()))
+    } else {
+        None
+    }
+}
+
 fn update_active_regex_match(
     terminal: &mut std::sync::MutexGuard<'_, Terminal>,
     location: Option<TermPoint>,
-    modifiers: &Modifiers,
+    modifiers: Option<&Modifiers>,
 ) {
-    if !modifiers.contains(Modifiers::CTRL) {
-        if terminal.active_regex_match.is_some() {
-            terminal.active_regex_match = None;
-            terminal.needs_update = true;
-        }
+    //Do not update any highlights if
+    //there is a context_menu shown
+    //to the user
+    if terminal.context_menu.is_some() {
         return;
+    }
+
+    //Require CTRL for keyboard and mouse interaction
+    if let Some(modifiers) = modifiers {
+        if !modifiers.contains(Modifiers::CTRL) {
+            if terminal.active_regex_match.is_some() {
+                terminal.active_regex_match = None;
+                terminal.needs_update = true;
+            }
+            return;
+        }
     }
     let Some(location) = location else {
         if terminal.active_regex_match.is_some() {

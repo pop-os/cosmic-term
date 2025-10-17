@@ -86,6 +86,9 @@ select-all = Select all
 find = Find
 clear-scrollback = Clear scrollback
 
+## Open
+open-link = Open Link
+
 ## View
 view = View
 zoom-in = Larger text
