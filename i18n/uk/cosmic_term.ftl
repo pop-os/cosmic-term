@@ -12,7 +12,7 @@ new-terminal = Новий термінал
 color-schemes = Схеми кольорів
 rename = Перейменувати
 export = Експортувати
-delete = Видалити
+delete = Вилучити
 import = Імпортувати
 import-errors = Помилки імпорту
 

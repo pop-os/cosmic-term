@@ -95,7 +95,7 @@ copy = Copiar
 paste = Colar
 select-all = Selecionar tudo
 find = Localizar
-clear-scrollback = Limpar scrollback
+clear-scrollback = Limpar histórico de rolagem
 
 ## View
 
