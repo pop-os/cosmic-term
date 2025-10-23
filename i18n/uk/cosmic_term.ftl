@@ -38,12 +38,12 @@ settings = Налаштування
 
 appearance = Зовнішній вигляд
 theme = Тема
-match-desktop = Системна
+match-desktop = Відповідно системі
 dark = Темна
 light = Світла
 syntax-dark = Темна схема кольорів
 syntax-light = Світла схема кольорів
-default-zoom-step = Крок зміни розміру шрифта
+default-zoom-step = Зміна масштабу
 opacity = Непрозорість тла
 
 ### Font
@@ -88,7 +88,7 @@ quit = Вийти
 
 ## Edit
 
-edit = Зміни
+edit = Редагувати
 copy = Копіювати
 paste = Вставити
 select-all = Вибрати все
