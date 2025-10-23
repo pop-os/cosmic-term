@@ -94,6 +94,9 @@ paste = Klistra in
 select-all = Välj alla
 find = Sök
 
+## Öppna
+open-link = Öppna länk
+
 ## Visa
 
 view = Visa

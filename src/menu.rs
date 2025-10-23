@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use cosmic::iced::Point;
+use cosmic::widget::Column;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
 use cosmic::{
     Element,
     app::Core,
     iced::{
-        Background, Length,
-        advanced::widget::text::Style as TextStyle,
-        widget::{column, horizontal_space},
+        Background, Length, advanced::widget::text::Style as TextStyle, widget::horizontal_space,
     },
     iced_core::Border,
     theme,
@@ -25,10 +25,17 @@ use crate::{Action, ColorSchemeId, ColorSchemeKind, Config, Message, fl};
 static MENU_ID: LazyLock<cosmic::widget::Id> =
     LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
 
+#[derive(Debug, Clone)]
+pub struct MenuState {
+    pub position: Option<Point>,
+    pub link: Option<String>,
+}
+
 pub fn context_menu<'a>(
     config: &Config,
     key_binds: &HashMap<KeyBind, Action>,
     entity: segmented_button::Entity,
+    link: Option<String>,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
         for (key_bind, key_action) in key_binds {
@@ -70,32 +77,49 @@ pub fn context_menu<'a>(
         .on_press(Message::TabContextAction(entity, action))
     };
 
-    let mut content = column!(
-        menu_item(fl!("copy"), Action::Copy),
-        menu_item(fl!("paste"), Action::Paste),
-        menu_item(fl!("select-all"), Action::SelectAll),
-        divider::horizontal::light(),
-        menu_item(fl!("clear-scrollback"), Action::ClearScrollback),
-        divider::horizontal::light(),
-        menu_item(fl!("split-horizontal"), Action::PaneSplitHorizontal),
-        menu_item(fl!("split-vertical"), Action::PaneSplitVertical),
-        menu_item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
-        divider::horizontal::light(),
-        menu_item(fl!("new-tab"), Action::TabNew),
-        menu_item(fl!("menu-settings"), Action::Settings),
-    );
+    let mut rows = vec![
+        Element::from(menu_item(fl!("copy"), Action::Copy)),
+        Element::from(menu_item(fl!("paste"), Action::Paste)),
+        Element::from(menu_item(fl!("select-all"), Action::SelectAll)),
+        Element::from(divider::horizontal::light()),
+        Element::from(menu_item(fl!("clear-scrollback"), Action::ClearScrollback)),
+        Element::from(divider::horizontal::light()),
+        Element::from(menu_item(
+            fl!("split-horizontal"),
+            Action::PaneSplitHorizontal,
+        )),
+        Element::from(menu_item(fl!("split-vertical"), Action::PaneSplitVertical)),
+        Element::from(menu_item(
+            fl!("pane-toggle-maximize"),
+            Action::PaneToggleMaximized,
+        )),
+        Element::from(divider::horizontal::light()),
+        Element::from(menu_item(fl!("new-tab"), Action::TabNew)),
+        Element::from(menu_item(fl!("menu-settings"), Action::Settings)),
+    ];
     #[cfg(feature = "password_manager")]
     {
-        content = content.push(menu_item(
+        rows.push(Element::from(menu_item(
             fl!("menu-password-manager"),
             Action::PasswordManager,
-        ));
+        )));
     }
-    content = content.push(menu_checkbox(
+    rows.push(Element::from(menu_checkbox(
         fl!("show-headerbar"),
         config.show_headerbar,
         Action::ShowHeaderBar(!config.show_headerbar),
-    ));
+    )));
+
+    //If we have a link
+    //prepend the Open Link item
+    if link.is_some() {
+        rows.insert(
+            0,
+            Element::from(menu_item(fl!("open-link"), Action::LaunchUrlByMenu)),
+        );
+        rows.insert(1, Element::from(divider::horizontal::light()));
+    }
+    let content = Column::with_children(rows);
     widget::container(content)
         .padding(1)
         //TODO: move style to libcosmic

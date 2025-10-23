@@ -41,6 +41,7 @@ pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
     config::{ColorSchemeKind, Config as AppConfig, ProfileId},
+    menu::MenuState,
     mouse_reporter::MouseReporter,
 };
 
@@ -236,7 +237,7 @@ impl Metadata {
 }
 
 pub struct Terminal {
-    pub context_menu: Option<cosmic::iced::Point>,
+    pub context_menu: Option<MenuState>,
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,
