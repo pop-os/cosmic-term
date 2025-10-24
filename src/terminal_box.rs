@@ -66,6 +66,7 @@ pub struct TerminalBox<'a, Message> {
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
     sharp_corners: bool,
+    disabled: bool,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -91,6 +92,7 @@ where
             on_window_focused: None,
             on_window_unfocused: None,
             sharp_corners: false,
+            disabled: false,
         }
     }
 
@@ -167,6 +169,11 @@ where
 
     pub fn on_window_unfocused(mut self, on_window_unfocused: impl Fn() -> Message + 'a) -> Self {
         self.on_window_unfocused = Some(Box::new(on_window_unfocused));
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 }
@@ -337,7 +344,7 @@ where
         // Render default background
         {
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
-            let background_color = shade(meta.bg, state.is_focused);
+            let background_color = shade(meta.bg, state.is_focused && !self.disabled);
 
             renderer.fill_quad(
                 Quad {
@@ -737,6 +744,9 @@ where
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle<f32>,
     ) -> Status {
+        if self.disabled {
+            return Status::Ignored;
+        }
         let state = tree.state.downcast_mut::<State>();
         let scrollbar_rect = state.scrollbar_rect.get();
         let mut terminal = self.terminal.lock().unwrap();
