@@ -636,6 +636,9 @@ impl App {
     fn update_focus(&self) -> Task<Message> {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
+        } else if self.core.window.show_context {
+            // TODO focus the context page?
+            Task::none()
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
             widget::text_input::focus(terminal_id)
@@ -2656,9 +2659,13 @@ impl Application for App {
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
+                    self.pane_model.update_terminal_focus();
+
+                    return self.update_focus();
                 } else {
                     self.context_page = context_page;
                     self.core.window.show_context = true;
+                    self.pane_model.unfocus_all_terminals();
                 }
 
                 // Extra work to do to prepare context pages
@@ -2716,7 +2723,9 @@ impl Application for App {
                 }
             },
             Message::WindowFocused => {
-                self.pane_model.update_terminal_focus();
+                if !self.core.window.show_context {
+                    self.pane_model.update_terminal_focus();
+                }
                 return self.update_focus();
             }
             Message::WindowUnfocused => {
@@ -2829,6 +2838,7 @@ impl Application for App {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal_box = terminal_box(terminal)
                     .id(terminal_id)
+                    .disabled(self.core.window.show_context)
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
