@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
+    grid::Dimensions,
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
     term::{TermMode, cell::Flags},
@@ -1080,7 +1081,11 @@ where
                                 }
                                 terminal.needs_update = true;
                                 state.click = Some((click_kind, Instant::now()));
-                                state.dragging = Some(Dragging::Buffer);
+                                state.dragging = Some(Dragging::Buffer {
+                                    edge_scroll_remainder: 0.0,
+                                    last_point: location,
+                                    last_side: side,
+                                });
                             } else if scrollbar_rect.contains(Point::new(x, y)) {
                                 if let Some(start_scroll) = terminal.scrollbar() {
                                     state.dragging = Some(Dragging::Scrollbar {
@@ -1145,7 +1150,22 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
-                state.dragging = None;
+                if let Some(dragging) = state.dragging.take() {
+                    if let Dragging::Buffer {
+                        last_point,
+                        last_side,
+                        ..
+                    } = dragging
+                    {
+                        {
+                            let mut term = terminal.term.lock();
+                            if let Some(selection) = &mut term.selection {
+                                selection.update(last_point, last_side);
+                            }
+                        }
+                        terminal.needs_update = true;
+                    }
+                }
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
@@ -1216,9 +1236,32 @@ where
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
-                        if let Some(dragging) = &state.dragging {
+                        if let Some(dragging) = state.dragging.as_mut() {
                             match dragging {
-                                Dragging::Buffer => {
+                                Dragging::Buffer {
+                                    edge_scroll_remainder,
+                                    last_point,
+                                    last_side,
+                                } => {
+                                    let size = terminal.size();
+                                    let buffer_height = buffer_size.1.unwrap_or(size.height as f32);
+                                    let max_row_index =
+                                        (size.screen_lines().saturating_sub(1)) as f32;
+                                    let max_col_index = (size.columns().saturating_sub(1)) as f32;
+                                    let (scroll_delta, adjusted_row, new_remainder) =
+                                        edge_scroll_adjustment(
+                                            y,
+                                            buffer_height,
+                                            size.cell_height,
+                                            max_row_index,
+                                            *edge_scroll_remainder,
+                                        );
+                                    *edge_scroll_remainder = new_remainder;
+                                    let col = (x / size.cell_width).clamp(0.0, max_col_index);
+                                    let row = adjusted_row.clamp(0.0, max_row_index);
+                                    if scroll_delta != 0 {
+                                        terminal.scroll(TerminalScroll::Delta(scroll_delta));
+                                    }
                                     let location = terminal.viewport_to_point(TermPoint::new(
                                         row as usize,
                                         TermColumn(col as usize),
@@ -1234,12 +1277,16 @@ where
                                             selection.update(location, side);
                                         }
                                     }
+                                    *last_point = location;
+                                    *last_side = side;
                                     terminal.needs_update = true;
                                 }
                                 Dragging::Scrollbar {
                                     start_y,
                                     start_scroll,
                                 } => {
+                                    let start_y = *start_y;
+                                    let start_scroll = *start_scroll;
                                     let scroll_offset = terminal.with_buffer(|buffer| {
                                         (y - start_y) / buffer.size().1.unwrap_or(1.0)
                                     });
@@ -1260,44 +1307,42 @@ where
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
                         terminal.scroll_mouse(delta, &state.modifiers, col as u32, row as u32);
+                    } else if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
+                        MouseReporter::report_mouse_wheel_as_arrows(
+                            &terminal,
+                            terminal.size().cell_width,
+                            terminal.size().cell_height,
+                            delta,
+                        );
+                        status = Status::Captured;
                     } else {
-                        if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
-                            MouseReporter::report_mouse_wheel_as_arrows(
-                                &terminal,
-                                terminal.size().cell_width,
-                                terminal.size().cell_height,
-                                delta,
-                            );
-                            status = Status::Captured;
-                        } else {
-                            match delta {
-                                ScrollDelta::Lines { x: _, y } => {
-                                    //TODO: this adjustment is just a guess!
-                                    state.scroll_pixels = 0.0;
-                                    let lines = (-y * 6.0) as i32;
-                                    if lines != 0 {
-                                        terminal.scroll(TerminalScroll::Delta(-lines));
-                                    }
-                                    status = Status::Captured;
+                        match delta {
+                            ScrollDelta::Lines { x: _, y } => {
+                                //TODO: this adjustment is just a guess!
+                                state.scroll_pixels = 0.0;
+                                let lines = (-y * 6.0) as i32;
+                                if lines != 0 {
+                                    terminal.scroll(TerminalScroll::Delta(-lines));
                                 }
-                                ScrollDelta::Pixels { x: _, y } => {
-                                    //TODO: this adjustment is just a guess!
-                                    state.scroll_pixels -= y * 6.0;
-                                    let mut lines = 0;
-                                    let metrics = terminal.with_buffer(|buffer| buffer.metrics());
-                                    while state.scroll_pixels <= -metrics.line_height {
-                                        lines -= 1;
-                                        state.scroll_pixels += metrics.line_height;
-                                    }
-                                    while state.scroll_pixels >= metrics.line_height {
-                                        lines += 1;
-                                        state.scroll_pixels -= metrics.line_height;
-                                    }
-                                    if lines != 0 {
-                                        terminal.scroll(TerminalScroll::Delta(-lines));
-                                    }
-                                    status = Status::Captured;
+                                status = Status::Captured;
+                            }
+                            ScrollDelta::Pixels { x: _, y } => {
+                                //TODO: this adjustment is just a guess!
+                                state.scroll_pixels -= y * 6.0;
+                                let mut lines = 0;
+                                let metrics = terminal.with_buffer(|buffer| buffer.metrics());
+                                while state.scroll_pixels <= -metrics.line_height {
+                                    lines -= 1;
+                                    state.scroll_pixels += metrics.line_height;
                                 }
+                                while state.scroll_pixels >= metrics.line_height {
+                                    lines += 1;
+                                    state.scroll_pixels -= metrics.line_height;
+                                }
+                                if lines != 0 {
+                                    terminal.scroll(TerminalScroll::Delta(-lines));
+                                }
+                                status = Status::Captured;
                             }
                         }
                     }
@@ -1422,11 +1467,51 @@ enum ClickKind {
 }
 
 enum Dragging {
-    Buffer,
+    Buffer {
+        edge_scroll_remainder: f32,
+        last_point: TermPoint,
+        last_side: TermSide,
+    },
     Scrollbar {
         start_y: f32,
         start_scroll: (f32, f32),
     },
+}
+
+fn edge_scroll_adjustment(
+    y: f32,
+    buffer_height: f32,
+    cell_height: f32,
+    max_row_index: f32,
+    scroll_remainder: f32,
+) -> (i32, f32, f32) {
+    if cell_height <= 0.0 {
+        return (0, 0.0, 0.0);
+    }
+
+    let mut row = y / cell_height;
+    let mut delta = 0;
+    let mut remainder = scroll_remainder;
+
+    if y < 0.0 {
+        remainder = remainder.max(0.0);
+        remainder += (-y) / cell_height;
+        delta = remainder.trunc() as i32;
+        remainder -= delta as f32;
+        row = 0.0;
+    } else if y > buffer_height {
+        remainder = remainder.min(0.0);
+        remainder -= (y - buffer_height) / cell_height;
+        delta = remainder.trunc() as i32;
+        remainder -= delta as f32;
+        row = max_row_index;
+    } else {
+        remainder = 0.0;
+    }
+
+    row = row.clamp(0.0, max_row_index);
+
+    (delta, row, remainder)
 }
 
 pub struct State {
@@ -1519,5 +1604,70 @@ fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
         Some(format!("\x1B\x4F{code}").into_bytes())
     } else {
         Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::edge_scroll_adjustment;
+
+    const BUFFER_HEIGHT: f32 = 200.0;
+    const CELL_HEIGHT: f32 = 20.0;
+    const MAX_ROW: f32 = 9.0;
+
+    #[test]
+    fn edge_scroll_small_top_overshoot_does_not_scroll_immediately() {
+        let (delta, row, remainder) =
+            edge_scroll_adjustment(-5.0, BUFFER_HEIGHT, CELL_HEIGHT, MAX_ROW, 0.0);
+        assert_eq!(delta, 0);
+        assert_eq!(row, 0.0);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn edge_scroll_top_accumulates_into_scroll() {
+        let (_, _, remainder) =
+            edge_scroll_adjustment(-5.0, BUFFER_HEIGHT, CELL_HEIGHT, MAX_ROW, 0.0);
+        let (delta, row, remainder) =
+            edge_scroll_adjustment(-45.0, BUFFER_HEIGHT, CELL_HEIGHT, MAX_ROW, remainder);
+        assert_eq!(delta, 2);
+        assert_eq!(row, 0.0);
+        assert!((remainder - 0.5).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn edge_scroll_inside_viewport_resets_remainder() {
+        let (_, _, remainder) =
+            edge_scroll_adjustment(-25.0, BUFFER_HEIGHT, CELL_HEIGHT, MAX_ROW, 0.0);
+        let (delta, row, remainder) =
+            edge_scroll_adjustment(60.0, BUFFER_HEIGHT, CELL_HEIGHT, MAX_ROW, remainder);
+        assert_eq!(delta, 0);
+        assert!((row - 3.0).abs() < f32::EPSILON);
+        assert_eq!(remainder, 0.0);
+    }
+
+    #[test]
+    fn edge_scroll_bottom_accumulates_scroll() {
+        let (delta, row, remainder) = edge_scroll_adjustment(
+            BUFFER_HEIGHT + 1.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+        assert!((row - MAX_ROW).abs() < f32::EPSILON);
+        assert!((remainder + 0.05).abs() < f32::EPSILON);
+
+        let (delta, row, remainder) = edge_scroll_adjustment(
+            BUFFER_HEIGHT + 45.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+        );
+        assert_eq!(delta, -2);
+        assert!((row - MAX_ROW).abs() < f32::EPSILON);
+        assert!((remainder + 0.3).abs() < f32::EPSILON);
     }
 }
