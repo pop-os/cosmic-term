@@ -76,3 +76,4 @@ passwords-title = Hesla
 add-password = Přidat heslo
 password-input = Heslo
 password-input-description = Popis
+open-link = Otevřít odkaz
