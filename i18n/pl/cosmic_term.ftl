@@ -116,3 +116,4 @@ passwords-title = Hasła
 add-password = Dodaj Hasło
 password-input = Hasło
 password-input-description = Opis
+open-link = Otwórz Odnośnik

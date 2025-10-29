@@ -39,11 +39,11 @@ settings = Inställningar
 appearance = Utseende
 theme = Tema
 match-desktop = Matcha skrivbordet
-dark = Mörk
-light = Ljus
+dark = Mörkt
+light = Ljust
 syntax-dark = Färgschema mörkt
 syntax-light = Färgschema ljust
-default-zoom-step = Zoom steg
+default-zoom-step = Zoom-steg
 opacity = Bakgrundens opacitet
 
 ### Teckensnitt
@@ -70,8 +70,8 @@ show-headerbar = Visa rubrikrad
 show-header-description = Visa rubrikrad från högerklicksmenyn.
 # Sök
 find-placeholder = Sök…
-find-previous = Hitta föregående
-find-next = Hitta nästa
+find-previous = Sök föregående
+find-next = Sök nästa
 
 # Meny
 
@@ -95,6 +95,7 @@ select-all = Välj alla
 find = Sök
 
 ## Öppna
+
 open-link = Öppna länk
 
 ## Visa
@@ -114,7 +115,6 @@ menu-settings = Inställningar…
 menu-about = Om COSMIC Terminal…
 repository = Källkod
 support = Support
-
 # Lösenordshanterare
 menu-password-manager = Lösenord…
 passwords-title = Lösenord
