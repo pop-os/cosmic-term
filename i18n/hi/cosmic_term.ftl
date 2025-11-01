@@ -29,7 +29,7 @@ remain-open = चाइल्ड प्रोसेस के निकलने
 
 ## Settings
 
-settings = सेटिंग्स
+settings = सेटिंग
 
 ### Appearance
 
