@@ -18,6 +18,7 @@
   <name xml:lang="sk">Terminál COSMIC</name>
   <name xml:lang="es">Terminal COSMIC</name>
   <name xml:lang="it">Terminale di COSMIC</name>
+  <name xml:lang="sv">COSMIC Terminal</name>
   <summary>Terminal emulator for the COSMIC desktop</summary>
   <summary xml:lang="ar">محاكي طرفي لسطح مكتب COSMIC</summary>
   <summary xml:lang="cs">Emulátor terminálu pro pracovní prostředí COSMIC</summary>
@@ -28,6 +29,7 @@
   <summary xml:lang="sk">Emulátor terminálu pre pracovné prostredie COSMIC</summary>
   <summary xml:lang="es">Emulador de terminal de escritorio COSMIC</summary>
   <summary xml:lang="it">Emulatore di terminale di COSMIC</summary>
+  <summary xml:lang="sv">Terminalemulator för skrivbordsmiljön COSMIC</summary>
   <description>
     <p>Terminal emulator for the COSMIC desktop</p>
     <p xml:lang="ar">محاكي طرفي لسطح مكتب COSMIC</p>
@@ -39,6 +41,7 @@
     <p xml:lang="sk">Emulátor terminálu pre pracovné prostredie COSMIC</p>
     <p xml:lang="es">Emulador de terminal de escritorio COSMIC</p>
     <p xml:lang="it">Emulatore di terminale di COSMIC</p>
+    <p xml:lang="sv">Terminalemulator för skrivbordsmiljön COSMIC</p>
   </description>
   <launchable type="desktop-id">com.system76.CosmicTerm.desktop</launchable>
   <icon type="remote" height="256" width="256">
