@@ -1295,6 +1295,10 @@ impl App {
                                     .and_then(|profile_id| self.config.profiles.get(&profile_id))
                                 {
                                     Some(profile) => {
+                                        self.term_config.scrolling_history = Ord::min(
+                                            profile.scrollback_history,
+                                            crate::config::MAX_SCROLLBACK_HISTORY,
+                                        );
                                         let mut shell = None;
                                         if let Some(mut args) = shlex::split(&profile.command) {
                                             if !args.is_empty() {
@@ -1332,6 +1336,7 @@ impl App {
                                 .closable()
                                 .activate()
                                 .id();
+
                             match Terminal::new(
                                 current_pane,
                                 entity,

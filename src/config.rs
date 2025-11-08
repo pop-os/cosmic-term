@@ -185,6 +185,13 @@ pub struct ColorScheme {
 #[serde(transparent)]
 pub struct ProfileId(pub u64);
 
+/// Same maximum as alacritty
+pub const MAX_SCROLLBACK_HISTORY: usize = 100_000;
+const DEFAULT_SCROLLBACK_HISTORY: usize = 10_000;
+fn default_scrollback_history() -> usize {
+    DEFAULT_SCROLLBACK_HISTORY
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Profile {
     pub name: String,
@@ -200,6 +207,8 @@ pub struct Profile {
     pub working_directory: String,
     #[serde(default)]
     pub hold: bool,
+    #[serde(default = "default_scrollback_history")]
+    pub scrollback_history: usize,
 }
 
 impl Default for Profile {
@@ -212,6 +221,8 @@ impl Default for Profile {
             tab_title: String::new(),
             working_directory: String::new(),
             hold: false,
+            // same default as alacritty,
+            scrollback_history: DEFAULT_SCROLLBACK_HISTORY,
         }
     }
 }
