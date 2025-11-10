@@ -3,10 +3,12 @@ new-terminal = Nueva terminal
 
 # Context Pages
 
+
 ## About
-git-description = «Commit» {$hash} de Git del {$date}
+
 
 ## Color schemes
+
 color-schemes = Esquemas de color
 rename = Renombrar
 export = Exportar
@@ -15,6 +17,7 @@ import = Importar
 import-errors = Errores de importación
 
 ## Profiles
+
 profiles = Perfiles
 name = Nombre
 command-line = Línea de comandos
@@ -28,9 +31,11 @@ hold = Mantener
 remain-open = Mantener abierta después de que el proceso secundario termine.
 
 ## Settings
+
 settings = Configuración
 
 ### Appearance
+
 appearance = Apariencia
 theme = Tema
 match-desktop = Igual que el escritorio
@@ -38,10 +43,11 @@ dark = Oscuro
 light = Claro
 syntax-dark = Esquema de color oscuro
 syntax-light = Esquema de color claro
-default-zoom-step = Escalas de zum
+default-zoom-step = Granularidad de ampliación
 opacity = Opacidad de fondo
 
 ### Font
+
 font = Fuente
 advanced-font-settings = Configuración avanzada de fuentes
 default-font = Fuente
@@ -53,14 +59,15 @@ default-bold-font-weight = Peso de fuente negrita
 use-bright-bold = Hacer el texto en negrita más brillante
 
 ### Splits
-splits = Paneles
+
+splits = Divisiones
 focus-follow-mouse = El enfoque de escritura sigue al mouse
 
 ### Advanced
+
 advanced = Avanzado
 show-headerbar = Mostrar encabezado
 show-header-description = Mostrar el encabezado desde el menú contextual.
-
 # Find
 find-placeholder = Buscar...
 find-previous = Buscar anterior
@@ -68,7 +75,9 @@ find-next = Buscar siguiente
 
 # Menu
 
+
 ## File
+
 file = Archivo
 new-tab = Nueva pestaña
 new-window = Nueva ventana
@@ -78,6 +87,7 @@ close-tab = Cerrar ventana
 quit = Cerrar
 
 ## Edit
+
 edit = Editar
 copy = Copiar
 paste = Pegar
@@ -85,6 +95,7 @@ select-all = Seleccionar todo
 find = Buscar
 
 ## View
+
 view = Ver
 zoom-in = Aumentar texto
 zoom-reset = Tamaño de texto predeterminado
@@ -97,3 +108,6 @@ pane-toggle-maximize = Alternar maximizar
 menu-color-schemes = Esquemas de color...
 menu-settings = Configuración...
 menu-about = Acerca de la terminal de COSMIC...
+repository = Repositorio
+support = Apoyo
+clear-scrollback = Limpiar historial de desplazamiento

@@ -1,12 +1,16 @@
-cosmic-terminal = Terminal
+cosmic-terminal = Terminal COSMIC
 new-terminal = Novo terminal
 
 # Context Pages
 
+
 ## About
-git-description = Commit do git {$hash} em {$date}
+
+repository = Repositório
+support = Suporte
 
 ## Color schemes
+
 color-schemes = Esquemas de cores
 rename = Renomear
 export = Exportar
@@ -15,6 +19,7 @@ import = Importar
 import-errors = Erros de Importação
 
 ## Profiles
+
 profiles = Perfis
 name = Nome
 command-line = Linha de comando
@@ -28,20 +33,23 @@ hold = Manter
 remain-open = Continuar aberto depois que o processo secundário terminar.
 
 ## Settings
+
 settings = Configurações
 
 ### Appearance
+
 appearance = Aparência
 theme = Tema
-match-desktop = Acompanhar o tema da área de trabalho
-dark = Escuro
-light = Claro
+match-desktop = Estilo do sistema
+dark = Estilo escuro
+light = Estilo claro
 syntax-dark = Esquema de cores escuro
 syntax-light = Esquema de cores claro
-default-zoom-step = Incrementos de zoom
+default-zoom-step = Incremento de zoom
 opacity = Opacidade do fundo
 
 ### Font
+
 font = Fonte
 advanced-font-settings = Configurações avançadas de fonte
 default-font = Fonte
@@ -53,22 +61,25 @@ default-bold-font-weight = Peso da fonte em negrito
 use-bright-bold = Usar negrito brilhante
 
 ### Splits
+
 splits = Divisões
 focus-follow-mouse = Foco de digitação segue o mouse
 
 ### Advanced
+
 advanced = Avançado
 show-headerbar = Mostrar a barra de título
-show-header-description = Mostrar a barra de título pela janela no menu de contexto
-
+show-header-description = Mostrar a barra de título da janela no menu de contexto.
 # Find
-find-placeholder = Pesquisar...
-find-previous = Pesquisar anterior
-find-next = Pesquisar próximo
+find-placeholder = Localizar...
+find-previous = Localizar anterior
+find-next = Localizar o próximo
 
 # Menu
 
+
 ## File
+
 file = Arquivo
 new-tab = Nova aba
 new-window = Nova janela
@@ -78,15 +89,17 @@ close-tab = Fechar aba
 quit = Sair
 
 ## Edit
+
 edit = Editar
 copy = Copiar
 paste = Colar
 select-all = Selecionar tudo
-find = Pesquisar
-clear-scrollback = Limpar scrollback
+find = Localizar
+clear-scrollback = Limpar histórico de rolagem
 
 ## View
-view = Visualizar
+
+view = Exibir
 zoom-in = Aumentar texto
 zoom-reset = Redefinir zoom
 zoom-out = Diminuir texto
@@ -97,4 +110,4 @@ split-vertical = Dividir verticalmente
 pane-toggle-maximize = Alternar maximização
 menu-color-schemes = Esquemas de cores...
 menu-settings = Configurações...
-menu-about = Sobre o COSMIC Terminal...
+menu-about = Sobre o Terminal COSMIC...

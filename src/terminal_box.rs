@@ -1,36 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{
+    grid::Dimensions,
     index::{Column as TermColumn, Point as TermPoint, Side as TermSide},
     selection::{Selection, SelectionType},
-    term::{cell::Flags, TermMode},
+    term::{TermMode, cell::Flags},
     vte::ansi::{CursorShape, NamedColor},
 };
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
-    cosmic_theme::palette::{blend::Compose, WithAlpha},
+    Renderer,
+    cosmic_theme::palette::{WithAlpha, blend::Compose},
     iced::{
+        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
         advanced::graphics::text::Raw,
         event::{Event, Status},
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{self, Button, Event as MouseEvent, ScrollDelta},
-        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
+        window::RedrawRequest,
     },
     iced_core::{
+        Border, Shell,
         clipboard::Clipboard,
         keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
         text::Renderer as _,
         widget::{
-            self,
+            self, Id, Widget,
             operation::{self, Operation},
-            tree, Id, Widget,
+            tree,
         },
-        Border, Shell,
     },
     theme::Theme,
-    Renderer,
 };
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
@@ -43,7 +45,66 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{key_bind::key_binds, terminal::Metadata, Action, Terminal, TerminalScroll};
+use crate::{
+    Action, Terminal, TerminalScroll, key_bind::key_binds, menu::MenuState,
+    mouse_reporter::MouseReporter, terminal::Metadata,
+};
+
+const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
+
+/// Drives repeated drag updates while the pointer is outside the widget.
+struct DragAutoscroll {
+    active: bool,
+    pointer: Option<Point>,
+    last_tick: Instant,
+    interval: Duration,
+}
+
+impl DragAutoscroll {
+    fn new(interval: Duration) -> Self {
+        Self {
+            active: false,
+            pointer: None,
+            last_tick: Instant::now(),
+            interval,
+        }
+    }
+
+    fn start(&mut self, pointer: Point) {
+        self.pointer = Some(pointer);
+        if !self.active {
+            self.active = true;
+            self.last_tick = Instant::now();
+        }
+    }
+
+    fn update_pointer(&mut self, pointer: Point) {
+        if self.active {
+            self.pointer = Some(pointer);
+        }
+    }
+
+    fn stop(&mut self) {
+        self.active = false;
+        self.pointer = None;
+    }
+
+    fn is_active(&self) -> bool {
+        self.active
+    }
+
+    /// Returns the stored pointer when the next tick is due.
+    fn next_due(&mut self) -> Option<(Point, f32)> {
+        if self.active && self.last_tick.elapsed() >= self.interval {
+            let elapsed = self.last_tick.elapsed();
+            self.last_tick = Instant::now();
+            let ticks = (elapsed.as_secs_f32() / self.interval.as_secs_f32()).max(1.0);
+            self.pointer.map(|pointer| (pointer, ticks))
+        } else {
+            None
+        }
+    }
+}
 
 pub struct TerminalBox<'a, Message> {
     terminal: &'a Mutex<Terminal>,
@@ -53,7 +114,7 @@ pub struct TerminalBox<'a, Message> {
     show_headerbar: bool,
     click_timing: Duration,
     context_menu: Option<Point>,
-    on_context_menu: Option<Box<dyn Fn(Option<Point>) -> Message + 'a>>,
+    on_context_menu: Option<Box<dyn Fn(Option<MenuState>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
@@ -62,6 +123,8 @@ pub struct TerminalBox<'a, Message> {
     on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
+    sharp_corners: bool,
+    disabled: bool,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -86,6 +149,8 @@ where
             on_open_hyperlink: None,
             on_window_focused: None,
             on_window_unfocused: None,
+            sharp_corners: false,
+            disabled: false,
         }
     }
 
@@ -121,7 +186,7 @@ where
 
     pub fn on_context_menu(
         mut self,
-        on_context_menu: impl Fn(Option<Point>) -> Message + 'a,
+        on_context_menu: impl Fn(Option<MenuState>) -> Message + 'a,
     ) -> Self {
         self.on_context_menu = Some(Box::new(on_context_menu));
         self
@@ -142,6 +207,11 @@ where
         self
     }
 
+    pub fn sharp_corners(mut self, sharp_corners: bool) -> Self {
+        self.sharp_corners = sharp_corners;
+        self
+    }
+
     pub fn on_open_hyperlink(
         mut self,
         on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
@@ -157,6 +227,11 @@ where
 
     pub fn on_window_unfocused(mut self, on_window_unfocused: impl Fn() -> Message + 'a) -> Self {
         self.on_window_unfocused = Some(Box::new(on_window_unfocused));
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 }
@@ -255,17 +330,19 @@ where
                 && y >= 0.0
                 && y < buffer_size.1.unwrap_or(0.0)
             {
-                let col = x / terminal.size().cell_width;
-                let row = y / terminal.size().cell_height;
+                if state.modifiers.contains(Modifiers::CTRL) {
+                    let col = x / terminal.size().cell_width;
+                    let row = y / terminal.size().cell_height;
 
-                let location = terminal
-                    .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                if let Some(_) = terminal
-                    .regex_matches
-                    .iter()
-                    .find(|bounds| bounds.contains(&location))
-                {
-                    return mouse::Interaction::Pointer;
+                    let location = terminal
+                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+                    if terminal
+                        .regex_matches
+                        .iter()
+                        .any(|bounds| bounds.contains(&location))
+                    {
+                        return mouse::Interaction::Pointer;
+                    }
                 }
 
                 return mouse::Interaction::Text;
@@ -291,9 +368,12 @@ where
 
         let cosmic_theme = theme.cosmic();
         // matches the corners to the window border
-        let corner_radius = cosmic_theme
-            .radius_s()
-            .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
+        let corner_radius = if self.sharp_corners {
+            cosmic_theme.radius_0()
+        } else {
+            cosmic_theme.radius_s()
+        }
+        .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
@@ -322,7 +402,7 @@ where
         // Render default background
         {
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
-            let background_color = shade(meta.bg, state.is_focused);
+            let background_color = shade(meta.bg, state.is_focused && !self.disabled);
 
             renderer.fill_quad(
                 Quad {
@@ -431,7 +511,7 @@ where
                         }
 
                         if !metadata.flags.is_empty() {
-                            let style_line_height = (self.glyph_font_size / 10.0).clamp(2.0, 16.0);
+                            let style_line_height = (self.glyph_font_size / 10.0).clamp(1.0, 16.0);
 
                             let line_color = cosmic_text_to_iced_color(metadata.underline_color);
 
@@ -722,6 +802,9 @@ where
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle<f32>,
     ) -> Status {
+        if self.disabled {
+            return Status::Ignored;
+        }
         let state = tree.state.downcast_mut::<State>();
         let scrollbar_rect = state.scrollbar_rect.get();
         let mut terminal = self.terminal.lock().unwrap();
@@ -737,8 +820,31 @@ where
                         shell.publish(on_window_focused());
                     }
                 }
+                cosmic::iced::window::Event::RedrawRequested(_) => {
+                    if is_mouse_mode {
+                        state.autoscroll.stop();
+                    } else {
+                        if let Some((pointer, multiplier)) = state.autoscroll.next_due() {
+                            if update_buffer_drag(
+                                state,
+                                &mut terminal,
+                                buffer_size,
+                                pointer,
+                                layout.bounds(),
+                                self.padding,
+                                multiplier,
+                            ) {
+                                status = Status::Captured;
+                            }
+                        }
+                        if state.autoscroll.is_active() {
+                            shell.request_redraw(RedrawRequest::NextFrame);
+                        }
+                    }
+                }
                 cosmic::iced::window::Event::Unfocused => {
                     state.is_focused = false;
+                    state.autoscroll.stop();
                     if let Some(on_window_unfocused) = &self.on_window_unfocused {
                         shell.publish(on_window_unfocused());
                     }
@@ -895,6 +1001,25 @@ where
             }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
+
+                if modifiers.contains(Modifiers::CTRL) || terminal.active_regex_match.is_some() {
+                    //Might need to update the url regex highlight,
+                    //so we need to calculate the mouse position
+                    let location = if let Some(p) = cursor_position.position() {
+                        let x = (p.x - layout.bounds().x) - self.padding.left;
+                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+                        Some(terminal.viewport_to_point(TermPoint::new(
+                            row as usize,
+                            TermColumn(col as usize),
+                        )))
+                    } else {
+                        None
+                    };
+                    update_active_regex_match(&mut terminal, location, Some(&state.modifiers));
+                }
             }
             Event::Keyboard(KeyEvent::KeyPressed {
                 text,
@@ -982,6 +1107,7 @@ where
                     let row = y / terminal.size().cell_height;
 
                     if is_mouse_mode {
+                        state.autoscroll.stop();
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
                         state.is_focused = true;
@@ -1036,7 +1162,13 @@ where
                                 }
                                 terminal.needs_update = true;
                                 state.click = Some((click_kind, Instant::now()));
-                                state.dragging = Some(Dragging::Buffer);
+                                state.dragging = Some(Dragging::Buffer {
+                                    edge_scroll_remainder: 0.0,
+                                    last_edge_direction: EdgeScrollDirection::None,
+                                    last_edge_overshoot: 0.0,
+                                    last_point: location,
+                                    last_side: side,
+                                });
                             } else if scrollbar_rect.contains(Point::new(x, y)) {
                                 if let Some(start_scroll) = terminal.scrollbar() {
                                     state.dragging = Some(Dragging::Scrollbar {
@@ -1066,20 +1198,58 @@ where
                         }
                         // Update context menu state
                         if let Some(on_context_menu) = &self.on_context_menu {
-                            shell.publish((on_context_menu)(match self.context_menu {
-                                Some(_) => None,
-                                None => match button {
-                                    Button::Right => Some(p),
-                                    _ => None,
-                                },
-                            }));
+                            match self.context_menu {
+                                Some(_) => {
+                                    shell.publish(on_context_menu(None));
+                                }
+                                None => {
+                                    if button == Button::Right {
+                                        let x = p.x - self.padding.left;
+                                        let y = p.y - self.padding.top;
+                                        //TODO: better calculation of position
+                                        let col = x / terminal.size().cell_width;
+                                        let row = y / terminal.size().cell_height;
+
+                                        let location = terminal.viewport_to_point(TermPoint::new(
+                                            row as usize,
+                                            TermColumn(col as usize),
+                                        ));
+                                        update_active_regex_match(
+                                            &mut terminal,
+                                            Some(location),
+                                            None,
+                                        );
+                                        let link = get_hyperlink(&terminal, location);
+                                        shell.publish(on_context_menu(Some(MenuState {
+                                            position: Some(p),
+                                            link,
+                                        })));
+                                    }
+                                }
+                            }
                         }
                         status = Status::Captured;
                     }
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
-                state.dragging = None;
+                state.autoscroll.stop();
+                if let Some(dragging) = state.dragging.take() {
+                    if let Dragging::Buffer {
+                        last_point,
+                        last_side,
+                        ..
+                    } = dragging
+                    {
+                        {
+                            let mut term = terminal.term.lock();
+                            if let Some(selection) = &mut term.selection {
+                                selection.update(last_point, last_side);
+                            }
+                        }
+                        terminal.needs_update = true;
+                    }
+                }
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
@@ -1089,16 +1259,12 @@ where
 
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
-                        if let Some(match_) = terminal
-                            .regex_matches
-                            .iter()
-                            .find(|bounds| bounds.contains(&location))
-                        {
-                            let term = terminal.term.lock();
-                            let hyperlink = term.bounds_to_string(*match_.start(), *match_.end());
-                            shell.publish(on_open_hyperlink(hyperlink));
-                            status = Status::Captured;
+                    if state.modifiers.control() {
+                        if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
+                            if let Some(hyperlink) = get_hyperlink(&terminal, location) {
+                                shell.publish(on_open_hyperlink(hyperlink));
+                                status = Status::Captured;
+                            }
                         }
                     }
 
@@ -1112,6 +1278,7 @@ where
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(_button)) => {
+                state.autoscroll.stop();
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
@@ -1138,50 +1305,62 @@ where
                     }
                 }
                 if let Some(p) = cursor_position.position() {
-                    let x = (p.x - layout.bounds().x) - self.padding.left;
-                    let y = (p.y - layout.bounds().y) - self.padding.top;
+                    let bounds = layout.bounds();
+                    let x = (p.x - bounds.x) - self.padding.left;
+                    let y = (p.y - bounds.y) - self.padding.top;
                     //TODO: better calculation of position
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    update_active_regex_match(&mut terminal, location);
+                    update_active_regex_match(
+                        &mut terminal,
+                        Some(location),
+                        Some(&state.modifiers),
+                    );
 
                     if is_mouse_mode {
                         terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
                     } else {
-                        if let Some(dragging) = &state.dragging {
-                            match dragging {
-                                Dragging::Buffer => {
-                                    let location = terminal.viewport_to_point(TermPoint::new(
-                                        row as usize,
-                                        TermColumn(col as usize),
-                                    ));
-                                    let side = if col.fract() < 0.5 {
-                                        TermSide::Left
-                                    } else {
-                                        TermSide::Right
-                                    };
-                                    {
-                                        let mut term = terminal.term.lock();
-                                        if let Some(selection) = &mut term.selection {
-                                            selection.update(location, side);
-                                        }
-                                    }
-                                    terminal.needs_update = true;
-                                }
-                                Dragging::Scrollbar {
-                                    start_y,
-                                    start_scroll,
-                                } => {
-                                    let scroll_offset = terminal.with_buffer(|buffer| {
-                                        (y - start_y) / buffer.size().1.unwrap_or(1.0)
-                                    });
-                                    terminal.scroll_to(start_scroll.0 + scroll_offset);
-                                }
-                            }
+                        let handled_buffer_drag = update_buffer_drag(
+                            state,
+                            &mut terminal,
+                            buffer_size,
+                            p,
+                            bounds,
+                            self.padding,
+                            0.0,
+                        );
+                        if handled_buffer_drag {
+                            status = Status::Captured;
+                        } else if let Some(Dragging::Scrollbar {
+                            start_y,
+                            start_scroll,
+                        }) = state.dragging.as_mut()
+                        {
+                            let start_y = *start_y;
+                            let start_scroll = *start_scroll;
+                            let scroll_offset = terminal.with_buffer(|buffer| {
+                                (y - start_y) / buffer.size().1.unwrap_or(1.0)
+                            });
+                            terminal.scroll_to(start_scroll.0 + scroll_offset);
+                            status = Status::Captured;
                         }
-                        status = Status::Captured;
+
+                        if matches!(state.dragging, Some(Dragging::Buffer { .. })) {
+                            if cursor_position.position_in(bounds).is_some() {
+                                state.autoscroll.stop();
+                            } else {
+                                if state.autoscroll.is_active() {
+                                    state.autoscroll.update_pointer(p);
+                                } else {
+                                    state.autoscroll.start(p);
+                                }
+                                shell.request_redraw(RedrawRequest::NextFrame);
+                            }
+                        } else {
+                            state.autoscroll.stop();
+                        }
                     }
                 }
             }
@@ -1194,6 +1373,14 @@ where
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
                         terminal.scroll_mouse(delta, &state.modifiers, col as u32, row as u32);
+                    } else if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
+                        MouseReporter::report_mouse_wheel_as_arrows(
+                            &terminal,
+                            terminal.size().cell_width,
+                            terminal.size().cell_height,
+                            delta,
+                        );
+                        status = Status::Captured;
                     } else {
                         match delta {
                             ScrollDelta::Lines { x: _, y } => {
@@ -1236,7 +1423,11 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(&mut terminal, location);
+                        update_active_regex_match(
+                            &mut terminal,
+                            Some(location),
+                            Some(&state.modifiers),
+                        );
                     }
                 }
             }
@@ -1247,10 +1438,51 @@ where
     }
 }
 
+fn get_hyperlink(
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) -> Option<String> {
+    if let Some(match_) = terminal
+        .regex_matches
+        .iter()
+        .find(|bounds| bounds.contains(&location))
+    {
+        let term = terminal.term.lock();
+        Some(term.bounds_to_string(*match_.start(), *match_.end()))
+    } else {
+        None
+    }
+}
+
 fn update_active_regex_match(
     terminal: &mut std::sync::MutexGuard<'_, Terminal>,
-    location: TermPoint,
+    location: Option<TermPoint>,
+    modifiers: Option<&Modifiers>,
 ) {
+    //Do not update any highlights if
+    //there is a context_menu shown
+    //to the user
+    if terminal.context_menu.is_some() {
+        return;
+    }
+
+    //Require CTRL for keyboard and mouse interaction
+    if let Some(modifiers) = modifiers {
+        if !modifiers.contains(Modifiers::CTRL) {
+            if terminal.active_regex_match.is_some() {
+                terminal.active_regex_match = None;
+                terminal.needs_update = true;
+            }
+            return;
+        }
+    }
+    let Some(location) = location else {
+        if terminal.active_regex_match.is_some() {
+            terminal.active_regex_match = None;
+            terminal.needs_update = true;
+        }
+        return;
+    };
     if let Some(match_) = terminal
         .regex_matches
         .iter()
@@ -1301,11 +1533,168 @@ enum ClickKind {
 }
 
 enum Dragging {
-    Buffer,
+    Buffer {
+        edge_scroll_remainder: f32,
+        last_edge_direction: EdgeScrollDirection,
+        last_edge_overshoot: f32,
+        last_point: TermPoint,
+        last_side: TermSide,
+    },
     Scrollbar {
         start_y: f32,
         start_scroll: (f32, f32),
     },
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum EdgeScrollDirection {
+    None,
+    Top,
+    Bottom,
+}
+
+fn edge_scroll_adjustment(
+    y: f32,
+    buffer_height: f32,
+    cell_height: f32,
+    max_row_index: f32,
+    scroll_remainder: f32,
+    last_direction: EdgeScrollDirection,
+    last_overshoot: f32,
+    forced_increment: f32,
+) -> (i32, f32, f32, EdgeScrollDirection, f32) {
+    if cell_height <= 0.0 {
+        return (0, 0.0, 0.0, EdgeScrollDirection::None, 0.0);
+    }
+
+    let mut row = y / cell_height;
+    let mut delta = 0;
+    let mut remainder = scroll_remainder;
+    let mut direction = EdgeScrollDirection::None;
+    let mut overshoot = 0.0;
+
+    if y < 0.0 {
+        direction = EdgeScrollDirection::Top;
+        overshoot = (-y) / cell_height;
+        let previous_overshoot = if last_direction == direction {
+            last_overshoot
+        } else {
+            0.0
+        };
+        let overshoot_delta = overshoot - previous_overshoot;
+        let forced = if forced_increment > 0.0 {
+            forced_increment * overshoot.max(1.0)
+        } else {
+            0.0
+        };
+        if overshoot_delta > 0.0 || forced > 0.0 {
+            remainder = remainder.max(0.0) + overshoot_delta.max(0.0) + forced;
+        } else {
+            remainder = remainder.max(0.0).min(overshoot.fract());
+        }
+        delta = remainder.trunc() as i32;
+        remainder -= delta as f32;
+        row = 0.0;
+    } else if y > buffer_height {
+        direction = EdgeScrollDirection::Bottom;
+        overshoot = (y - buffer_height) / cell_height;
+        let previous_overshoot = if last_direction == direction {
+            last_overshoot
+        } else {
+            0.0
+        };
+        let overshoot_delta = overshoot - previous_overshoot;
+        let forced = if forced_increment > 0.0 {
+            forced_increment * overshoot.max(1.0)
+        } else {
+            0.0
+        };
+        if overshoot_delta > 0.0 || forced > 0.0 {
+            remainder = remainder.max(0.0) + overshoot_delta.max(0.0) + forced;
+        } else {
+            remainder = remainder.max(0.0).min(overshoot.fract());
+        }
+        let lines = remainder.trunc() as i32;
+        delta = -lines;
+        remainder -= lines as f32;
+        row = max_row_index;
+    } else {
+        remainder = 0.0;
+    }
+
+    row = row.clamp(0.0, max_row_index);
+
+    (delta, row, remainder, direction, overshoot)
+}
+
+fn update_buffer_drag(
+    state: &mut State,
+    terminal: &mut Terminal,
+    buffer_size: (Option<f32>, Option<f32>),
+    pointer: Point,
+    bounds: Rectangle<f32>,
+    padding: Padding,
+    forced_increment: f32,
+) -> bool {
+    let Some(dragging) = state.dragging.as_mut() else {
+        return false;
+    };
+
+    let Dragging::Buffer {
+        edge_scroll_remainder,
+        last_edge_direction,
+        last_edge_overshoot,
+        last_point,
+        last_side,
+    } = dragging
+    else {
+        return false;
+    };
+
+    let x = (pointer.x - bounds.x) - padding.left;
+    let y = (pointer.y - bounds.y) - padding.top;
+
+    let size = terminal.size();
+    let buffer_height = buffer_size.1.unwrap_or(size.height as f32);
+    let max_row_index = (size.screen_lines().saturating_sub(1)) as f32;
+    let max_col_index = (size.columns().saturating_sub(1)) as f32;
+    let (scroll_delta, adjusted_row, new_remainder, new_direction, new_overshoot) =
+        edge_scroll_adjustment(
+            y,
+            buffer_height,
+            size.cell_height,
+            max_row_index,
+            *edge_scroll_remainder,
+            *last_edge_direction,
+            *last_edge_overshoot,
+            forced_increment,
+        );
+    *edge_scroll_remainder = new_remainder;
+    *last_edge_direction = new_direction;
+    *last_edge_overshoot = new_overshoot;
+    let col = (x / size.cell_width).clamp(0.0, max_col_index);
+    let row = adjusted_row.clamp(0.0, max_row_index);
+    if scroll_delta != 0 {
+        terminal.scroll(TerminalScroll::Delta(scroll_delta));
+    }
+    let location =
+        terminal.viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
+    let side = if col.fract() < 0.5 {
+        TermSide::Left
+    } else {
+        TermSide::Right
+    };
+    {
+        let mut term = terminal.term.lock();
+        if let Some(selection) = &mut term.selection {
+            selection.update(location, side);
+        }
+    }
+    *last_point = location;
+    *last_side = side;
+    terminal.needs_update = true;
+
+    true
 }
 
 pub struct State {
@@ -1315,6 +1704,7 @@ pub struct State {
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
+    autoscroll: DragAutoscroll,
 }
 
 impl State {
@@ -1327,6 +1717,7 @@ impl State {
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
+            autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
         }
     }
 }
@@ -1398,5 +1789,203 @@ fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
         Some(format!("\x1B\x4F{code}").into_bytes())
     } else {
         Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EdgeScrollDirection, edge_scroll_adjustment};
+
+    const BUFFER_HEIGHT: f32 = 200.0;
+    const CELL_HEIGHT: f32 = 20.0;
+    const MAX_ROW: f32 = 9.0;
+
+    #[test]
+    fn edge_scroll_small_top_overshoot_does_not_scroll_immediately() {
+        let (delta, row, remainder, direction, overshoot) = edge_scroll_adjustment(
+            -5.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            0.0,
+            EdgeScrollDirection::None,
+            0.0,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+        assert_eq!(row, 0.0);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
+
+        let (delta_repeat, row_repeat, remainder_repeat, _, _) = edge_scroll_adjustment(
+            -5.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            0.0,
+        );
+        assert_eq!(delta_repeat, 0);
+        assert_eq!(row_repeat, 0.0);
+        assert!((remainder_repeat - 0.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn edge_scroll_top_accumulates_into_scroll() {
+        let (_delta, _row, mut remainder, mut direction, mut overshoot) = edge_scroll_adjustment(
+            -5.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            0.0,
+            EdgeScrollDirection::None,
+            0.0,
+            0.0,
+        );
+        let (delta, row, new_remainder, new_direction, new_overshoot) = edge_scroll_adjustment(
+            -45.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            0.0,
+        );
+        assert_eq!(delta, 2);
+        assert_eq!(row, 0.0);
+        assert!((new_remainder - 0.25).abs() < f32::EPSILON);
+        remainder = new_remainder;
+        direction = new_direction;
+        overshoot = new_overshoot;
+
+        // repeated event with the same overshoot should not accumulate more scroll
+        let (delta, _, remainder, _, _) = edge_scroll_adjustment(
+            -45.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn edge_scroll_inside_viewport_resets_remainder() {
+        let (_delta, _row, remainder, direction, overshoot) = edge_scroll_adjustment(
+            -25.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            0.0,
+            EdgeScrollDirection::None,
+            0.0,
+            0.0,
+        );
+        let (delta, row, remainder, direction, overshoot) = edge_scroll_adjustment(
+            60.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+        assert!((row - 3.0).abs() < f32::EPSILON);
+        assert_eq!(remainder, 0.0);
+        assert_eq!(direction, EdgeScrollDirection::None);
+        assert_eq!(overshoot, 0.0);
+    }
+
+    #[test]
+    fn edge_scroll_bottom_accumulates_scroll() {
+        let (delta, row, remainder, direction, overshoot) = edge_scroll_adjustment(
+            BUFFER_HEIGHT + 1.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            0.0,
+            EdgeScrollDirection::None,
+            0.0,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+        assert!((row - MAX_ROW).abs() < f32::EPSILON);
+        assert!((remainder - 0.05).abs() < f32::EPSILON);
+
+        let (delta, row, remainder, direction, overshoot) = edge_scroll_adjustment(
+            BUFFER_HEIGHT + 45.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            0.0,
+        );
+        assert_eq!(delta, -2);
+        assert!((row - MAX_ROW).abs() < f32::EPSILON);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
+
+        let (delta, _, remainder, _, _) = edge_scroll_adjustment(
+            BUFFER_HEIGHT + 45.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn edge_scroll_forced_increment_continues_scrolling() {
+        let (delta, _, remainder, direction, overshoot) = edge_scroll_adjustment(
+            -5.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            0.0,
+            EdgeScrollDirection::None,
+            0.0,
+            0.0,
+        );
+        assert_eq!(delta, 0);
+
+        let (delta, _, remainder, direction, overshoot) = edge_scroll_adjustment(
+            -5.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            1.0,
+        );
+        assert_eq!(delta, 1);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
+
+        let (delta, _, remainder, _, _) = edge_scroll_adjustment(
+            -5.0,
+            BUFFER_HEIGHT,
+            CELL_HEIGHT,
+            MAX_ROW,
+            remainder,
+            direction,
+            overshoot,
+            1.0,
+        );
+        assert_eq!(delta, 1);
+        assert!((remainder - 0.25).abs() < f32::EPSILON);
     }
 }

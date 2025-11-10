@@ -3,10 +3,12 @@ new-terminal = Neues Terminal
 
 # Kontextseiten
 
+
 ## Über
-git-description = Git-Commit {$hash} am {$date}
+
 
 ## Farbschemen
+
 color-schemes = Farbschemen
 rename = Umbenennen
 export = Exportieren
@@ -15,6 +17,7 @@ import = Importieren
 import-errors = Importfehler
 
 ## Profile
+
 profiles = Profile
 name = Name
 command-line = Befehlszeile
@@ -28,9 +31,11 @@ hold = Halten
 remain-open = Nach Beendigung des Kindprozesses offen bleiben.
 
 ## Einstellungen
+
 settings = Einstellungen
 
 ### Aussehen
+
 appearance = Aussehen
 theme = Thema
 match-desktop = An System anpassen
@@ -42,6 +47,7 @@ default-zoom-step = Zoomstufen
 opacity = Deckkraft des Hintergrundes
 
 ### Schriftart
+
 font = Schriftart
 advanced-font-settings = Fortgeschrittene Schrifteinstellungen
 default-font = Schriftart
@@ -53,14 +59,15 @@ default-bold-font-weight = Fette Schriftstärke
 use-bright-bold = Fetten Text heller darstellen
 
 ### Aufteilungen
+
 splits = Aufteilungen
 focus-follow-mouse = Tippfokus folgt Maus
 
 ### Fortgeschritten
+
 advanced = Fortgeschritten
 show-headerbar = Kopfzeile anzeigen
 show-header-description = Kopfzeile über das Rechtsklickmenü einblenden.
-
 # Suchen
 find-placeholder = Suchen...
 find-previous = Vorherigen suchen
@@ -68,7 +75,9 @@ find-next = Nächsten suchen
 
 # Menü
 
+
 ## Datei
+
 file = Datei
 new-tab = Neuer Tab
 new-window = Neues Fenster
@@ -78,6 +87,7 @@ close-tab = Tab schließen
 quit = Beenden
 
 ## Bearbeiten
+
 edit = Bearbeiten
 copy = Kopieren
 paste = Einfügen
@@ -86,6 +96,7 @@ find = Suchen
 clear-scrollback = Scrollverlauf löschen
 
 ## Ansicht
+
 view = Ansicht
 zoom-in = Größerer Text
 zoom-reset = Standardschriftgröße

@@ -34,6 +34,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Shift], Key::Named(Named::Insert), PastePrimary);
     bind!([Ctrl, Shift], Key::Character("W".into()), TabClose);
     bind!([Ctrl], Key::Character(",".into()), Settings);
+    bind!([], Key::Named(Named::F11), ToggleFullscreen);
 
     // Ctrl+Alt+D splits horizontally, Ctrl+Alt+R splits vertically, Ctrl+Shift+X maximizes split
     //TODO: Adjust bindings as desired by UX
@@ -44,6 +45,8 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
         Key::Character("X".into()),
         PaneToggleMaximized
     );
+    #[cfg(feature = "password_manager")]
+    bind!([Ctrl, Alt], Key::Character("p".into()), PasswordManager);
 
     // Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs
     // Ctrl+Tab is not a special key for terminals and is free to use

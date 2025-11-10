@@ -4,7 +4,8 @@ new-terminal = New terminal
 # Context Pages
 
 ## About
-git-description = Git commit {$hash} on {$date}
+repository = Repository
+support = Support
 
 ## Color schemes
 color-schemes = Color schemes
@@ -86,6 +87,9 @@ select-all = Select all
 find = Find
 clear-scrollback = Clear scrollback
 
+## Open
+open-link = Open Link
+
 ## View
 view = View
 zoom-in = Larger text
@@ -99,3 +103,10 @@ pane-toggle-maximize = Toggle maximized
 menu-color-schemes = Color schemes...
 menu-settings = Settings...
 menu-about = About COSMIC Terminal...
+
+# Password Manager
+menu-password-manager = Passwords...
+passwords-title = Passwords
+add-password = Add Password
+password-input = Password
+password-input-description = Description

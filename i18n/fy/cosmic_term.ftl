@@ -1,0 +1,14 @@
+support = Stipe
+repository = Argyf
+settings = Ynstellings
+match-desktop = Buroblêdstandert
+cosmic-terminal = COSMIC Terminal
+new-terminal = Nije terminal
+appearance = Uterlik
+dark = Donker
+light = Ljocht
+default-zoom-step = Zoomstappen
+find-placeholder = Sykje…
+find-previous = Sykje foarige
+find-next = Sykje folgjende
+theme = Tema

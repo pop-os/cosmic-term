@@ -3,9 +3,9 @@ new-terminal = Uusi terminaali
 
 # Context Pages
 
+
 ## About
 
-git-description = Git-versio {$hash} päivänä {$date}
 
 ## Color schemes
 
@@ -76,6 +76,7 @@ find-previous = Etsi aikaisempi
 find-next = Etsi seuraava
 
 # Menu
+
 
 ## File
 

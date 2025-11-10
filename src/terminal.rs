@@ -1,4 +1,5 @@
 use alacritty_terminal::{
+    Term,
     event::{Event, EventListener, Notify, OnResize, WindowSize},
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
@@ -6,14 +7,14 @@ use alacritty_terminal::{
     selection::{Selection, SelectionType},
     sync::FairMutex,
     term::{
+        Config, TermDamage, TermMode,
         cell::Flags,
         color::{self, Colors},
         search::RegexSearch,
-        viewport_to_point, Config, TermDamage, TermMode,
+        viewport_to_point,
     },
     tty::{self, Options},
     vte::ansi::{Color, CursorShape, NamedColor, Rgb},
-    Term,
 };
 use cosmic::{
     iced::{advanced::graphics::text::font_system, mouse::ScrollDelta},
@@ -29,8 +30,8 @@ use std::{
     collections::HashMap,
     io, mem,
     sync::{
-        atomic::{AtomicU32, Ordering},
         Arc, Mutex, Weak,
+        atomic::{AtomicU32, Ordering},
     },
     time::Instant,
 };
@@ -40,6 +41,7 @@ pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
     config::{ColorSchemeKind, Config as AppConfig, ProfileId},
+    menu::MenuState,
     mouse_reporter::MouseReporter,
 };
 
@@ -235,7 +237,7 @@ impl Metadata {
 }
 
 pub struct Terminal {
-    pub context_menu: Option<cosmic::iced::Point>,
+    pub context_menu: Option<MenuState>,
     pub metadata_set: IndexSet<Metadata>,
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,
@@ -303,7 +305,7 @@ impl Terminal {
             buffer.set_wrap(font_system, Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced);
+            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced, None);
             let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
             buffer.set_monospace_width(font_system, Some(w));
@@ -686,7 +688,13 @@ impl Terminal {
                 buffer.set_wrap(font_system.raw(), Wrap::None);
 
                 // Use size of space to determine cell size
-                buffer.set_text(font_system.raw(), " ", &default_attrs, Shaping::Advanced);
+                buffer.set_text(
+                    font_system.raw(),
+                    " ",
+                    &default_attrs,
+                    Shaping::Advanced,
+                    None,
+                );
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
                 buffer.set_monospace_width(font_system.raw(), Some(w));

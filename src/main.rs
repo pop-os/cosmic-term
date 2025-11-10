@@ -6,42 +6,42 @@ use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::widget::DndDestination;
 use cosmic::{
-    action,
-    app::{context_drawer, Core, Settings, Task},
+    Application, ApplicationExt, Element, action,
+    app::{Core, Settings, Task, context_drawer},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
-        self,
+        self, Alignment, Color, Event, Length, Limits, Padding, Subscription,
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
-        stream, window, Alignment, Color, Event, Length, Limits, Padding, Point, Subscription,
+        stream, window,
     },
     style,
-    widget::{self, button, pane_grid, segmented_button, PaneGrid},
-    Application, ApplicationExt, Element,
+    widget::{self, DndDestination, PaneGrid, about::About, button, pane_grid, segmented_button},
 };
-use cosmic::{surface, Apply};
-use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult};
-use cosmic_text::{fontdb::FaceInfo, Family, Stretch, Weight};
+use cosmic::{Apply, surface};
+use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
+use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
 use localize::LANGUAGE_SORTER;
 use std::{
     any::TypeId,
     cmp,
     collections::{BTreeMap, BTreeSet, HashMap},
-    env, fs, process,
+    env,
+    error::Error,
+    fs, process,
     rc::Rc,
-    sync::{atomic::Ordering, Mutex},
+    sync::{LazyLock, Mutex, atomic::Ordering},
 };
 use tokio::sync::mpsc;
 
 use config::{
-    AppTheme, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile, ProfileId,
-    CONFIG_VERSION,
+    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile,
+    ProfileId,
 };
 mod config;
 mod mouse_reporter;
@@ -63,15 +63,18 @@ mod terminal;
 use terminal_box::terminal_box;
 
 use crate::dnd::DndDrop;
+use crate::menu::MenuState;
 mod terminal_box;
 
+#[cfg(feature = "password_manager")]
+mod password_manager;
 mod terminal_theme;
 
 mod dnd;
 
-lazy_static::lazy_static! {
-    static ref ICON_CACHE: Mutex<IconCache> = Mutex::new(IconCache::new());
-}
+use clap_lex::RawArgs;
+
+static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
 
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();
@@ -79,21 +82,34 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 }
 
 /// Runs application with these settings
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+#[rustfmt::skip]
+fn main() -> Result<(), Box<dyn Error>> {
+    let raw_args = RawArgs::from_args();
+    let mut cursor = raw_args.cursor();
 
+    let mut shell_program_opt = None;
+    let mut shell_args = Vec::new();
     let mut daemonize = true;
-    let mut args_iter = env::args().fuse();
-    // more performant than an iterator adapter
-    _ = args_iter.next();
-    for arg in args_iter.by_ref() {
-        match arg.as_str() {
-            // These flags indicate the end of parsing flags
-            "-e" | "--command" | "--" => {
-                break;
+    // Parse the arguments using clap_lex
+    while let Some(arg) = raw_args.next_os(&mut cursor) {
+        match arg.to_str() {
+            Some("--help") | Some("-h") => {
+                print_help();
+                return Ok(());
             }
-            "--no-daemon" => {
+            Some("--version") | Some("-V") => {
+                println!(
+                    "cosmic-term {}",
+                    env!("CARGO_PKG_VERSION"),
+                );
+                return Ok(());
+            }
+            Some("--no-daemon") => {
                 daemonize = false;
+            }
+            Some("-e") | Some("--command") | Some("--") => {
+                // Handle the '--command' or '-e' flag
+                break;
             }
             _ => {
                 //TODO: should this throw an error?
@@ -101,8 +117,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    let shell_program_opt = args_iter.next();
-    let shell_args = Vec::from_iter(args_iter);
+    // After flags, process remaining shell program and args
+    while let Some(arg) = raw_args.next_os(&mut cursor) {
+        if shell_program_opt.is_some() {
+            shell_args.push(arg.to_string_lossy().to_string());
+        } else {
+            shell_program_opt = Some(arg.to_string_lossy().to_string());
+        }
+    }
+
+    // Platform-specific daemonization logic
 
     #[cfg(all(unix, not(target_os = "redox")))]
     if daemonize {
@@ -145,25 +169,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    // Terminal config setup
     let term_config = term::Config::default();
     // Set up environmental variables for terminal
     tty::setup_env();
     // Override TERM for better compatibility
-    env::set_var("TERM", "xterm-256color");
+    unsafe {
+        env::set_var("TERM", "xterm-256color");
+    }
 
+    // Set settings
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
+    // Flags
     let flags = Flags {
         config_handler,
         config,
         startup_options,
         term_config,
     };
+
+    // Run the cosmic app
     cosmic::app::run::<App>(settings, flags)?;
 
     Ok(())
+}
+
+fn print_help() {
+    println!(
+        r#"COSMIC Terminal
+Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based terminal emulator.
+
+Project home page: https://github.com/pop-os/cosmic-term
+Options:
+  --help     Show this message
+  --version  Show the version of cosmic-term"#
+    );
 }
 
 #[derive(Clone, Debug)]
@@ -183,6 +226,7 @@ pub enum Action {
     CopyOrSigint,
     CopyPrimary,
     Find,
+    LaunchUrlByMenu,
     PaneFocusDown,
     PaneFocusLeft,
     PaneFocusRight,
@@ -196,6 +240,8 @@ pub enum Action {
     Profiles,
     SelectAll,
     Settings,
+    #[cfg(feature = "password_manager")]
+    PasswordManager,
     ShowHeaderBar(bool),
     TabActivate0,
     TabActivate1,
@@ -211,6 +257,7 @@ pub enum Action {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    ToggleFullscreen,
     WindowClose,
     WindowNew,
     ZoomIn,
@@ -230,6 +277,7 @@ impl Action {
             Self::CopyOrSigint => Message::CopyOrSigint(entity_opt),
             Self::CopyPrimary => Message::CopyPrimary(entity_opt),
             Self::Find => Message::Find(true),
+            Self::LaunchUrlByMenu => Message::LaunchUrlByMenu,
             Self::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Self::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
             Self::PaneFocusRight => Message::PaneFocusAdjacent(pane_grid::Direction::Right),
@@ -237,6 +285,8 @@ impl Action {
             Self::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
             Self::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Self::PaneToggleMaximized => Message::PaneToggleMaximized,
+            #[cfg(feature = "password_manager")]
+            Self::PasswordManager => Message::ToggleContextPage(ContextPage::PasswordManager),
             Self::Paste => Message::Paste(entity_opt),
             Self::PastePrimary => Message::PastePrimary(entity_opt),
             Self::ProfileOpen(profile_id) => Message::ProfileOpen(*profile_id),
@@ -258,6 +308,7 @@ impl Action {
             Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
+            Self::ToggleFullscreen => Message::ToggleFullscreen,
             Self::WindowClose => Message::WindowClose,
             Self::WindowNew => Message::WindowNew,
             Self::ZoomIn => Message::ZoomIn,
@@ -311,6 +362,7 @@ pub enum Message {
     FocusFollowMouse(bool),
     Key(Modifiers, Key),
     LaunchUrl(String),
+    LaunchUrlByMenu,
     Modifiers(Modifiers),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
@@ -321,6 +373,10 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     PaneSplit(pane_grid::Axis),
     PaneToggleMaximized,
+    #[cfg(feature = "password_manager")]
+    PasswordManager(password_manager::PasswordManagerMessage),
+    #[cfg(feature = "password_manager")]
+    PasswordPaste(secstr::SecUtf8, pane_grid::Pane),
     Paste(Option<segmented_button::Entity>),
     PastePrimary(Option<segmented_button::Entity>),
     PasteValue(Option<segmented_button::Entity>, String),
@@ -345,13 +401,14 @@ pub enum Message {
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
     TabContextAction(segmented_button::Entity, Action),
-    TabContextMenu(pane_grid::Pane, Option<Point>),
+    TabContextMenu(pane_grid::Pane, Option<MenuState>),
     TabNew,
     TabNewNoProfile,
     TabNext,
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
+    ToggleFullscreen,
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
@@ -370,11 +427,14 @@ pub enum ContextPage {
     ColorSchemes(ColorSchemeKind),
     Profiles,
     Settings,
+    #[cfg(feature = "password_manager")]
+    PasswordManager,
 }
 
 /// The [`App`] stores application-specific state.
 pub struct App {
     core: Core,
+    about: About,
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
@@ -413,6 +473,8 @@ pub struct App {
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
+    #[cfg(feature = "password_manager")]
+    password_mgr: password_manager::PasswordManager,
 }
 
 impl App {
@@ -575,6 +637,9 @@ impl App {
     fn update_focus(&self) -> Task<Message> {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
+        } else if self.core.window.show_context {
+            // TODO focus the context page?
+            Task::none()
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
             widget::text_input::focus(terminal_id)
@@ -693,39 +758,7 @@ impl App {
         }
     }
 
-    fn about(&self) -> Element<Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-        let repository = "https://github.com/pop-os/cosmic-term";
-        let hash = env!("VERGEN_GIT_SHA");
-        let short_hash: String = hash.chars().take(7).collect();
-        let date = env!("VERGEN_GIT_COMMIT_DATE");
-        widget::column::with_children(vec![
-                widget::svg(widget::svg::Handle::from_memory(
-                    &include_bytes!(
-                        "../res/icons/hicolor/128x128/apps/com.system76.CosmicTerm.svg"
-                    )[..],
-                ))
-                .into(),
-                widget::text::title3(fl!("cosmic-terminal")).into(),
-                widget::button::link(repository)
-                    .on_press(Message::LaunchUrl(repository.to_string()))
-                    .padding(0)
-                    .into(),
-                widget::button::link(fl!(
-                    "git-description",
-                    hash = short_hash.as_str(),
-                    date = date
-                ))
-                    .on_press(Message::LaunchUrl(format!("{repository}/commits/{hash}")))
-                    .padding(0)
-                .into(),
-            ])
-        .align_x(Alignment::Center)
-        .spacing(space_xxs)
-        .into()
-    }
-
-    fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<Message> {
+    fn color_schemes(&self, color_scheme_kind: ColorSchemeKind) -> Element<'_, Message> {
         let cosmic_theme::Spacing { space_xxxs, .. } = self.core().system_theme().cosmic().spacing;
 
         let mut sections = Vec::with_capacity(3 + self.color_scheme_errors.len());
@@ -837,7 +870,7 @@ impl App {
         widget::settings::view_column(sections).into()
     }
 
-    fn profiles(&self) -> Element<Message> {
+    fn profiles(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing {
             space_s,
             space_xs,
@@ -898,6 +931,9 @@ impl App {
                                         .on_input(move |text| {
                                             Message::ProfileName(profile_id, text)
                                         })
+                                        .on_paste(move |text| {
+                                            Message::ProfileName(profile_id, text)
+                                        })
                                         .into(),
                                 ])
                                 .spacing(space_xxxs)
@@ -906,6 +942,9 @@ impl App {
                                     widget::text(fl!("command-line")).into(),
                                     widget::text_input("", &profile.command)
                                         .on_input(move |text| {
+                                            Message::ProfileCommand(profile_id, text)
+                                        })
+                                        .on_paste(move |text| {
                                             Message::ProfileCommand(profile_id, text)
                                         })
                                         .into(),
@@ -918,6 +957,9 @@ impl App {
                                         .on_input(move |text| {
                                             Message::ProfileDirectory(profile_id, text)
                                         })
+                                        .on_paste(move |text| {
+                                            Message::ProfileDirectory(profile_id, text)
+                                        })
                                         .into(),
                                 ])
                                 .spacing(space_xxxs)
@@ -926,6 +968,9 @@ impl App {
                                     widget::text(fl!("tab-title")).into(),
                                     widget::text_input("", &profile.tab_title)
                                         .on_input(move |text| {
+                                            Message::ProfileTabTitle(profile_id, text)
+                                        })
+                                        .on_paste(move |text| {
                                             Message::ProfileTabTitle(profile_id, text)
                                         })
                                         .into(),
@@ -1021,9 +1066,8 @@ impl App {
         widget::settings::view_column(sections).into()
     }
 
-    fn settings(&self) -> Element<Message> {
+    fn settings(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
-
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1438,7 +1482,9 @@ impl Application for App {
         };
 
         if font_name_faces_map.is_empty() {
-            log::error!("at least one monospace font with normal/bold weights and default stretch is required");
+            log::error!(
+                "at least one monospace font with normal/bold weights and default stretch is required"
+            );
             log::error!("no monospace fonts to select from, exiting");
             process::exit(1);
         }
@@ -1499,8 +1545,25 @@ impl Application for App {
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focused(), widget::Id::unique());
 
+        let about = About::default()
+            .name(fl!("cosmic-terminal"))
+            .icon(widget::icon::from_name(Self::APP_ID))
+            .version(env!("CARGO_PKG_VERSION"))
+            .author("System76")
+            .license("GPL-3.0-only")
+            .license_url("https://spdx.org/licenses/GPL-3.0-only")
+            .developers([("Jeremy Soller", "jeremy@system76.com")])
+            .links([
+                (fl!("repository"), "https://github.com/pop-os/cosmic-term"),
+                (
+                    fl!("support"),
+                    "https://github.com/pop-os/cosmic-term/issues",
+                ),
+            ]);
+
         let mut app = Self {
             core,
+            about,
             pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
@@ -1538,6 +1601,8 @@ impl Application for App {
             profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
+            #[cfg(feature = "password_manager")]
+            password_mgr: Default::default(),
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -1551,6 +1616,10 @@ impl Application for App {
         if self.core.window.show_context {
             // Close context drawer if open
             self.core.window.show_context = false;
+            #[cfg(feature = "password_manager")]
+            if self.context_page == ContextPage::PasswordManager {
+                self.password_mgr.clear();
+            }
         } else if self.find {
             // Close find if open
             self.find = false;
@@ -1565,6 +1634,10 @@ impl Application for App {
         if self.core.window.show_context {
             Task::none()
         } else {
+            #[cfg(feature = "password_manager")]
+            if self.context_page == ContextPage::PasswordManager {
+                self.password_mgr.clear();
+            }
             self.update_focus()
         }
     }
@@ -1629,10 +1702,9 @@ impl Application for App {
                 } {
                     if self.dialog_opt.is_none() {
                         let (dialog, command) = Dialog::new(
-                            DialogKind::SaveFile {
+                            DialogSettings::new().kind(DialogKind::SaveFile {
                                 filename: format!("{}.ron", color_scheme_name),
-                            },
-                            None,
+                            }),
                             Message::DialogMessage,
                             move |result| {
                                 Message::ColorSchemeExportResult(
@@ -1731,8 +1803,7 @@ impl Application for App {
                 if self.dialog_opt.is_none() {
                     self.color_scheme_errors.clear();
                     let (dialog, command) = Dialog::new(
-                        DialogKind::OpenMultipleFiles,
-                        None,
+                        DialogSettings::new().kind(DialogKind::OpenMultipleFiles),
                         Message::DialogMessage,
                         move |result| Message::ColorSchemeImportResult(color_scheme_kind, result),
                     );
@@ -1856,6 +1927,11 @@ impl Application for App {
                     log::warn!("Failed to get focused pane");
                 }
                 return self.update_focus();
+            }
+            Message::ToggleFullscreen => {
+                if let Some(window_id) = self.core.main_window_id() {
+                    return cosmic::command::toggle_maximize(window_id);
+                }
             }
             Message::CopyPrimary(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2060,6 +2136,23 @@ impl Application for App {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
             }
+            Message::LaunchUrlByMenu => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Update context menu position
+                        let mut terminal = terminal.lock().unwrap();
+                        if let Some(url) =
+                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                        {
+                            if let Err(err) = open::that_detached(url) {
+                                log::warn!("failed to open {:?}: {}", url, err);
+                            }
+                        }
+                        terminal.context_menu = None;
+                    }
+                }
+            }
             Message::Modifiers(modifiers) => {
                 self.modifiers = modifiers;
             }
@@ -2116,6 +2209,23 @@ impl Application for App {
                 self.pane_model.panes.drop(pane, target);
             }
             Message::PaneDragged(_) => {}
+            #[cfg(feature = "password_manager")]
+            Message::PasswordManager(msg) => {
+                return self.password_mgr.update(msg);
+            }
+            #[cfg(feature = "password_manager")]
+            Message::PasswordPaste(password, pane) => {
+                if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        terminal.paste(password.into_unsecure());
+                        terminal.input_scroll(b"\n".as_slice());
+                        self.core.window.show_context = false;
+                        self.password_mgr.clear();
+                    }
+                }
+            }
             Message::Paste(entity_opt) => {
                 return clipboard::read().map(move |value_opt| match value_opt {
                     Some(value) => action::app(Message::PasteValue(entity_opt, value)),
@@ -2341,14 +2451,25 @@ impl Application for App {
                         // Close context menu
                         {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = None;
+                            //Some actions need the menu_state,
+                            //so only clear the position for them.
+                            match action {
+                                Action::LaunchUrlByMenu => {
+                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
+                                        context_menu.position = None;
+                                    }
+                                }
+                                _ => {
+                                    terminal.context_menu = None;
+                                }
+                            }
                         }
                         // Run action's message
                         return self.update(action.message(Some(entity)));
                     }
                 }
             }
-            Message::TabContextMenu(pane, position_opt) => {
+            Message::TabContextMenu(pane, menu_state) => {
                 // Close any existing context menues
                 let panes: Vec<_> = self.pane_model.panes.iter().collect();
                 for (_pane, tab_model) in panes {
@@ -2365,7 +2486,7 @@ impl Application for App {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = position_opt;
+                        terminal.context_menu = menu_state;
                     }
                 }
 
@@ -2378,10 +2499,10 @@ impl Application for App {
                 return self.create_and_focus_new_terminal(
                     self.pane_model.focused(),
                     self.get_default_profile(),
-                )
+                );
             }
             Message::TabNewNoProfile => {
-                return self.create_and_focus_new_terminal(self.pane_model.focused(), None)
+                return self.create_and_focus_new_terminal(self.pane_model.focused(), None);
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2552,9 +2673,13 @@ impl Application for App {
             Message::ToggleContextPage(context_page) => {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
+                    self.pane_model.update_terminal_focus();
+
+                    return self.update_focus();
                 } else {
                     self.context_page = context_page;
                     self.core.window.show_context = true;
+                    self.pane_model.unfocus_all_terminals();
                 }
 
                 // Extra work to do to prepare context pages
@@ -2581,6 +2706,16 @@ impl Application for App {
                             ColorSchemeKind::Light => light_entity,
                         });
                 }
+
+                #[cfg(feature = "password_manager")]
+                if ContextPage::PasswordManager == context_page {
+                    if self.core.window.show_context {
+                        self.password_mgr.pane = Some(self.pane_model.focused());
+                        return self.password_mgr.refresh_password_list();
+                    } else {
+                        self.password_mgr.clear();
+                    }
+                }
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
                 config_set!(default_profile, default.then_some(profile_id));
@@ -2602,7 +2737,9 @@ impl Application for App {
                 }
             },
             Message::WindowFocused => {
-                self.pane_model.update_terminal_focus();
+                if !self.core.window.show_context {
+                    self.pane_model.update_terminal_focus();
+                }
                 return self.update_focus();
             }
             Message::WindowUnfocused => {
@@ -2628,14 +2765,15 @@ impl Application for App {
         Task::none()
     }
 
-    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<'_, Message>> {
         if !self.core.window.show_context {
             return None;
         }
 
         Some(match self.context_page {
-            ContextPage::About => context_drawer::context_drawer(
-                self.about(),
+            ContextPage::About => context_drawer::about(
+                &self.about,
+                |s| Message::LaunchUrl(s.to_string()),
                 Message::ToggleContextPage(ContextPage::About),
             ),
             ContextPage::ColorSchemes(color_scheme_kind) => context_drawer::context_drawer(
@@ -2653,14 +2791,20 @@ impl Application for App {
                 Message::ToggleContextPage(ContextPage::Settings),
             )
             .title(fl!("settings")),
+            #[cfg(feature = "password_manager")]
+            ContextPage::PasswordManager => context_drawer::context_drawer(
+                self.password_mgr.context_page(self.core.system_theme()),
+                Message::ToggleContextPage(ContextPage::PasswordManager),
+            )
+            .title(fl!("passwords-title")),
         })
     }
 
-    fn header_start(&self) -> Vec<Element<Self::Message>> {
+    fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
         vec![menu_bar(&self.core, &self.config, &self.key_binds)]
     }
 
-    fn header_end(&self) -> Vec<Element<Self::Message>> {
+    fn header_end(&self) -> Vec<Element<'_, Self::Message>> {
         vec![
             widget::button::custom(icon_cache_get("list-add-symbolic", 16))
                 .on_press(Message::TabNew)
@@ -2670,7 +2814,7 @@ impl Application for App {
         ]
     }
 
-    fn view_window(&self, window_id: window::Id) -> Element<Message> {
+    fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
         match &self.dialog_opt {
             Some(dialog) => dialog.view(window_id),
             None => widget::text("Unknown window ID").into(),
@@ -2678,7 +2822,7 @@ impl Application for App {
     }
 
     /// Creates a view after each update.
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
 
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
@@ -2708,15 +2852,15 @@ impl Application for App {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal_box = terminal_box(terminal)
                     .id(terminal_id)
-                    .on_context_menu(move |position_opt| {
-                        Message::TabContextMenu(pane, position_opt)
-                    })
+                    .disabled(self.core.window.show_context)
+                    .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())
                     .padding(self.config.padding_value(space_xxs))
+                    .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar);
 
                 if self.config.focus_follow_mouse {
@@ -2725,14 +2869,22 @@ impl Application for App {
 
                 let context_menu = {
                     let terminal = terminal.lock().unwrap();
-                    terminal.context_menu
+                    terminal.context_menu.clone()
                 };
 
                 let tab_element: Element<'_, Message> = match context_menu {
-                    Some(point) => widget::popover(terminal_box.context_menu(point))
-                        .popup(menu::context_menu(&self.config, &self.key_binds, entity))
-                        .position(widget::popover::Position::Point(point))
-                        .into(),
+                    Some(menu_state) => match menu_state.position {
+                        Some(point) => widget::popover(terminal_box.context_menu(point))
+                            .popup(menu::context_menu(
+                                &self.config,
+                                &self.key_binds,
+                                entity,
+                                menu_state.link,
+                            ))
+                            .position(widget::popover::Position::Point(point))
+                            .into(),
+                        None => terminal_box.into(),
+                    },
                     None => terminal_box.into(),
                 };
                 tab_column = tab_column.push(tab_element);
@@ -2823,11 +2975,17 @@ impl Application for App {
         pane_grid.into()
     }
 
+    fn system_theme_update(
+        &mut self,
+        _keys: &[&'static str],
+        _new_theme: &cosmic::cosmic_theme::Theme,
+    ) -> Task<Self::Message> {
+        self.update(Message::SystemThemeChange)
+    }
+
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
-        struct ThemeSubscription;
-        struct ThemeModeSubscription;
 
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
@@ -2873,23 +3031,6 @@ impl Application for App {
                 }
                 Message::Config(update.config)
             }),
-            cosmic_config::config_subscription::<_, cosmic_theme::Theme>(
-                TypeId::of::<ThemeSubscription>(),
-                if self.core.system_theme_mode().is_dark {
-                    cosmic_theme::DARK_THEME_ID
-                } else {
-                    cosmic_theme::LIGHT_THEME_ID
-                }
-                .into(),
-                cosmic_theme::Theme::VERSION,
-            )
-            .map(|_update| Message::SystemThemeChange),
-            cosmic_config::config_subscription::<_, cosmic_theme::ThemeMode>(
-                TypeId::of::<ThemeModeSubscription>(),
-                cosmic_theme::THEME_MODE_ID.into(),
-                cosmic_theme::ThemeMode::VERSION,
-            )
-            .map(|_update| Message::SystemThemeChange),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
                 None => Subscription::none(),
