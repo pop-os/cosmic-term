@@ -14,15 +14,15 @@ rename = Преименуване
 export = Изнасяне
 delete = Изтриване
 import = Внасяне
-import-errors = Грешки при внасянето
+import-errors = Грешки при Внасянето
 
 ## Profiles
 
 profiles = Профили
 name = Име
 command-line = Команден ред
-tab-title = Заглавие на подпрозореца
-tab-title-description = Заменяне на стандартното залгавие на подпрозорците
+tab-title = Заглавие на раздела
+tab-title-description = Заменяне на стандартното залгавие на раздела
 add-profile = Добавяне на профил
 new-profile = Нов профил
 make-default = Задай като стандартен
@@ -38,9 +38,9 @@ settings = Настройки
 
 appearance = Външен вид
 theme = Тема
-match-desktop = Системен
-dark = Тъмен
-light = Светъл
+match-desktop = Системна тема
+dark = Тъмна тема
+light = Светла тема
 syntax-dark = Тъмна цветова схема
 syntax-light = Светла цветова схема
 default-zoom-step = Стандартен мащаб
@@ -60,8 +60,8 @@ use-bright-bold = По-ярък получерен текст
 
 ### Splits
 
-splits = Раздели
-focus-follow-mouse = Активният раздел се определя от мишката
+splits = Разделен изглед
+focus-follow-mouse = Активният разделен изглед се определя от мишката
 
 ### Advanced
 
@@ -101,13 +101,19 @@ view = Изглед
 zoom-in = Увеличаване
 zoom-reset = Връщане на мащаба
 zoom-out = Малък текст
-next-tab = Следващ подпрозорец
-previous-tab = Предишен подпрозорец
-split-horizontal = Разделяне хоризонтално
-split-vertical = Разделяне вертикално
+next-tab = Следващ раздел
+previous-tab = Предишен раздел
+split-horizontal = Разделяне на игледа хоризонтално
+split-vertical = Разделяне на изгледа вертикално
 pane-toggle-maximize = Превключване на максимизирането
 menu-color-schemes = Цветови схеми...
 menu-settings = Настройки...
 menu-about = Относно „Терминал на COSMIC“...
 repository = Хранилище
 support = Поддръжка
+open-link = Отваряне на връзката
+menu-password-manager = Пароли...
+passwords-title = Пароли
+add-password = Добавяне на парола
+password-input = Парола
+password-input-description = Описание

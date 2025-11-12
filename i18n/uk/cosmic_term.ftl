@@ -116,3 +116,4 @@ passwords-title = Паролі
 add-password = Додати пароль
 password-input = Пароль
 password-input-description = Опис
+open-link = Відкрити посилання
