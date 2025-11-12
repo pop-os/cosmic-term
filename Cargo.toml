@@ -7,7 +7,7 @@ license = "GPL-3.0-only"
 rust-version = "1.85"
 
 [dependencies]
-alacritty_terminal = { git = "https://github.com/alacritty/alacritty", rev = "cacdb5bb3b72bad2c729227537979d95af75978f" }
+alacritty_terminal = "0.25.1"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
 log = "0.4"
@@ -26,10 +26,10 @@ i18n-embed = { version = "0.16", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.10"
-icu = { version = "2.0.0", features = ["compiled_data"] }
+icu = { version = "2.1.1", features = ["compiled_data"] }
 rust-embed = "8"
 url = "2.5"
-secret-service = { version = "5.0.0", features = ["rt-tokio-crypto-rust"], optional = true }
+secret-service = { version = "5.1.0", features = ["rt-tokio-crypto-rust"], optional = true }
 thiserror = { version = "2.0", optional = true }
 secstr = { version = "0.5", optional = true }
 
@@ -48,7 +48,7 @@ default-features = false
 features = ["about", "multi-window", "tokio", "winit", "surface-message"]
 
 [target.'cfg(unix)'.dependencies]
-fork = "0.2"
+fork = "0.4"
 
 [features]
 default = ["dbus-config", "wgpu", "wayland", "password_manager"]

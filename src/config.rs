@@ -199,7 +199,7 @@ pub struct Profile {
     #[serde(default)]
     pub working_directory: String,
     #[serde(default)]
-    pub hold: bool,
+    pub drain_on_exit: bool,
 }
 
 impl Default for Profile {
@@ -211,7 +211,7 @@ impl Default for Profile {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             tab_title: String::new(),
             working_directory: String::new(),
-            hold: false,
+            drain_on_exit: false,
         }
     }
 }

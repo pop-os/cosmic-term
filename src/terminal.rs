@@ -328,7 +328,8 @@ impl Terminal {
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
 
-        let pty_event_loop = EventLoop::new(term.clone(), event_proxy, pty, options.hold, false)?;
+        let pty_event_loop =
+            EventLoop::new(term.clone(), event_proxy, pty, options.drain_on_exit, false)?;
         let notifier = Notifier(pty_event_loop.channel());
         let _pty_join_handle = pty_event_loop.spawn();
 
