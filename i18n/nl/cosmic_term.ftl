@@ -36,14 +36,14 @@ settings = Instellingen
 
 ### Appearance
 
-appearance = Weergave
+appearance = Uiterlijk
 theme = Thema
-match-desktop = Systeemstandaard
+match-desktop = Maak gelijk aan bureaublad
 dark = Donker
 light = Licht
 syntax-dark = Donkere syntaxiskleuring
 syntax-light = Lichte syntaxiskleuring
-default-zoom-step = Zoomstapgrootte
+default-zoom-step = Zoomstappen
 opacity = Achtergronddoorzichtigheid
 
 ### Font
@@ -84,7 +84,7 @@ new-window = Nieuw venster
 profile = Profiel
 menu-profiles = Profielen...
 close-tab = Sluit tabblad
-quit = Sluit
+quit = Beëindig
 
 ## Edit
 
@@ -110,4 +110,4 @@ menu-color-schemes = Kleurenpaletten...
 menu-settings = Instellingen...
 menu-about = Over COSMIC Terminal…
 support = Ondersteuning
-repository = Repository
+repository = Bibliotheek
