@@ -45,7 +45,7 @@ dark = Sötét
 light = Világos
 syntax-dark = Sötét színséma
 syntax-light = Világos színséma
-default-zoom-step = Nagyítási lépték
+default-zoom-step = Nagyítási mérték
 opacity = Háttér átlátszósága
 
 ### Font
