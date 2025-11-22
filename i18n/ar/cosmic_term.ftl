@@ -12,9 +12,9 @@ support = الدعم
 ## Color schemes
 
 color-schemes = مخططات الألوان
-rename = إعادة التسمية
+rename = غيِّر التسمية
 export = تصدير
-delete = حذف
+delete = احذف
 import = استيراد
 import-errors = تعذر الاستيراد
 
@@ -40,7 +40,7 @@ settings = الإعدادات
 
 appearance = المظهر
 theme = سمة
-match-desktop = مطابقة مع سطح المكتب
+match-desktop = طابق سطح المكتب
 dark = داكن
 light = فاتح
 syntax-dark = مخطط الألوان الداكن
@@ -81,19 +81,19 @@ find-next = ابحث عن التالي
 ## File
 
 file = ملف
-new-tab = علامة تبويب جديدة
+new-tab = لسان جديد
 new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...
-close-tab = إغلاق علامة التبويب
+close-tab = أغلق اللسان
 quit = أنهِ
 
 ## Edit
 
-edit = تعديل
-copy = نسخ
-paste = لصق
-select-all = تحديد الكل
+edit = عدِّل
+copy = انسخ
+paste = ألصِق
+select-all = حدّد الكل
 find = ابحث عن
 clear-scrollback = مسح التمرير الخلفي
 
