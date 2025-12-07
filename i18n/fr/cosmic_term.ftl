@@ -98,14 +98,14 @@ clear-scrollback = Effacer l'historique
 ## View
 
 view = Affichage
-zoom-in = Texte plus grand
-zoom-reset = Taille de texte par défaut
-zoom-out = Texte plus petit
+zoom-in = Agrandir le texte
+zoom-reset = Taille par défaut
+zoom-out = Réduire le texte
 next-tab = Onglet suivant
 previous-tab = Onglet précédent
-split-horizontal = Diviser horizontalement
-split-vertical = Diviser verticalement
-pane-toggle-maximize = Maximiser l'affichage
+split-horizontal = Scinder en horizontal
+split-vertical = Scinder en vertical
+pane-toggle-maximize = Vue unique
 menu-color-schemes = Palettes de couleurs...
 menu-settings = Paramètres...
 menu-about = À propos de terminal COSMIC...
