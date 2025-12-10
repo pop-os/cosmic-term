@@ -12,18 +12,18 @@ support = الدعم
 ## Color schemes
 
 color-schemes = مخططات الألوان
-rename = غيِّر التسمية
+rename = غيِّر الاسم
 export = تصدير
 delete = احذف
-import = استيراد
-import-errors = تعذر الاستيراد
+import = استورِد
+import-errors = تعذَّر الاستيراد
 
 ## Profiles
 
 profiles = ملفات التعريف
 name = الاسم
 command-line = سطر الأوامر
-tab-title = عنوان علامة التبويب
+tab-title = عنوان اللسان
 tab-title-description = تجاوز عنوان اللسان المبدئي
 add-profile = أضف ملف تعريف
 new-profile = ملف تعريف جديد

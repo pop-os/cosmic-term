@@ -1,4 +1,4 @@
-cosmic-terminal = COSMIC Terminal
+cosmic-terminal = Teirminéal COSMIC
 new-terminal = Teirminéal nua
 
 # Context Pages
