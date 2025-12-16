@@ -2661,6 +2661,15 @@ impl Application for App {
                     self.core.window.show_context = !self.core.window.show_context;
                     self.pane_model.update_terminal_focus();
 
+                    #[cfg(feature = "password_manager")]
+                    if ContextPage::PasswordManager == context_page {
+                        if self.core.window.show_context {
+                            self.password_mgr.pane = Some(self.pane_model.focused());
+                            return self.password_mgr.refresh_password_list();
+                        } else {
+                            self.password_mgr.clear();
+                        }
+                    }
                     return self.update_focus();
                 } else {
                     self.context_page = context_page;
@@ -2695,12 +2704,8 @@ impl Application for App {
 
                 #[cfg(feature = "password_manager")]
                 if ContextPage::PasswordManager == context_page {
-                    if self.core.window.show_context {
-                        self.password_mgr.pane = Some(self.pane_model.focused());
-                        return self.password_mgr.refresh_password_list();
-                    } else {
-                        self.password_mgr.clear();
-                    }
+                    self.password_mgr.pane = Some(self.pane_model.focused());
+                    return self.password_mgr.refresh_password_list();
                 }
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
