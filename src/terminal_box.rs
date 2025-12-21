@@ -877,17 +877,15 @@ where
                             shell.request_redraw(RedrawRequest::NextFrame);
                         }
                     }
+                    if state.is_focused {
+                        shell.request_input_method(&self.input_method(state, layout, &terminal));
+                    }
                 }
                 cosmic::iced::window::Event::Unfocused => {
                     state.is_focused = false;
                     state.autoscroll.stop();
                     if let Some(on_window_unfocused) = &self.on_window_unfocused {
                         shell.publish(on_window_unfocused());
-                    }
-                }
-                cosmic::iced::window::Event::RedrawRequested(_now) => {
-                    if state.is_focused {
-                        shell.request_input_method(&self.input_method(state, layout, &terminal));
                     }
                 }
                 _ => {}
@@ -1145,7 +1143,7 @@ where
             Event::InputMethod(event) => match event {
                 input_method::Event::Opened | input_method::Event::Closed => {
                     state.preedit = matches!(event, input_method::Event::Opened).then(|| {
-                        let mut preedit = input_method::Preedit::new();
+                        let preedit = input_method::Preedit::new();
                         preedit
                     });
                 }
