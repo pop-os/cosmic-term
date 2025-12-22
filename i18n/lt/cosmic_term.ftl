@@ -71,3 +71,5 @@ menu-password-manager = Slaptažodžiai...
 passwords-title = Slaptažodžiai
 add-password = Pridėti Slaptažodį
 password-input = Slaptažodis
+default-font-stretch = Šrifto tempimas
+password-input-description = Aprašymas
