@@ -15,7 +15,7 @@
         in
         with pkgs;
         {
-          formatter = nixpkgs.legacyPackages.x86_64-linux.nixpkgs-fmt;
+          formatter = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
           devShells.default = mkShell {
             buildInputs = [
               rust-bin.stable.latest.default
