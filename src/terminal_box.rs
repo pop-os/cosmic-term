@@ -1380,6 +1380,8 @@ where
                         }
                         shell.capture_event();
                     }
+                } else {
+                    state.is_focused = false;
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
