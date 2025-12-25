@@ -242,7 +242,7 @@ where
         layout: Layout<'_>,
         terminal: &std::sync::MutexGuard<'_, Terminal>,
     ) -> InputMethod<&'b str> {
-        if state.is_focused {
+        if state.is_focused && !state.clicked_outside {
         } else {
             return InputMethod::Disabled;
         }
@@ -877,7 +877,7 @@ where
                             shell.request_redraw(RedrawRequest::NextFrame);
                         }
                     }
-                    if state.is_focused {
+                    if state.is_focused && !state.clicked_outside {
                         shell.request_input_method(&self.input_method(state, layout, &terminal));
                     }
                 }
@@ -1166,6 +1166,7 @@ where
             },
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    state.clicked_outside = false;
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
                     //TODO: better calculation of position
@@ -1308,6 +1309,8 @@ where
                         }
                         status = Status::Captured;
                     }
+                } else {
+                    state.clicked_outside = true;
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
@@ -1848,6 +1851,7 @@ pub struct State {
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
     is_focused: bool,
+    clicked_outside: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
     autoscroll: DragAutoscroll,
@@ -1862,6 +1866,7 @@ impl State {
             click: None,
             dragging: None,
             is_focused: false,
+            clicked_outside: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
             autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
