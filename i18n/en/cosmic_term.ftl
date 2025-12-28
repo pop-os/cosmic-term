@@ -95,6 +95,11 @@ tab-activate = Activate tab { $number }
 toggle-fullscreen = Toggle fullscreen
 type-to-search = Type to search...
 
+# Drop-down
+dropdown = Drop-down
+dropdown-height = Drop-down height
+dropdown-height-description = Height of the drop-down terminal in pixels
+
 # Find
 find-placeholder = Find...
 find-previous = Find previous

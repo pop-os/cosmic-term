@@ -238,6 +238,7 @@ pub struct Config {
     #[serde(default)]
     pub tab_new_inherit_working_directory: bool,
     pub default_profile: Option<ProfileId>,
+    pub dropdown_height: u32,
     #[serde(default)]
     pub shortcuts_custom: Shortcuts,
 }
@@ -264,6 +265,7 @@ impl Default for Config {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
+            dropdown_height: 400,
             shortcuts_custom: Shortcuts::default(),
         }
     }
