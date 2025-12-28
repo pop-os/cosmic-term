@@ -51,7 +51,7 @@ opacity = Háttér átlátszósága
 ### Font
 
 font = Betűtípus
-advanced-font-settings = Haladó betűtípus-beállítások
+advanced-font-settings = Speciális betűtípus-beállítások
 default-font = Betűtípus
 default-font-size = Betűméret
 default-font-stretch = Betűszélesség
@@ -67,7 +67,7 @@ focus-follow-mouse = A fókusz követi az egeret gépelés közben
 
 ### Advanced
 
-advanced = Haladó
+advanced = Speciális
 show-headerbar = Fejléc megjelenítése
 show-header-description = Fejléc megjelenítése a jobb gombos menüből.
 # Find
