@@ -1145,18 +1145,27 @@ where
                                 } else {
                                     TermSide::Right
                                 };
-                                let selection = match click_kind {
-                                    ClickKind::Single => {
-                                        Selection::new(SelectionType::Simple, location, side)
+                                // Check if shift is pressed and there's an existing selection to extend
+                                if state.modifiers.shift() {
+                                    let mut term = terminal.term.lock();
+                                    if let Some(ref mut selection) = term.selection {
+                                        selection.update(location, side);
+                                    } else {
+                                        term.selection =
+                                            Some(Selection::new(SelectionType::Simple, location, side));
                                     }
-                                    ClickKind::Double => {
-                                        Selection::new(SelectionType::Semantic, location, side)
-                                    }
-                                    ClickKind::Triple => {
-                                        Selection::new(SelectionType::Lines, location, side)
-                                    }
-                                };
-                                {
+                                } else {
+                                    let selection = match click_kind {
+                                        ClickKind::Single => {
+                                            Selection::new(SelectionType::Simple, location, side)
+                                        }
+                                        ClickKind::Double => {
+                                            Selection::new(SelectionType::Semantic, location, side)
+                                        }
+                                        ClickKind::Triple => {
+                                            Selection::new(SelectionType::Lines, location, side)
+                                        }
+                                    };
                                     let mut term = terminal.term.lock();
                                     term.selection = Some(selection);
                                 }
