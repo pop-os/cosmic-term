@@ -1,0 +1,41 @@
+(
+    name: "Seal Brown Amber",
+
+    background: "#623004",
+    foreground: "#FFBF00",
+    cursor: "#FFBF00",
+    dim_foreground: "#cfa02e",
+
+    normal: (
+        black: "#2b1503",
+        red: "#c1311c",
+        green: "#8bab6c",
+        yellow: "#FFBF00",
+        blue: "#4b5f8a",
+        magenta: "#7a4a8f",
+        cyan: "#6b8f8a",
+        white: "#f1e6c8",
+    ),
+
+    bright: (
+        black: "#4a2a10",
+        red: "#e0482f",
+        green: "#a9c98c",
+        yellow: "#ffd54a",
+        blue: "#6f86c9",
+        magenta: "#9b6fc2",
+        cyan: "#8fc9c3",
+        white: "#ffffff",
+    ),
+
+    dim: (
+        black: "#1e0f02",
+        red: "#8f2414",
+        green: "#6e8a55",
+        yellow: "#c99a28",
+        blue: "#39476b",
+        magenta: "#5e3a70",
+        cyan: "#4f6f6b",
+        white: "#cdbf9e",
+    ),
+)
