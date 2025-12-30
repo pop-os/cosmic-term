@@ -3,9 +3,18 @@ use cosmic::{iced::keyboard::Key, iced_core::keyboard::key::Named};
 use std::collections::HashMap;
 
 use crate::Action;
+use crate::shortcuts::ShortcutsConfig;
 
-//TODO: load from config
-pub fn key_binds() -> HashMap<KeyBind, Action> {
+pub fn key_binds(shortcuts: &ShortcutsConfig) -> HashMap<KeyBind, Action> {
+    let key_binds = shortcuts.key_binds();
+    if key_binds.is_empty() {
+        fallback_key_binds()
+    } else {
+        key_binds
+    }
+}
+
+fn fallback_key_binds() -> HashMap<KeyBind, Action> {
     let mut key_binds = HashMap::new();
 
     macro_rules! bind {
