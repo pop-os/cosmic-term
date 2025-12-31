@@ -31,6 +31,7 @@ dependencies = [
  "accesskit",
  "accesskit_consumer",
  "atspi-common",
+ "cosmic-config",
  "serde",
  "thiserror 1.0.69",
  "zvariant 3.15.2",

@@ -9,3 +9,18 @@ back to using `softbuffer` and `tiny-skia`.
 
 Custom color schemes can be imported from the `View -> Color schemes...` menu item.
 You can find templates for color schemes in the [color-schemes](color-schemes) folder.
+
+## Custom keybindings
+
+cosmic-term loads additional shortcuts from
+`~/.config/cosmic/com.system76.CosmicTerm/v1/keybindings`. The file uses the
+same format as cosmic-settings: each entry maps a keyboard binding to an action.
+
+Sample:
+
+```
+{
+    // Use Shift+Insert for Paste instead of PastePrimary.
+    (modifiers: [Shift], key: "Insert"): Paste,
+}
+```
