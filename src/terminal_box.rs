@@ -169,6 +169,14 @@ where
         self
     }
 
+    pub fn key_binds(mut self, key_binds: &HashMap<KeyBind, Action>) -> Self {
+        self.key_binds = key_binds
+            .iter()
+            .map(|(key, action)| (key.clone(), *action))
+            .collect();
+        self
+    }
+
     pub fn show_headerbar(mut self, show_headerbar: bool) -> Self {
         self.show_headerbar = show_headerbar;
         self
@@ -1151,8 +1159,11 @@ where
                                     if let Some(ref mut selection) = term.selection {
                                         selection.update(location, side);
                                     } else {
-                                        term.selection =
-                                            Some(Selection::new(SelectionType::Simple, location, side));
+                                        term.selection = Some(Selection::new(
+                                            SelectionType::Simple,
+                                            location,
+                                            side,
+                                        ));
                                     }
                                 } else {
                                     let selection = match click_kind {

@@ -49,7 +49,7 @@ mod mouse_reporter;
 use icon_cache::IconCache;
 mod icon_cache;
 
-use key_bind::key_binds;
+use key_bind::KeyBindConfig;
 mod key_bind;
 
 mod localize;
@@ -73,6 +73,7 @@ mod terminal_theme;
 mod dnd;
 
 use clap_lex::RawArgs;
+use serde::{Deserialize, Serialize};
 
 static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
 
@@ -159,6 +160,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    let key_bind_config = match config_handler.as_ref() {
+        Some(handler) => match KeyBindConfig::get_entry(handler) {
+            Ok(ok) => ok,
+            Err((errs, config)) => {
+                if !errs.is_empty() {
+                    log::info!("errors loading key bindings: {:?}", errs);
+                }
+                config
+            }
+        },
+        None => KeyBindConfig::default(),
+    };
+
     let startup_options = if let Some(shell_program) = shell_program_opt {
         let options = tty::Options {
             shell: Some(tty::Shell::new(shell_program, shell_args)),
@@ -187,6 +201,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let flags = Flags {
         config_handler,
         config,
+        key_bind_config,
         startup_options,
         term_config,
     };
@@ -213,11 +228,12 @@ Options:
 pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    key_bind_config: KeyBindConfig,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Action {
     About,
     ClearScrollback,
@@ -342,6 +358,7 @@ pub enum Message {
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
+    KeyBindConfig(KeyBindConfig),
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
@@ -437,6 +454,7 @@ pub struct App {
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    key_bind_config: KeyBindConfig,
     key_binds: HashMap<KeyBind, Action>,
     app_themes: Vec<String>,
     font_names: Vec<String>,
@@ -1421,8 +1439,16 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Task<Self::Message>) {
+        let Flags {
+            config_handler,
+            config,
+            key_bind_config,
+            startup_options,
+            term_config,
+        } = flags;
+
         core.window.content_container = false;
-        core.window.show_headerbar = flags.config.show_headerbar;
+        core.window.show_headerbar = config.show_headerbar;
 
         // Update font name from config
         {
@@ -1430,7 +1456,7 @@ impl Application for App {
             font_system
                 .raw()
                 .db_mut()
-                .set_monospace_family(&flags.config.font_name);
+                .set_monospace_family(&config.font_name);
         }
 
         let app_themes = vec![fl!("match-desktop"), fl!("dark"), fl!("light")];
@@ -1550,13 +1576,16 @@ impl Application for App {
                 ),
             ]);
 
+        let key_binds = key_bind::key_binds_with_overrides(&key_bind_config.keybindings);
+
         let mut app = Self {
             core,
             about,
             pane_model,
-            config_handler: flags.config_handler,
-            config: flags.config,
-            key_binds: key_binds(),
+            config_handler,
+            config,
+            key_bind_config,
+            key_binds,
             app_themes,
             font_names,
             font_size_names,
@@ -1579,8 +1608,8 @@ impl Application for App {
             find: false,
             find_search_id: widget::Id::unique(),
             find_search_value: String::new(),
-            startup_options: flags.startup_options,
-            term_config: flags.term_config,
+            startup_options,
+            term_config,
             term_event_tx_opt: None,
             color_scheme_errors: Vec::new(),
             color_scheme_expanded: None,
@@ -1875,6 +1904,14 @@ impl Application for App {
                     self.config = config;
                     return self.update_config();
                 }
+            }
+            Message::KeyBindConfig(config) => {
+                if config != self.key_bind_config {
+                    self.key_bind_config = config;
+                    self.key_binds =
+                        key_bind::key_binds_with_overrides(&self.key_bind_config.keybindings);
+                }
+                return Task::none();
             }
             Message::Copy(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2838,6 +2875,7 @@ impl Application for App {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal_box = terminal_box(terminal)
                     .id(terminal_id)
+                    .key_binds(&self.key_binds)
                     .disabled(self.core.window.show_context)
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
@@ -2971,6 +3009,7 @@ impl Application for App {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
+        struct KeyBindConfigSubscription;
         struct TerminalEventSubscription;
 
         Subscription::batch([
@@ -3016,6 +3055,21 @@ impl Application for App {
                     );
                 }
                 Message::Config(update.config)
+            }),
+            cosmic_config::config_subscription(
+                TypeId::of::<KeyBindConfigSubscription>(),
+                Self::APP_ID.into(),
+                CONFIG_VERSION,
+            )
+            .map(|update| {
+                if !update.errors.is_empty() {
+                    log::debug!(
+                        "errors loading key bind config {:?}: {:?}",
+                        update.keys,
+                        update.errors
+                    );
+                }
+                Message::KeyBindConfig(update.config)
             }),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
