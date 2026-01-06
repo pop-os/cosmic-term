@@ -336,11 +336,7 @@ where
 
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    if terminal
-                        .regex_matches
-                        .iter()
-                        .any(|bounds| bounds.contains(&location))
-                    {
+                    if get_hyperlink(&terminal, location).is_some() {
                         return mouse::Interaction::Pointer;
                     }
                 }
@@ -1002,7 +998,10 @@ where
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
 
-                if modifiers.contains(Modifiers::CTRL) || terminal.active_regex_match.is_some() {
+                if modifiers.contains(Modifiers::CTRL)
+                    || terminal.active_regex_match.is_some()
+                    || terminal.active_hyperlink_id.is_some()
+                {
                     //Might need to update the url regex highlight,
                     //so we need to calculate the mouse position
                     let location = if let Some(p) = cursor_position.position() {
@@ -1451,6 +1450,9 @@ fn get_hyperlink(
     terminal: &std::sync::MutexGuard<'_, Terminal>,
     location: TermPoint,
 ) -> Option<String> {
+    if let Some(link) = osc8_hyperlink_at(terminal, location) {
+        return Some(link.uri().to_string());
+    }
     if let Some(match_) = terminal
         .regex_matches
         .iter()
@@ -1461,6 +1463,32 @@ fn get_hyperlink(
     } else {
         None
     }
+}
+
+fn get_hyperlink_id(
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) -> Option<String> {
+    osc8_hyperlink_at(terminal, location).map(|link| link.id().to_string())
+}
+
+fn osc8_hyperlink_at(
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) -> Option<alacritty_terminal::term::cell::Hyperlink> {
+    let term = terminal.term.lock();
+    let grid = term.grid();
+    let cell = &grid[location];
+    if let Some(link) = cell.hyperlink() {
+        return Some(link);
+    }
+    if cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
+        && location.column.0 > 0
+    {
+        let left = TermPoint::new(location.line, TermColumn(location.column.0 - 1));
+        return grid[left].hyperlink();
+    }
+    None
 }
 
 fn update_active_regex_match(
@@ -1475,6 +1503,9 @@ fn update_active_regex_match(
         return;
     }
 
+    let allow_hyperlink = modifiers
+        .map(|mods| mods.contains(Modifiers::CTRL))
+        .unwrap_or(false);
     //Require CTRL for keyboard and mouse interaction
     if let Some(modifiers) = modifiers {
         if !modifiers.contains(Modifiers::CTRL) {
@@ -1482,16 +1513,37 @@ fn update_active_regex_match(
                 terminal.active_regex_match = None;
                 terminal.needs_update = true;
             }
+            if terminal.active_hyperlink_id.is_some() {
+                terminal.active_hyperlink_id = None;
+                terminal.needs_update = true;
+            }
             return;
         }
+    } else if terminal.active_hyperlink_id.is_some() {
+        terminal.active_hyperlink_id = None;
+        terminal.needs_update = true;
     }
     let Some(location) = location else {
         if terminal.active_regex_match.is_some() {
             terminal.active_regex_match = None;
             terminal.needs_update = true;
         }
+        if terminal.active_hyperlink_id.is_some() {
+            terminal.active_hyperlink_id = None;
+            terminal.needs_update = true;
+        }
         return;
     };
+    if allow_hyperlink {
+        let next_hyperlink_id = get_hyperlink_id(terminal, location);
+        if terminal.active_hyperlink_id != next_hyperlink_id {
+            terminal.active_hyperlink_id = next_hyperlink_id;
+            terminal.needs_update = true;
+        }
+    } else if terminal.active_hyperlink_id.is_some() {
+        terminal.active_hyperlink_id = None;
+        terminal.needs_update = true;
+    }
     if let Some(match_) = terminal
         .regex_matches
         .iter()
