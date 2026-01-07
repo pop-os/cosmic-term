@@ -36,6 +36,7 @@ use std::{
     fs, process,
     rc::Rc,
     sync::{LazyLock, Mutex, atomic::Ordering},
+    path::PathBuf,
 };
 use tokio::sync::mpsc;
 
@@ -90,9 +91,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut daemonize = true;
+    let mut working_directory = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
-        match arg.to_str() {
+        let arg_str = arg.to_str();
+        match arg_str {
             Some("--help") | Some("-h") => {
                 print_help();
                 return Ok(());
@@ -103,6 +106,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     env!("CARGO_PKG_VERSION"),
                 );
                 return Ok(());
+            }
+            Some("--working-directory") | Some("-w") => {
+                if let Some(dir_arg) = raw_args.next_os(&mut cursor) {
+                    working_directory = Some(PathBuf::from(dir_arg));
+                } else {
+                    eprintln!("Missing argument for {}", arg_str.unwrap());
+                    process::exit(1);
+                }
             }
             Some("--no-daemon") => {
                 daemonize = false;
@@ -159,15 +170,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let startup_options = if let Some(shell_program) = shell_program_opt {
-        let options = tty::Options {
-            shell: Some(tty::Shell::new(shell_program, shell_args)),
-            ..tty::Options::default()
-        };
-        Some(options)
+    let shell = if let Some(shell_program) = shell_program_opt {
+        Some(tty::Shell::new(shell_program, shell_args))
     } else {
         None
     };
+    let startup_options = Some(tty::Options {
+        shell,
+        working_directory,
+        ..tty::Options::default()
+    });
 
     // Terminal config setup
     let term_config = term::Config::default();
@@ -204,8 +216,9 @@ Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based
 
 Project home page: https://github.com/pop-os/cosmic-term
 Options:
-  --help     Show this message
-  --version  Show the version of cosmic-term"#
+  --help                          Show this message
+  --version                       Show the version of cosmic-term
+  -w | --working-directory <dir>  Set the working directory for the terminal"#
     );
 }
 
