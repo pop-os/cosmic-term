@@ -6,6 +6,7 @@ use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
+use cosmic::iced_core::keyboard::key::Named;
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
@@ -51,6 +52,8 @@ mod icon_cache;
 
 use key_bind::key_binds;
 mod key_bind;
+
+mod shortcuts;
 
 mod localize;
 
@@ -159,6 +162,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    let (shortcuts_config_handler, shortcuts_config) = shortcuts::load();
+
     let startup_options = if let Some(shell_program) = shell_program_opt {
         let options = tty::Options {
             shell: Some(tty::Shell::new(shell_program, shell_args)),
@@ -187,6 +192,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let flags = Flags {
         config_handler,
         config,
+        shortcuts_config_handler,
+        shortcuts_config,
         startup_options,
         term_config,
     };
@@ -213,6 +220,8 @@ Options:
 pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    shortcuts_config_handler: Option<cosmic_config::Config>,
+    shortcuts_config: shortcuts::ShortcutsConfig,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
 }
@@ -342,6 +351,7 @@ pub enum Message {
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
+    ShortcutsConfig(shortcuts::ShortcutsConfig),
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
@@ -358,12 +368,16 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
+    KeyboardShortcuts(bool),
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
     Key(Modifiers, Key),
     LaunchUrl(String),
     LaunchUrlByMenu,
     Modifiers(Modifiers),
+    ShortcutCaptureCancel,
+    ShortcutCaptureStart(shortcuts::KeyBindAction),
+    ShortcutRemove(shortcuts::Binding, shortcuts::BindingSource),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
     PaneClicked(pane_grid::Pane),
@@ -437,6 +451,8 @@ pub struct App {
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    shortcuts_config_handler: Option<cosmic_config::Config>,
+    shortcuts_config: shortcuts::ShortcutsConfig,
     key_binds: HashMap<KeyBind, Action>,
     app_themes: Vec<String>,
     font_names: Vec<String>,
@@ -471,6 +487,8 @@ pub struct App {
     color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
+    show_keyboard_shortcuts: bool,
+    shortcut_capture: Option<shortcuts::KeyBindAction>,
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
@@ -540,6 +558,20 @@ impl App {
                 }
             }
         }
+    }
+
+    fn save_shortcuts_custom(&mut self) {
+        match &self.shortcuts_config_handler {
+            Some(config_handler) => {
+                if let Err(err) = config_handler.set("custom", &self.shortcuts_config.custom) {
+                    log::warn!("failed to save shortcuts custom config: {}", err);
+                }
+            }
+            None => {
+                log::warn!("failed to save shortcuts custom config: no config handler");
+            }
+        }
+        self.key_binds = key_binds(&self.shortcuts_config);
     }
 
     fn update_config(&mut self) -> Task<Message> {
@@ -1066,6 +1098,10 @@ impl App {
     }
 
     fn settings(&self) -> Element<'_, Message> {
+        let cosmic_theme::Spacing {
+            space_xxs, space_xs, ..
+        } = self.core().system_theme().cosmic().spacing;
+
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1246,6 +1282,117 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
+        let mut shortcuts_section = widget::settings::section()
+            .title("Keyboard shortcuts")
+            .add(
+                widget::settings::item::builder("Customize shortcuts").control(
+                    if self.show_keyboard_shortcuts {
+                        widget::button::custom(icon_cache_get("go-up-symbolic", 16))
+                            .on_press(Message::KeyboardShortcuts(false))
+                    } else {
+                        widget::button::custom(icon_cache_get("go-down-symbolic", 16))
+                            .on_press(Message::KeyboardShortcuts(true))
+                    }
+                    .class(style::Button::Icon),
+                ),
+            );
+
+        if self.show_keyboard_shortcuts {
+            let shortcuts_content = || {
+                let mut groups = Vec::new();
+
+                for group in shortcuts::shortcut_groups() {
+                    let mut group_section = widget::settings::section().title(group.title);
+
+                    for action in group.actions {
+                        let bindings = self.shortcuts_config.bindings_for_action(action);
+                        let mut rows: Vec<Element<Message>> = Vec::new();
+
+                        if self.shortcut_capture == Some(action) {
+                            rows.push(
+                                widget::row::with_children(vec![
+                                    widget::text::body("Press new shortcut, or Esc to cancel")
+                                        .into(),
+                                    widget::horizontal_space().into(),
+                                    widget::button::standard("Cancel")
+                                        .on_press(Message::ShortcutCaptureCancel)
+                                        .into(),
+                                ])
+                                .spacing(space_xxs)
+                                .into(),
+                            );
+                        }
+
+                        if bindings.is_empty() {
+                            rows.push(widget::text::body("No shortcuts").into());
+                        } else {
+                            for resolved in bindings {
+                                let binding_text = widget::text::body(
+                                    shortcuts::binding_display(&resolved.binding),
+                                )
+                                .width(Length::Fill)
+                                .align_x(Alignment::End);
+                                let binding_chip = widget::container(
+                                    widget::row::with_children(vec![
+                                        binding_text.into(),
+                                        widget::button::custom(icon_cache_get(
+                                            "edit-delete-symbolic",
+                                            16,
+                                        ))
+                                        .class(style::Button::Icon)
+                                        .on_press(Message::ShortcutRemove(
+                                            resolved.binding.clone(),
+                                            resolved.source,
+                                        ))
+                                        .into(),
+                                    ])
+                                    .spacing(space_xxs)
+                                    .align_y(Alignment::Center)
+                                    .width(Length::Fill),
+                                )
+                                .padding(Padding::new(6.0))
+                                .class(style::Container::Background)
+                                .width(Length::Fill);
+                                rows.push(binding_chip.into());
+                            }
+                        }
+
+                        rows.push(
+                            widget::row::with_children(vec![
+                                widget::horizontal_space().into(),
+                                widget::button::standard("+ Add")
+                                    .on_press(Message::ShortcutCaptureStart(action))
+                                    .into(),
+                            ])
+                            .into(),
+                        );
+
+                        let bindings_column = widget::column::with_children(rows)
+                            .spacing(space_xxs)
+                            .width(Length::Fill);
+
+                        group_section = group_section.add(
+                            widget::settings::item::builder(shortcuts::action_label(action))
+                                .control(bindings_column),
+                        );
+                    }
+
+                    groups.push(group_section.into());
+                }
+
+                widget::column::with_children(groups).spacing(space_xs)
+            };
+
+            let padding = Padding {
+                top: 0.0,
+                bottom: 0.0,
+                left: 12.0,
+                right: 12.0,
+            };
+            shortcuts_section =
+                shortcuts_section.add(widget::container(shortcuts_content()).padding(padding));
+        }
+
         let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
                 .description(fl!("show-header-description"))
@@ -1256,6 +1403,7 @@ impl App {
             appearance_section.into(),
             font_section.into(),
             splits_section.into(),
+            shortcuts_section.into(),
             advanced_section.into(),
         ])
         .into()
@@ -1550,13 +1698,16 @@ impl Application for App {
                 ),
             ]);
 
+        let key_binds = key_binds(&flags.shortcuts_config);
         let mut app = Self {
             core,
             about,
             pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
-            key_binds: key_binds(),
+            shortcuts_config_handler: flags.shortcuts_config_handler,
+            shortcuts_config: flags.shortcuts_config,
+            key_binds,
             app_themes,
             font_names,
             font_size_names,
@@ -1589,6 +1740,8 @@ impl Application for App {
             color_scheme_tab_model: widget::segmented_button::Model::default(),
             profile_expanded: None,
             show_advanced_font_settings: false,
+            show_keyboard_shortcuts: false,
+            shortcut_capture: None,
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
@@ -1876,6 +2029,13 @@ impl Application for App {
                     return self.update_config();
                 }
             }
+            Message::ShortcutsConfig(config) => {
+                if config != self.shortcuts_config {
+                    log::info!("update shortcuts config");
+                    self.shortcuts_config = config;
+                    self.key_binds = key_binds(&self.shortcuts_config);
+                }
+            }
             Message::Copy(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
@@ -2100,6 +2260,12 @@ impl Application for App {
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
             }
+            Message::KeyboardShortcuts(show) => {
+                self.show_keyboard_shortcuts = show;
+                if !show {
+                    self.shortcut_capture = None;
+                }
+            }
             Message::MiddleClick(pane, entity_opt) => {
                 self.pane_model.set_focus(pane);
                 return Task::batch([
@@ -2114,6 +2280,18 @@ impl Application for App {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, key) => {
+                if let Some(action) = self.shortcut_capture {
+                    if key == Key::Named(Named::Escape) {
+                        self.shortcut_capture = None;
+                        return Task::none();
+                    }
+                    if let Some(binding) = shortcuts::binding_from_key(modifiers, key) {
+                        self.shortcut_capture = None;
+                        self.shortcuts_config.custom.0.insert(binding, action);
+                        self.save_shortcuts_custom();
+                    }
+                    return Task::none();
+                }
                 for (key_bind, action) in &self.key_binds {
                     if key_bind.matches(modifiers, &key) {
                         return self.update(action.message(None));
@@ -2148,6 +2326,26 @@ impl Application for App {
             Message::MouseEnter(pane) => {
                 self.pane_model.set_focus(pane);
                 return self.update_focus();
+            }
+            Message::ShortcutCaptureCancel => {
+                self.shortcut_capture = None;
+            }
+            Message::ShortcutCaptureStart(action) => {
+                self.shortcut_capture = Some(action);
+            }
+            Message::ShortcutRemove(binding, source) => {
+                match source {
+                    shortcuts::BindingSource::Default => {
+                        self.shortcuts_config
+                            .custom
+                            .0
+                            .insert(binding, shortcuts::KeyBindAction::Unbind);
+                    }
+                    shortcuts::BindingSource::Custom => {
+                        self.shortcuts_config.custom.0.remove(&binding);
+                    }
+                }
+                self.save_shortcuts_custom();
             }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
@@ -2836,7 +3034,7 @@ impl Application for App {
                 .cloned()
                 .unwrap_or_else(widget::Id::unique);
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                let mut terminal_box = terminal_box(terminal)
+                let mut terminal_box = terminal_box(terminal, &self.key_binds)
                     .id(terminal_id)
                     .disabled(self.core.window.show_context)
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
@@ -2971,6 +3169,7 @@ impl Application for App {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
+        struct ShortcutsConfigSubscription;
         struct TerminalEventSubscription;
 
         Subscription::batch([
@@ -3016,6 +3215,21 @@ impl Application for App {
                     );
                 }
                 Message::Config(update.config)
+            }),
+            cosmic_config::config_subscription::<_, shortcuts::ShortcutsConfig>(
+                TypeId::of::<ShortcutsConfigSubscription>(),
+                shortcuts::SHORTCUTS_CONFIG_ID.into(),
+                shortcuts::SHORTCUTS_CONFIG_VERSION,
+            )
+            .map(|update| {
+                if !update.errors.is_empty() {
+                    log::debug!(
+                        "errors loading shortcuts config {:?}: {:?}",
+                        update.keys,
+                        update.errors
+                    );
+                }
+                Message::ShortcutsConfig(update.config)
             }),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),

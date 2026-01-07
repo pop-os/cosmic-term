@@ -23,6 +23,9 @@ metainfo-dst := clean(rootdir / prefix) / 'share' / 'metainfo' / metainfo
 icons-src := 'res' / 'icons' / 'hicolor'
 icons-dst := clean(rootdir / prefix) / 'share' / 'icons' / 'hicolor'
 
+shortcuts-src := 'res' / 'com.system76.CosmicTerm.Shortcuts' / 'v1'
+shortcuts-dst := clean(rootdir / prefix) / 'share' / 'cosmic' / 'com.system76.CosmicTerm.Shortcuts' / 'v1'
+
 # Default recipe which runs `just build-release`
 default: build-release
 
@@ -67,6 +70,8 @@ install:
     install -Dm0755 {{bin-src}} {{bin-dst}}
     install -Dm0644 {{desktop-src}} {{desktop-dst}}
     install -Dm0644 {{metainfo-src}} {{metainfo-dst}}
+    install -Dm0644 {{shortcuts-src}}/defaults {{shortcuts-dst}}/defaults
+    install -Dm0644 {{shortcuts-src}}/custom {{shortcuts-dst}}/custom
     for size in `ls {{icons-src}}`; do \
         install -Dm0644 "{{icons-src}}/$size/apps/{{APPID}}.svg" "{{icons-dst}}/$size/apps/{{APPID}}.svg"; \
     done
