@@ -18,6 +18,10 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
+        platform_specific::shell::commands::layer_surface::{
+            destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
+        },
+        platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings,
         stream, window,
     },
     style,
@@ -72,7 +76,11 @@ mod terminal_theme;
 
 mod dnd;
 
+mod pid_file;
+use pid_file::{PidFile, PidFileError};
+
 use clap_lex::RawArgs;
+use nix::sys::signal::{self, Signal};
 
 static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
 
@@ -90,6 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut daemonize = true;
+    let mut drop_down = false;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
@@ -106,6 +115,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             Some("--no-daemon") => {
                 daemonize = false;
+            }
+            Some("--drop-down") => {
+                drop_down = true;
             }
             Some("-e") | Some("--command") | Some("--") => {
                 // Handle the '--command' or '-e' flag
@@ -141,6 +153,37 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     localize::localize();
+
+    // Drop-down mode single-instance handling
+    let _pid_file = if drop_down {
+        // Try to acquire the lock file
+        match PidFile::new() {
+            Ok(pid_file) => {
+                // We got the lock - we are the first instance
+                Some(pid_file)
+            }
+            Err(PidFileError::Locked(Some(pid))) => {
+                // Another instance is running, signal it to toggle and exit
+                log::info!(
+                    "Found existing drop-down instance (PID {}), sending toggle signal and exiting",
+                    pid
+                );
+                let _ = signal::kill(pid, Signal::SIGUSR1);
+                return Ok(());
+            }
+            Err(PidFileError::Locked(None)) => {
+                // Lock is held but couldn't read PID
+                log::warn!("Could not read PID from lock file, exiting");
+                return Ok(());
+            }
+            Err(PidFileError::Io(e)) => {
+                log::error!("Failed to access lock file: {}", e);
+                return Err(e.into());
+            }
+        }
+    } else {
+        None
+    };
 
     let (config_handler, config) = match cosmic_config::Config::new(App::APP_ID, CONFIG_VERSION) {
         Ok(config_handler) => {
@@ -182,6 +225,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
+    
+    if drop_down {
+        settings = settings.no_main_window(true);
+    }
 
     // Flags
     let flags = Flags {
@@ -189,6 +236,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         config,
         startup_options,
         term_config,
+        drop_down,
     };
 
     // Run the cosmic app
@@ -215,6 +263,7 @@ pub struct Flags {
     config: Config,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
+    drop_down: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -354,6 +403,7 @@ pub enum Message {
     DefaultZoomStep(usize),
     DialogMessage(DialogMessage),
     Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
+    DropdownHeight(u32),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -407,6 +457,7 @@ pub enum Message {
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
+    ToggleDropDown,
     ToggleFullscreen,
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
@@ -418,6 +469,12 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TerminalMode {
+    Normal,
+    DropDown { window_id: Option<window::Id> },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -472,6 +529,7 @@ pub struct App {
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
+    mode: TerminalMode,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -482,6 +540,17 @@ impl App {
             ColorSchemeKind::Dark => &self.theme_names_dark,
             ColorSchemeKind::Light => &self.theme_names_light,
         }
+    }
+
+    fn create_dropdown_layer_surface(id: window::Id, height: u32) -> Task<Message> {
+        get_layer_surface(SctkLayerSurfaceSettings {
+            id,
+            keyboard_interactivity: KeyboardInteractivity::OnDemand,
+            anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
+            namespace: "cosmic-term-dropdown".into(),
+            size: Some((None, Some(height))),
+            ..Default::default()
+        })
     }
 
     fn update_color_schemes(&mut self) {
@@ -1246,6 +1315,24 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
+        let dropdown_section = widget::settings::section().title(fl!("dropdown"))
+            .add(
+                widget::settings::item::builder(fl!("dropdown-height"))
+                    .description(fl!("dropdown-height-description"))
+                    .control(widget::slider(
+                        200..=1200,
+                        self.config.dropdown_height,
+                        |value| Message::DropdownHeight(value),
+                    )),
+            )
+            .add(
+                widget::text(format!("{}px", self.config.dropdown_height))
+                    .size(14)
+                    .class(cosmic::style::Text::Color(cosmic::iced_core::Color::from(
+                        [0.5, 0.5, 0.5],
+                    ))),
+            );
+
         let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
                 .description(fl!("show-header-description"))
@@ -1256,6 +1343,7 @@ impl App {
             appearance_section.into(),
             font_section.into(),
             splits_section.into(),
+            dropdown_section.into(),
             advanced_section.into(),
         ])
         .into()
@@ -1550,6 +1638,15 @@ impl Application for App {
                 ),
             ]);
 
+        // Determine terminal mode
+        let mode = if flags.drop_down {
+            TerminalMode::DropDown {
+                window_id: Some(window::Id::unique()),
+            }
+        } else {
+            TerminalMode::Normal
+        };
+
         let mut app = Self {
             core,
             about,
@@ -1592,12 +1689,18 @@ impl Application for App {
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
+            mode,
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = Task::batch([app.update_config(), app.update_title(None)]);
+        
+        let mut commands = vec![app.update_config(), app.update_title(None)];
+        // Create layer surface command if in drop-down mode
+        if let TerminalMode::DropDown { window_id: Some(id) } = app.mode {
+            commands.push(Self::create_dropdown_layer_surface(id, app.config.dropdown_height));
+        }
 
-        (app, command)
+        (app, Task::batch(commands))
     }
 
     //TODO: currently the first escape unfocuses, and the second calls this function
@@ -1920,6 +2023,35 @@ impl Application for App {
             Message::ToggleFullscreen => {
                 if let Some(window_id) = self.core.main_window_id() {
                     return cosmic::command::toggle_maximize(window_id);
+                }
+            }
+            Message::ToggleDropDown => {
+                match &mut self.mode {
+                    TerminalMode::Normal => {
+                        // Not in drop-down mode, do nothing
+                        return Task::none();
+                    }
+                    TerminalMode::DropDown { window_id } => {
+                        if let Some(id) = window_id.take() {
+                            // Hide the layer surface
+                            return destroy_layer_surface(id);
+                        } else {
+                            // Show the layer surface
+                            let id = window::Id::unique();
+                            *window_id = Some(id);
+                            return Self::create_dropdown_layer_surface(id, self.config.dropdown_height);
+                        }
+                    }
+                }
+            }
+            Message::DropdownHeight(height) => {
+                config_set!(dropdown_height, height);
+                // If dropdown is currently visible, recreate it with new height
+                if let TerminalMode::DropDown { window_id: Some(id) } = self.mode {
+                    return Task::batch([
+                        destroy_layer_surface(id),
+                        Self::create_dropdown_layer_surface(id, height),
+                    ]);
                 }
             }
             Message::CopyPrimary(entity_opt) => {
@@ -2424,6 +2556,9 @@ impl Application for App {
                             //Last pane, closing window
                             if let Some(window_id) = self.core.main_window_id() {
                                 return window::close(window_id);
+                            } else if matches!(self.mode, TerminalMode::DropDown { .. }) {
+                                // In drop-down mode with no_main_window, exit directly
+                                std::process::exit(0);
                             }
                         }
                     }
@@ -2801,6 +2936,15 @@ impl Application for App {
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
+        // Handle layer surface window for drop-down mode
+        match self.mode {
+            TerminalMode::DropDown { window_id: Some(id) } if window_id == id => {
+                return self.view();
+            }
+            _ => {}
+        }
+        
+        // Handle dialog windows
         match &self.dialog_opt {
             Some(dialog) => dialog.view(window_id),
             None => widget::text("Unknown window ID").into(),
@@ -2972,8 +3116,9 @@ impl Application for App {
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
+        struct DropDownSignalSubscription;
 
-        Subscription::batch([
+        let mut subscriptions = vec![
             event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
                     Some(Message::Key(modifiers, key))
@@ -3021,6 +3166,31 @@ impl Application for App {
                 Some(dialog) => dialog.subscription(),
                 None => Subscription::none(),
             },
-        ])
+        ];
+
+        // Only subscribe to SIGUSR1 signal in drop-down mode
+        if matches!(self.mode, TerminalMode::DropDown { .. }) {
+            subscriptions.push(Subscription::run_with_id(
+                TypeId::of::<DropDownSignalSubscription>(),
+                stream::channel(1, |mut output| async move {
+                    let mut signal_stream = match tokio::signal::unix::signal(
+                        tokio::signal::unix::SignalKind::user_defined1()
+                    ) {
+                        Ok(stream) => stream,
+                        Err(e) => {
+                            log::error!("Failed to create signal stream: {}", e);
+                            return;
+                        }
+                    };
+
+                    loop {
+                        signal_stream.recv().await;
+                        let _ = output.send(Message::ToggleDropDown).await;
+                    }
+                }),
+            ));
+        }
+
+        Subscription::batch(subscriptions)
     }
 }
