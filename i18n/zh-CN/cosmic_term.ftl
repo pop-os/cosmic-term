@@ -22,9 +22,9 @@ profiles = 配置文件
 name = 名称
 command-line = 命令行
 tab-title = 标签标题
-tab-title-description = 覆盖默认标签页标题
-add-profile = 创建配置文件
-new-profile = 新建配置文件
+tab-title-description = 覆盖默认标签标题
+add-profile = 添加配置
+new-profile = 新建配置
 make-default = 设为默认配置
 working-directory = 工作目录
 hold = 保留
@@ -67,10 +67,10 @@ focus-follow-mouse = 聚焦窗口跟随鼠标
 
 advanced = 高级
 show-headerbar = 显示标题栏
-show-header-description = 右键菜单显示标题栏。
+show-header-description = 右键菜单提供显示标题栏选项。
 # Find
 find-placeholder = 查找...
-find-previous = 上一个
+find-previous = 查找上一个
 find-next = 查找下一个
 
 # Menu
@@ -79,11 +79,11 @@ find-next = 查找下一个
 ## File
 
 file = 文件
-new-tab = 新建标签页
+new-tab = 新建标签
 new-window = 新建窗口
-profile = 配置文件
+profile = 配置
 menu-profiles = 配置文件...
-close-tab = 关闭标签页
+close-tab = 关闭标签
 quit = 退出
 
 ## Edit
@@ -98,11 +98,11 @@ clear-scrollback = 清除滚动缓冲区
 ## View
 
 view = 视图
-zoom-in = 放大字体
+zoom-in = 增大字体
 zoom-reset = 默认字体大小
 zoom-out = 缩小字体
-next-tab = 下一个标签页
-previous-tab = 上一个标签页
+next-tab = 下一个标签
+previous-tab = 上一个标签
 split-horizontal = 水平分割
 split-vertical = 垂直分割
 pane-toggle-maximize = 切换最大化
@@ -111,3 +111,9 @@ menu-settings = 设置...
 menu-about = 关于 COSMIC 终端...
 repository = 仓库
 support = 支持
+open-link = 打开链接
+menu-password-manager = 密码…
+passwords-title = 密码
+add-password = 添加密码
+password-input = 密码
+password-input-description = 描述
