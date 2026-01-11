@@ -123,9 +123,11 @@ pub struct TerminalBox<'a, Message> {
     on_selection_copy: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_right_click: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
     sharp_corners: bool,
     disabled: bool,
+    xterm_middle_click: bool,
 }
 
 impl<'a, Message> TerminalBox<'a, Message>
@@ -146,8 +148,10 @@ where
             opacity: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
+            on_right_click: None,
             key_binds: key_binds(),
             on_open_hyperlink: None,
+            xterm_middle_click: true,
             on_selection_copy: None,
             on_window_focused: None,
             on_window_unfocused: None,
@@ -201,6 +205,16 @@ where
 
     pub fn on_middle_click(mut self, on_middle_click: impl Fn() -> Message + 'a) -> Self {
         self.on_middle_click = Some(Box::new(on_middle_click));
+        self
+    }
+
+    pub fn on_right_click(mut self, on_right_click: impl Fn() -> Message + 'a) -> Self {
+        self.on_right_click = Some(Box::new(on_right_click));
+        self
+    }
+
+    pub fn xterm_middle_click(mut self, xterm_middle_click: bool) -> Self {
+        self.xterm_middle_click = xterm_middle_click;
         self
     }
 
@@ -1210,13 +1224,16 @@ where
                                 }
                             }
                         } else if button == Button::Middle {
-                            if let Some(on_middle_click) = &self.on_middle_click {
-                                shell.publish(on_middle_click());
+                            // Middle-click paste only works when xterm_middle_click is enabled
+                            if self.xterm_middle_click {
+                                if let Some(on_middle_click) = &self.on_middle_click {
+                                    shell.publish(on_middle_click());
+                                }
                             }
                         } else if button == Button::Right {
-                            // Right-click: paste if no shift modifier, otherwise show context menu
-                            if state.modifiers.shift() {
-                                // Shift+Right-click: show context menu
+                            // Right-click behavior depends on xterm_middle_click setting
+                            if self.xterm_middle_click {
+                                // xterm mode ON: right-click shows context menu
                                 if let Some(on_context_menu) = &self.on_context_menu {
                                     match self.context_menu {
                                         Some(_) => {
@@ -1248,9 +1265,44 @@ where
                                     }
                                 }
                             } else {
-                                // Right-click without shift: paste from clipboard
-                                if let Some(on_middle_click) = &self.on_middle_click {
-                                    shell.publish(on_middle_click());
+                                // xterm mode OFF: right-click pastes (unless shift is held)
+                                if state.modifiers.shift() {
+                                    // Shift+Right-click: show context menu
+                                    if let Some(on_context_menu) = &self.on_context_menu {
+                                        match self.context_menu {
+                                            Some(_) => {
+                                                shell.publish(on_context_menu(None));
+                                            }
+                                            None => {
+                                                let x = p.x - self.padding.left;
+                                                let y = p.y - self.padding.top;
+                                                //TODO: better calculation of position
+                                                let col = x / terminal.size().cell_width;
+                                                let row = y / terminal.size().cell_height;
+
+                                                let location =
+                                                    terminal.viewport_to_point(TermPoint::new(
+                                                        row as usize,
+                                                        TermColumn(col as usize),
+                                                    ));
+                                                update_active_regex_match(
+                                                    &mut terminal,
+                                                    Some(location),
+                                                    None,
+                                                );
+                                                let link = get_hyperlink(&terminal, location);
+                                                shell.publish(on_context_menu(Some(MenuState {
+                                                    position: Some(p),
+                                                    link,
+                                                })));
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Right-click without shift: paste from clipboard
+                                    if let Some(on_right_click) = &self.on_right_click {
+                                        shell.publish(on_right_click());
+                                    }
                                 }
                             }
                         }

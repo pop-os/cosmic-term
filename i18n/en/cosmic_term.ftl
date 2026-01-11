@@ -61,6 +61,8 @@ focus-follow-mouse = Typing focus follows mouse
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
+xterm-middle-click = Use xterm style paste (middle-click)
+xterm-middle-click-description = Turn off to use PuTTY style paste (right-click).
 
 # Find
 find-placeholder = Find...

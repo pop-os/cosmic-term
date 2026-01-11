@@ -360,6 +360,7 @@ pub enum Message {
     FindSearchValueChanged(String),
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
+    XtermMiddleClick(bool),
     Key(Modifiers, Key),
     LaunchUrl(String),
     LaunchUrlByMenu,
@@ -1246,11 +1247,18 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
-            widget::settings::item::builder(fl!("show-headerbar"))
-                .description(fl!("show-header-description"))
-                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-        );
+        let advanced_section = widget::settings::section()
+            .title(fl!("advanced"))
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .description(fl!("show-header-description"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
+            .add(
+                widget::settings::item::builder(fl!("xterm-middle-click"))
+                    .description(fl!("xterm-middle-click-description"))
+                    .toggler(self.config.xterm_middle_click, Message::XtermMiddleClick),
+            );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -2114,6 +2122,9 @@ impl Application for App {
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
+            Message::XtermMiddleClick(xterm_middle_click) => {
+                config_set!(xterm_middle_click, xterm_middle_click);
+            }
             Message::Key(modifiers, key) => {
                 for (key_bind, action) in &self.key_binds {
                     if key_bind.matches(modifiers, &key) {
@@ -2841,12 +2852,25 @@ impl Application for App {
                     .id(terminal_id)
                     .disabled(self.core.window.show_context)
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
-                    .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .on_selection_copy(move || Message::Copy(Some(entity)))
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())
+                    .xterm_middle_click(self.config.xterm_middle_click);
+
+                if self.config.xterm_middle_click {
+                    // Xterm mode: middle-click pastes from primary selection
+                    terminal_box = terminal_box.on_middle_click(move || {
+                        Message::MiddleClick(pane, Some(entity_middle_click))
+                    });
+                } else {
+                    // Non-xterm mode: right-click pastes from regular clipboard
+                    terminal_box =
+                        terminal_box.on_right_click(move || Message::Paste(Some(entity)));
+                }
+
+                let mut terminal_box = terminal_box
                     .padding(space_xxs)
                     .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar);
