@@ -235,6 +235,7 @@ pub struct Config {
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
+    pub xterm_middle_click: bool,
     pub default_profile: Option<ProfileId>,
     pub startup_command: String,
 }
@@ -259,6 +260,7 @@ impl Default for Config {
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
+            xterm_middle_click: true,
             default_profile: None,
             startup_command: String::new(),
         }
