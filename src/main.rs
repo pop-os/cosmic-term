@@ -165,6 +165,22 @@ fn main() -> Result<(), Box<dyn Error>> {
             ..tty::Options::default()
         };
         Some(options)
+    } else if !config.startup_command.is_empty() {
+        // Use startup_command from config if present
+        if let Some(mut args) = shlex::split(&config.startup_command) {
+            if !args.is_empty() {
+                let command = args.remove(0);
+                let options = tty::Options {
+                    shell: Some(tty::Shell::new(command, args)),
+                    ..tty::Options::default()
+                };
+                Some(options)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     } else {
         None
     };
@@ -394,6 +410,7 @@ pub enum Message {
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
+    StartupCommand(String),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabActivate(segmented_button::Entity),
@@ -1246,11 +1263,21 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
-            widget::settings::item::builder(fl!("show-headerbar"))
-                .description(fl!("show-header-description"))
-                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-        );
+        let advanced_section = widget::settings::section()
+            .title(fl!("advanced"))
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .description(fl!("show-header-description"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
+            .add(
+                widget::settings::item::builder("Startup")
+                    .description("Command to run (e.g. /bin/bash -l)")
+                    .control(
+                        widget::text_input("", &self.config.startup_command)
+                            .on_input(Message::StartupCommand),
+                    ),
+            );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -2343,6 +2370,11 @@ impl Application for App {
                 if show_headerbar != self.config.show_headerbar {
                     config_set!(show_headerbar, show_headerbar);
                     return self.update_config();
+                }
+            }
+            Message::StartupCommand(startup_command) => {
+                if startup_command != self.config.startup_command {
+                    config_set!(startup_command, startup_command);
                 }
             }
             Message::UseBrightBold(use_bright_bold) => {
