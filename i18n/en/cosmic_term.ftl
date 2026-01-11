@@ -61,6 +61,8 @@ focus-follow-mouse = Typing focus follows mouse
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
+startup-command = Startup command
+startup-command-description = Command to run (e.g. /bin/bash -l)
 
 # Find
 find-placeholder = Find...

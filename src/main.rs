@@ -1271,8 +1271,8 @@ impl App {
                     .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
             )
             .add(
-                widget::settings::item::builder("Startup")
-                    .description("Command to run (e.g. /bin/bash -l)")
+                widget::settings::item::builder(fl!("startup-command"))
+                    .description(fl!("startup-command-description"))
                     .control(
                         widget::text_input("", &self.config.startup_command)
                             .on_input(Message::StartupCommand),
