@@ -8,4 +8,5 @@
 /vendor/
 /.direnv/
 /.idea/
+/.github/copilot*.md
 nohup.out

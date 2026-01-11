@@ -1938,6 +1938,7 @@ impl Application for App {
                 } else {
                     log::warn!("Failed to get focused pane");
                 }
+                return self.update_focus();
             }
             Message::DefaultFont(index) => {
                 match self.font_names.get(index) {
@@ -2842,6 +2843,7 @@ impl Application for App {
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
+                    .on_selection_copy(move || Message::Copy(Some(entity)))
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(self.config.opacity_ratio())

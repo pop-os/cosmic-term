@@ -120,6 +120,7 @@ pub struct TerminalBox<'a, Message> {
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
     on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
+    on_selection_copy: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
     key_binds: HashMap<KeyBind, Action>,
@@ -147,6 +148,7 @@ where
             on_middle_click: None,
             key_binds: key_binds(),
             on_open_hyperlink: None,
+            on_selection_copy: None,
             on_window_focused: None,
             on_window_unfocused: None,
             sharp_corners: false,
@@ -217,6 +219,11 @@ where
         on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
     ) -> Self {
         self.on_open_hyperlink = on_open_hyperlink;
+        self
+    }
+
+    pub fn on_selection_copy(mut self, on_selection_copy: impl Fn() -> Message + 'a) -> Self {
+        self.on_selection_copy = Some(Box::new(on_selection_copy));
         self
     }
 
@@ -1150,8 +1157,11 @@ where
                                     if let Some(ref mut selection) = term.selection {
                                         selection.update(location, side);
                                     } else {
-                                        term.selection =
-                                            Some(Selection::new(SelectionType::Simple, location, side));
+                                        term.selection = Some(Selection::new(
+                                            SelectionType::Simple,
+                                            location,
+                                            side,
+                                        ));
                                     }
                                 } else {
                                     let selection = match click_kind {
@@ -1203,37 +1213,51 @@ where
                             if let Some(on_middle_click) = &self.on_middle_click {
                                 shell.publish(on_middle_click());
                             }
-                        }
-                        // Update context menu state
-                        if let Some(on_context_menu) = &self.on_context_menu {
-                            match self.context_menu {
-                                Some(_) => {
-                                    shell.publish(on_context_menu(None));
-                                }
-                                None => {
-                                    if button == Button::Right {
-                                        let x = p.x - self.padding.left;
-                                        let y = p.y - self.padding.top;
-                                        //TODO: better calculation of position
-                                        let col = x / terminal.size().cell_width;
-                                        let row = y / terminal.size().cell_height;
+                        } else if button == Button::Right {
+                            // Right-click: paste if no shift modifier, otherwise show context menu
+                            if state.modifiers.shift() {
+                                // Shift+Right-click: show context menu
+                                if let Some(on_context_menu) = &self.on_context_menu {
+                                    match self.context_menu {
+                                        Some(_) => {
+                                            shell.publish(on_context_menu(None));
+                                        }
+                                        None => {
+                                            let x = p.x - self.padding.left;
+                                            let y = p.y - self.padding.top;
+                                            //TODO: better calculation of position
+                                            let col = x / terminal.size().cell_width;
+                                            let row = y / terminal.size().cell_height;
 
-                                        let location = terminal.viewport_to_point(TermPoint::new(
-                                            row as usize,
-                                            TermColumn(col as usize),
-                                        ));
-                                        update_active_regex_match(
-                                            &mut terminal,
-                                            Some(location),
-                                            None,
-                                        );
-                                        let link = get_hyperlink(&terminal, location);
-                                        shell.publish(on_context_menu(Some(MenuState {
-                                            position: Some(p),
-                                            link,
-                                        })));
+                                            let location =
+                                                terminal.viewport_to_point(TermPoint::new(
+                                                    row as usize,
+                                                    TermColumn(col as usize),
+                                                ));
+                                            update_active_regex_match(
+                                                &mut terminal,
+                                                Some(location),
+                                                None,
+                                            );
+                                            let link = get_hyperlink(&terminal, location);
+                                            shell.publish(on_context_menu(Some(MenuState {
+                                                position: Some(p),
+                                                link,
+                                            })));
+                                        }
                                     }
                                 }
+                            } else {
+                                // Right-click without shift: paste from clipboard
+                                if let Some(on_middle_click) = &self.on_middle_click {
+                                    shell.publish(on_middle_click());
+                                }
+                            }
+                        }
+                        // Close context menu on any other click
+                        if let Some(on_context_menu) = &self.on_context_menu {
+                            if self.context_menu.is_some() && button != Button::Right {
+                                shell.publish(on_context_menu(None));
                             }
                         }
                         status = Status::Captured;
@@ -1256,6 +1280,17 @@ where
                             }
                         }
                         terminal.needs_update = true;
+                    }
+                }
+                // Copy selection to clipboard on mouse release
+                {
+                    let term = terminal.term.lock();
+                    // Check if selection exists and has content
+                    if term.selection.is_some() && term.selection_to_string().is_some() {
+                        drop(term);
+                        if let Some(on_selection_copy) = &self.on_selection_copy {
+                            shell.publish(on_selection_copy());
+                        }
                     }
                 }
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -1482,7 +1517,9 @@ fn osc8_hyperlink_at(
     if let Some(link) = cell.hyperlink() {
         return Some(link);
     }
-    if cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
+    if cell
+        .flags
+        .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         && location.column.0 > 0
     {
         let left = TermPoint::new(location.line, TermColumn(location.column.0 - 1));
