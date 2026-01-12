@@ -1004,9 +1004,9 @@ where
                 {
                     //Might need to update the url regex highlight,
                     //so we need to calculate the mouse position
-                    let location = if let Some(p) = cursor_position.position() {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
-                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                    let location = if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
                         //TODO: better calculation of position
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
@@ -1150,8 +1150,11 @@ where
                                     if let Some(ref mut selection) = term.selection {
                                         selection.update(location, side);
                                     } else {
-                                        term.selection =
-                                            Some(Selection::new(SelectionType::Simple, location, side));
+                                        term.selection = Some(Selection::new(
+                                            SelectionType::Simple,
+                                            location,
+                                            side,
+                                        ));
                                     }
                                 } else {
                                     let selection = match click_kind {
@@ -1312,29 +1315,38 @@ where
                         self.mouse_inside_boundary = Some(mouse_is_inside);
                     }
                 }
-                if let Some(p) = cursor_position.position() {
+                if let Some(p_global) = cursor_position.position() {
                     let bounds = layout.bounds();
-                    let x = (p.x - bounds.x) - self.padding.left;
-                    let y = (p.y - bounds.y) - self.padding.top;
-                    //TODO: better calculation of position
-                    let col = x / terminal.size().cell_width;
-                    let row = y / terminal.size().cell_height;
-                    let location = terminal
-                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    update_active_regex_match(
-                        &mut terminal,
-                        Some(location),
-                        Some(&state.modifiers),
-                    );
+                    let col_row_opt = if let Some(p) = cursor_position.position_in(bounds) {
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+                        let location = terminal.viewport_to_point(TermPoint::new(
+                            row as usize,
+                            TermColumn(col as usize),
+                        ));
+                        update_active_regex_match(
+                            &mut terminal,
+                            Some(location),
+                            Some(&state.modifiers),
+                        );
+                        Some((col, row))
+                    } else {
+                        None
+                    };
 
                     if is_mouse_mode {
-                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        if let Some((col, row)) = col_row_opt {
+                            terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        }
                     } else {
                         let handled_buffer_drag = update_buffer_drag(
                             state,
                             &mut terminal,
                             buffer_size,
-                            p,
+                            p_global,
                             bounds,
                             self.padding,
                             0.0,
@@ -1346,6 +1358,7 @@ where
                             start_scroll,
                         }) = state.dragging.as_mut()
                         {
+                            let y = p_global.y - bounds.y - self.padding.top;
                             let start_y = *start_y;
                             let start_scroll = *start_scroll;
                             let scroll_offset = terminal.with_buffer(|buffer| {
@@ -1360,9 +1373,9 @@ where
                                 state.autoscroll.stop();
                             } else {
                                 if state.autoscroll.is_active() {
-                                    state.autoscroll.update_pointer(p);
+                                    state.autoscroll.update_pointer(p_global);
                                 } else {
-                                    state.autoscroll.start(p);
+                                    state.autoscroll.start(p_global);
                                 }
                                 shell.request_redraw(RedrawRequest::NextFrame);
                             }
@@ -1375,8 +1388,8 @@ where
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     if is_mouse_mode {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
-                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
                         //TODO: better calculation of position
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
@@ -1477,12 +1490,17 @@ fn osc8_hyperlink_at(
     location: TermPoint,
 ) -> Option<alacritty_terminal::term::cell::Hyperlink> {
     let term = terminal.term.lock();
+    if location.line >= term.screen_lines() || location.column.0 >= term.columns() {
+        return None;
+    }
     let grid = term.grid();
     let cell = &grid[location];
     if let Some(link) = cell.hyperlink() {
         return Some(link);
     }
-    if cell.flags.intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
+    if cell
+        .flags
+        .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
         && location.column.0 > 0
     {
         let left = TermPoint::new(location.line, TermColumn(location.column.0 - 1));
