@@ -176,15 +176,17 @@ pub struct ShortcutsConfig {
 impl ShortcutsConfig {
     pub fn key_binds(&self) -> HashMap<KeyBind, Action> {
         let mut binds = HashMap::new();
-        insert_shortcuts(&self.defaults, &mut binds, false);
+        let defaults = self.defaults_or_fallback();
+        insert_shortcuts(&defaults, &mut binds, false);
         insert_shortcuts(&self.custom, &mut binds, true);
         binds
     }
 
     pub fn bindings_for_action(&self, action: KeyBindAction) -> Vec<ResolvedBinding> {
         let mut bindings = Vec::new();
+        let defaults = self.defaults_or_fallback();
 
-        for (binding, default_action) in &self.defaults.0 {
+        for (binding, default_action) in &defaults.0 {
             if *default_action != action {
                 continue;
             }
@@ -218,6 +220,14 @@ impl ShortcutsConfig {
         }
 
         bindings
+    }
+
+    fn defaults_or_fallback(&self) -> Shortcuts {
+        if self.defaults.0.is_empty() {
+            fallback_shortcuts()
+        } else {
+            self.defaults.clone()
+        }
     }
 }
 
@@ -410,6 +420,83 @@ fn insert_shortcuts(
         };
         binds.insert(key_bind, action);
     }
+}
+
+fn fallback_shortcuts() -> Shortcuts {
+    let mut shortcuts = BTreeMap::new();
+
+    macro_rules! bind {
+        ([$($modifier:ident),* $(,)?], $key:expr, $action:ident) => {{
+            shortcuts.insert(
+                Binding {
+                    modifiers: vec![$(ModifierName::$modifier),*],
+                    key: $key.to_string(),
+                },
+                KeyBindAction::$action,
+            );
+        }};
+    }
+
+    // Standard key bindings
+    bind!([Ctrl, Shift], "A", SelectAll);
+    bind!([Ctrl, Shift], "C", Copy);
+    bind!([], "Copy", Copy);
+    bind!([Ctrl], "c", CopyOrSigint);
+    bind!([Ctrl, Shift], "F", Find);
+    bind!([Ctrl, Shift], "N", WindowNew);
+    bind!([Ctrl, Shift], "Q", WindowClose);
+    bind!([Ctrl, Shift], "T", TabNew);
+    bind!([Ctrl, Shift], "V", Paste);
+    bind!([], "Paste", Paste);
+    bind!([Shift], "Insert", PastePrimary);
+    bind!([Ctrl, Shift], "W", TabClose);
+    bind!([Ctrl], ",", Settings);
+    bind!([], "F11", ToggleFullscreen);
+
+    // Ctrl+Alt+D splits horizontally, Ctrl+Alt+R splits vertically, Ctrl+Shift+X maximizes split
+    //TODO: Adjust bindings as desired by UX
+    bind!([Ctrl, Alt], "d", PaneSplitHorizontal);
+    bind!([Ctrl, Alt], "r", PaneSplitVertical);
+    bind!([Ctrl, Shift], "X", PaneToggleMaximized);
+    #[cfg(feature = "password_manager")]
+    bind!([Ctrl, Alt], "p", PasswordManager);
+
+    // Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs
+    // Ctrl+Tab is not a special key for terminals and is free to use
+    bind!([Ctrl], "Tab", TabNext);
+    bind!([Ctrl, Shift], "Tab", TabPrev);
+
+    // Ctrl+Shift+# activates tabs by index
+    bind!([Ctrl, Shift], "1", TabActivate0);
+    bind!([Ctrl, Shift], "2", TabActivate1);
+    bind!([Ctrl, Shift], "3", TabActivate2);
+    bind!([Ctrl, Shift], "4", TabActivate3);
+    bind!([Ctrl, Shift], "5", TabActivate4);
+    bind!([Ctrl, Shift], "6", TabActivate5);
+    bind!([Ctrl, Shift], "7", TabActivate6);
+    bind!([Ctrl, Shift], "8", TabActivate7);
+    bind!([Ctrl, Shift], "9", TabActivate8);
+
+    // Ctrl+0, Ctrl+-, and Ctrl+= are not special keys for terminals and are free to use
+    bind!([Ctrl], "0", ZoomReset);
+    bind!([Ctrl], "-", ZoomOut);
+    bind!([Ctrl], "=", ZoomIn);
+    bind!([Ctrl], "+", ZoomIn);
+
+    // Ctrl+Arrows and Ctrl+HJKL move between splits
+    bind!([Ctrl, Shift], "ArrowLeft", PaneFocusLeft);
+    bind!([Ctrl, Shift], "H", PaneFocusLeft);
+    bind!([Ctrl, Shift], "ArrowDown", PaneFocusDown);
+    bind!([Ctrl, Shift], "J", PaneFocusDown);
+    bind!([Ctrl, Shift], "ArrowUp", PaneFocusUp);
+    bind!([Ctrl, Shift], "K", PaneFocusUp);
+    bind!([Ctrl, Shift], "ArrowRight", PaneFocusRight);
+    bind!([Ctrl, Shift], "L", PaneFocusRight);
+
+    // CTRL+Alt+L clears the scrollback.
+    bind!([Ctrl, Alt], "L", ClearScrollback);
+
+    Shortcuts(shortcuts)
 }
 
 fn key_from_string(value: &str) -> Option<Key> {
