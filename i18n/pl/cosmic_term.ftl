@@ -82,6 +82,7 @@ find-next = Znajdź następny
 
 file = Plik
 new-tab = Nowa karta
+rename-tab = Rename tab
 new-window = Nowe okno
 profile = Profil
 menu-profiles = Profile...

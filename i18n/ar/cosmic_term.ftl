@@ -82,6 +82,7 @@ find-next = ابحث عن التالي
 
 file = ملف
 new-tab = لسان جديد
+rename-tab = Rename tab
 new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...

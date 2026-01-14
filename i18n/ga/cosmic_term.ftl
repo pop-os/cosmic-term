@@ -80,6 +80,7 @@ find-next = Aimsigh an ceann eile
 
 file = Comhad
 new-tab = Cluaisín nua
+rename-tab = Rename tab
 new-window = Fuinneog nua
 profile = Próifíl
 menu-profiles = Próifílí...

@@ -80,6 +80,7 @@ find-next = Ďalšie
 
 file = Súbor
 new-tab = Nová karta
+rename-tab = Rename tab
 new-window = Nové okno
 profile = Profil
 menu-profiles = Profily...
