@@ -49,6 +49,7 @@ find-placeholder = Najít...
 find-previous = Najít předchozí
 find-next = Najít další
 new-tab = Nová karta
+rename-tab = Rename tab
 new-window = Nové okno
 profile = Profil
 menu-profiles = Profily...

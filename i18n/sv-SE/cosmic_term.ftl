@@ -80,6 +80,7 @@ find-next = Sök nästa
 
 file = Fil
 new-tab = Ny flik
+rename-tab = Rename tab
 new-window = Nytt fönster
 profile = Profil
 menu-profiles = Profiler…

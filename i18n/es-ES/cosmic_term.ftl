@@ -80,6 +80,7 @@ find-next = Buscar siguiente
 
 file = Archivo
 new-tab = Nueva pestaña
+rename-tab = Rename tab
 new-window = Nueva ventana
 profile = Perfil
 menu-profiles = Perfiles...

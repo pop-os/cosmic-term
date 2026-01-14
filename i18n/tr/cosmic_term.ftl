@@ -77,6 +77,7 @@ find-next = Sonrakini bul
 
 file = Dosya
 new-tab = Yeni sekme
+rename-tab = Sekmeyi yeniden adlandır
 new-window = Yeni pencere
 profile = Profil
 menu-profiles = Profiller...

@@ -80,6 +80,7 @@ find-next = Caută următorul
 
 file = Fișier
 new-tab = Filă nouă
+rename-tab = Rename tab
 new-window = Fereastră nouă
 profile = Profil
 menu-profiles = Profiluri...

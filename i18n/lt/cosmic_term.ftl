@@ -43,6 +43,7 @@ find-previous = Atgalinis ieškojimas
 find-next = Ieškoti sekančio
 file = Failas
 new-tab = Naujas skirtukas
+rename-tab = Rename tab
 new-window = Naujas langas
 profile = Profilis
 menu-profiles = Profiliai...

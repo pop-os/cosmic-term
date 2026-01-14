@@ -77,6 +77,7 @@ find-next = Pronađi sledeće
 
 file = Datoteka
 new-tab = Nova kartica
+rename-tab = Rename tab
 new-window = Novi prozor
 profile = Profili
 menu-profiles = Profili...
