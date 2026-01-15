@@ -94,8 +94,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut working_directory = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
-        let arg_str = arg.to_str();
-        match arg_str {
+        match arg.to_str() {
             Some("--help") | Some("-h") => {
                 print_help();
                 return Ok(());
@@ -107,11 +106,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 );
                 return Ok(());
             }
-            Some("--working-directory") | Some("-w") => {
+            Some(arg_str @ "--working-directory") | Some(arg_str @ "-w") => {
                 if let Some(dir_arg) = raw_args.next_os(&mut cursor) {
                     working_directory = Some(PathBuf::from(dir_arg));
                 } else {
-                    eprintln!("Missing argument for {}", arg_str.unwrap());
+                    eprintln!("Missing argument for {arg_str}");
                     process::exit(1);
                 }
             }
