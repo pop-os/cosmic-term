@@ -236,6 +236,7 @@ pub struct Config {
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
     pub default_profile: Option<ProfileId>,
+    pub dropdown_height: u32,
 }
 
 impl Default for Config {
@@ -259,6 +260,7 @@ impl Default for Config {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
+            dropdown_height: 400,
         }
     }
 }
