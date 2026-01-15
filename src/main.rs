@@ -217,7 +217,7 @@ Project home page: https://github.com/pop-os/cosmic-term
 Options:
   --help                          Show this message
   --version                       Show the version of cosmic-term
-  -w | --working-directory <dir>  Set the working directory for the terminal"#
+  -w, --working-directory <dir>   Set the working directory for the terminal"#
     );
 }
 
