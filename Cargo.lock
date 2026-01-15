@@ -1552,6 +1552,7 @@ dependencies = [
  "open",
  "palette",
  "paste",
+ "raw-window-handle",
  "ron",
  "rust-embed",
  "secret-service",
