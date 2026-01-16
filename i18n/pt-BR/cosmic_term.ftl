@@ -82,7 +82,6 @@ find-next = Localizar o próximo
 
 file = Arquivo
 new-tab = Nova aba
-rename-tab = Rename tab
 new-window = Nova janela
 profile = Perfil
 menu-profiles = Perfis...

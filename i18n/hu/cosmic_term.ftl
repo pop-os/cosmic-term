@@ -82,7 +82,6 @@ find-next = Következő találat
 
 file = Fájl
 new-tab = Új lap
-rename-tab = Rename tab
 new-window = Új ablak
 profile = Profil
 menu-profiles = Profilok…

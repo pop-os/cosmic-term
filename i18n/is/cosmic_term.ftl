@@ -39,7 +39,6 @@ find-previous = Finna fyrra
 find-next = Finna næsta
 file = Skrá
 new-tab = Nýr flipi
-rename-tab = Rename tab
 new-window = Nýr gluggi
 profile = Notandasnið
 menu-profiles = Notendasnið...

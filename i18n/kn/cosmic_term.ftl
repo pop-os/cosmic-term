@@ -77,7 +77,6 @@ find-next = ಮುಂದಿನ ಹುಡುಕು
 
 file = ಕಡತ
 new-tab = ಹೊಸ ಟ್ಯಾಬ್
-rename-tab = Rename tab
 new-window = ಹೊಸ ವಿಂಡೋ
 profile = ಪ್ರೊಫೈಲ್
 menu-profiles = ಪ್ರೊಫೈಲುಗಳು...

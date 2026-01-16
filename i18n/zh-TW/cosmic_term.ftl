@@ -80,7 +80,6 @@ find-next = 下一個
 
 file = 檔案
 new-tab = 新增分頁
-rename-tab = Rename tab
 new-window = 新增視窗
 profile = 設定檔
 menu-profiles = 設定檔...

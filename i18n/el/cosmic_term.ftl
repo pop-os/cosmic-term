@@ -83,7 +83,6 @@ find-next = Εύρεση επόμενου
 
 file = Αρχείο
 new-tab = Νέα ταμπέλα
-rename-tab = Rename tab
 new-window = Νέο παράθυρο
 profile = Προφίλ
 menu-profiles = Περισσότερα Προφίλ...

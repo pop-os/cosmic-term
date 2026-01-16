@@ -77,7 +77,6 @@ find-next = अगला खोजें
 
 file = फ़ाइल
 new-tab = नया टैब
-rename-tab = Rename tab
 new-window = नई विंडो
 profile = प्रोफाइल
 menu-profiles = प्रोफाइल्स...
