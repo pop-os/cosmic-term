@@ -720,66 +720,75 @@ where
             state.scrollbar_rect.set(Rectangle::default())
         }
 
-        // Draw cursor
+        // Draw cursor (only when not scrolled, as cursor is at bottom of active area)
         {
-            let cursor = terminal.term.lock().renderable_content().cursor;
-            let col = cursor.point.column.0;
-            let line = cursor.point.line.0;
-            let color = terminal.term.lock().colors()[NamedColor::Cursor]
-                .or(terminal.colors()[NamedColor::Cursor])
-                .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
-                .unwrap_or(Color::WHITE); // TODO default color from theme?
-            let width = terminal.size().cell_width;
-            let height = terminal.size().cell_height;
-            let top_left = view_position
-                + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
-            match cursor.shape {
-                CursorShape::Beam => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(top_left, Size::new(1.0, height)),
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, color);
-                }
-                CursorShape::Underline => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(
-                            view_position
-                                + Vector::new(
-                                    (col as f32 * width).floor(),
-                                    ((line + 1) as f32 * height).floor(),
-                                ),
-                            Size::new(width, 1.0),
-                        ),
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, color);
-                }
-                CursorShape::Block if !state.is_focused => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(top_left, Size::new(width, height)),
-                        border: Border {
-                            width: 1.0,
-                            color,
+            let term = terminal.term.lock();
+            let display_offset = term.grid().display_offset();
+            let cursor = term.renderable_content().cursor;
+            drop(term);
+
+            // Skip drawing cursor when scrolled - the cursor is below the visible viewport
+            if display_offset > 0 {
+                // Cursor is off-screen when scrolled up
+            } else {
+                let col = cursor.point.column.0;
+                let line = cursor.point.line.0;
+                let color = terminal.term.lock().colors()[NamedColor::Cursor]
+                    .or(terminal.colors()[NamedColor::Cursor])
+                    .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
+                    .unwrap_or(Color::WHITE); // TODO default color from theme?
+                let width = terminal.size().cell_width;
+                let height = terminal.size().cell_height;
+                let top_left = view_position
+                    + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
+                match cursor.shape {
+                    CursorShape::Beam => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(top_left, Size::new(1.0, height)),
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, Color::TRANSPARENT);
-                }
-                CursorShape::HollowBlock => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(top_left, Size::new(width, height)),
-                        border: Border {
-                            width: 1.0,
-                            color,
+                        };
+                        renderer.fill_quad(quad, color);
+                    }
+                    CursorShape::Underline => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(
+                                view_position
+                                    + Vector::new(
+                                        (col as f32 * width).floor(),
+                                        ((line + 1) as f32 * height).floor(),
+                                    ),
+                                Size::new(width, 1.0),
+                            ),
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, Color::TRANSPARENT);
+                        };
+                        renderer.fill_quad(quad, color);
+                    }
+                    CursorShape::Block if !state.is_focused => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(top_left, Size::new(width, height)),
+                            border: Border {
+                                width: 1.0,
+                                color,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        };
+                        renderer.fill_quad(quad, Color::TRANSPARENT);
+                    }
+                    CursorShape::HollowBlock => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(top_left, Size::new(width, height)),
+                            border: Border {
+                                width: 1.0,
+                                color,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        };
+                        renderer.fill_quad(quad, Color::TRANSPARENT);
+                    }
+                    CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
                 }
-                CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
             }
         }
 
