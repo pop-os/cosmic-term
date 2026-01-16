@@ -82,7 +82,6 @@ find-next = Etsi seuraava
 
 file = Tiedosto
 new-tab = Uusi välilehti
-rename-tab = Rename tab
 new-window = Uusi ikkuna
 profile = Profiili
 menu-profiles = Profiilit…

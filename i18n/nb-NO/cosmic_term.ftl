@@ -43,7 +43,6 @@ find-placeholder = Finn...
 find-previous = Finn forrige
 find-next = Finn neste
 new-tab = Ny fane
-rename-tab = Rename tab
 new-window = Nytt vindu
 profile = Profil
 menu-profiles = Profiler...

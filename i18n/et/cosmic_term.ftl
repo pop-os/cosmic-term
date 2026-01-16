@@ -30,7 +30,6 @@ advanced-font-settings = Kirjatüübi täiendavad seadistused
 default-font = Kirjatüüp
 default-font-size = Kirjasuurus
 new-tab = Uus vahekaart
-rename-tab = Rename tab
 new-window = Uus aken
 profile = Profiil
 menu-profiles = Profiilid...

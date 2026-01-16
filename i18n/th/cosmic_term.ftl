@@ -80,7 +80,6 @@ find-next = ค้นหาต่อไป
 
 file = ไฟล์
 new-tab = แท็บใหม่
-rename-tab = Rename tab
 new-window = หน้าต่างใหม่
 profile = โพรไฟล์
 menu-profiles = โพรไฟล์...

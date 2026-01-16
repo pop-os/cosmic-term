@@ -31,7 +31,6 @@ find-next = Trovar sequent
 ## File
 file = File
 new-tab = Nov carte
-rename-tab = Rename tab
 new-window = Nov fenestre
 close-tab = Cluder li carte
 quit = Surtir

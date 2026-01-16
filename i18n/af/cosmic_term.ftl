@@ -32,7 +32,6 @@ default-font = Lettertipe
 find-previous = Vind vorige
 find-next = Vind volgende
 new-tab = Nuwe oortjie
-rename-tab = Rename tab
 profile = Profiel
 menu-profiles = Profiele…
 close-tab = Maak oortjie toe
