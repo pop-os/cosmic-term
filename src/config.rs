@@ -16,6 +16,7 @@ use crate::{fl, localize::LANGUAGE_SORTER};
 pub const CONFIG_VERSION: u64 = 1;
 pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
 pub const COSMIC_THEME_LIGHT: &str = "COSMIC Light";
+pub const DEFAULT_SCROLLBACK_HISTORY: u32 = 10_000;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum AppTheme {
@@ -200,6 +201,12 @@ pub struct Profile {
     pub working_directory: String,
     #[serde(default)]
     pub drain_on_exit: bool,
+    #[serde(default = "default_scrollback_history")]
+    pub scrollback_history: u32,
+}
+
+fn default_scrollback_history() -> u32 {
+    DEFAULT_SCROLLBACK_HISTORY
 }
 
 impl Default for Profile {
@@ -212,6 +219,7 @@ impl Default for Profile {
             tab_title: String::new(),
             working_directory: String::new(),
             drain_on_exit: false,
+            scrollback_history: DEFAULT_SCROLLBACK_HISTORY,
         }
     }
 }
