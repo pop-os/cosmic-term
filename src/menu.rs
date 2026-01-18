@@ -248,6 +248,9 @@ pub fn menu_bar<'a>(
                         MenuItem::Button(fl!("next-tab"), None, Action::TabNext),
                         MenuItem::Button(fl!("previous-tab"), None, Action::TabPrev),
                         MenuItem::Divider,
+                        MenuItem::Button(fl!("move-tab-left"), None, Action::TabMoveLeft),
+                        MenuItem::Button(fl!("move-tab-right"), None, Action::TabMoveRight),
+                        MenuItem::Divider,
                         MenuItem::Button(
                             fl!("split-horizontal"),
                             None,
