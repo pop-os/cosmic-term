@@ -87,6 +87,8 @@ pub enum KeyBindAction {
     TabNew,
     TabNext,
     TabPrev,
+    TabMoveLeft,
+    TabMoveRight,
     ToggleFullscreen,
     WindowClose,
     WindowNew,
@@ -127,6 +129,8 @@ impl KeyBindAction {
             Self::TabNew => Some(Action::TabNew),
             Self::TabNext => Some(Action::TabNext),
             Self::TabPrev => Some(Action::TabPrev),
+            Self::TabMoveLeft => Some(Action::TabMoveLeft),
+            Self::TabMoveRight => Some(Action::TabMoveRight),
             Self::ToggleFullscreen => Some(Action::ToggleFullscreen),
             Self::WindowClose => Some(Action::WindowClose),
             Self::WindowNew => Some(Action::WindowNew),
@@ -288,6 +292,8 @@ pub fn action_label(action: KeyBindAction) -> String {
         KeyBindAction::TabNew => fl!("new-tab"),
         KeyBindAction::TabNext => fl!("next-tab"),
         KeyBindAction::TabPrev => fl!("previous-tab"),
+        KeyBindAction::TabMoveLeft => fl!("move-tab-left"),
+        KeyBindAction::TabMoveRight => fl!("move-tab-right"),
         KeyBindAction::ToggleFullscreen => fl!("toggle-fullscreen"),
         KeyBindAction::WindowClose => fl!("close-window"),
         KeyBindAction::WindowNew => fl!("new-window"),
@@ -469,6 +475,10 @@ fn fallback_shortcuts() -> Shortcuts {
     // Ctrl+Tab is not a special key for terminals and is free to use
     bind!([Ctrl], "Tab", TabNext);
     bind!([Ctrl, Shift], "Tab", TabPrev);
+
+    // Ctrl+Shift+PageUp/Down move tabs left and right
+    bind!([Ctrl, Shift], "PageUp", TabMoveLeft);
+    bind!([Ctrl, Shift], "PageDown", TabMoveRight);
 
     // Ctrl+Shift+# activates tabs by index
     bind!([Ctrl, Shift], "1", TabActivate0);
