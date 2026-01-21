@@ -1,9 +1,9 @@
 settings = Nastavení
 appearance = Vzhled
-theme = Téma
+theme = Motiv
 match-desktop = Podle systému
-dark = Tmavé
-light = Světlé
+dark = Tmavý
+light = Světlý
 file = Soubor
 quit = Ukončit
 import = Importovat
