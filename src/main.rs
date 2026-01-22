@@ -9,6 +9,7 @@ use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
+    cctk::wayland_client::{Connection, Proxy, backend::ObjectId, protocol::wl_surface::WlSurface},
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
@@ -27,6 +28,7 @@ use cosmic::{Apply, surface};
 use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
 use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
 use localize::LANGUAGE_SORTER;
+use raw_window_handle::RawWindowHandle;
 use std::{
     any::TypeId,
     cmp,
@@ -71,6 +73,7 @@ mod password_manager;
 mod terminal_theme;
 
 mod dnd;
+mod wayland;
 
 use clap_lex::RawArgs;
 
@@ -418,6 +421,9 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    WaylandConn(Connection),
+    Bell(wayland::Bell),
+    Ignore,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -474,6 +480,8 @@ pub struct App {
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
+    wayland_conn: Option<Connection>,
+    bell: Option<wayland::Bell>,
 }
 
 impl App {
@@ -1592,6 +1600,8 @@ impl Application for App {
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
+            wayland_conn: None,
+            bell: None,
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -2524,6 +2534,9 @@ impl Application for App {
                 match event {
                     TermEvent::Bell => {
                         //TODO: audible or visible bell options?
+                        if let Some(bell) = &self.bell {
+                            bell.ring();
+                        }
                     }
                     TermEvent::ClipboardLoad(kind, callback) => {
                         match kind {
@@ -2751,6 +2764,39 @@ impl Application for App {
                     cosmic::app::Action::Surface(a),
                 ));
             }
+            Message::WaylandConn(conn) => {
+                if self.wayland_conn.is_none() {
+                    self.wayland_conn = Some(conn.clone());
+                    return cosmic::iced_runtime::window::run_with_handle(
+                        self.core.main_window_id().unwrap(),
+                        move |id| {
+                            cosmic::action::app(
+                                if let RawWindowHandle::Wayland(wayland_handle) = id.as_raw() {
+                                    //registry_queue_init(&conn);
+                                    let surface_id = unsafe {
+                                        ObjectId::from_ptr(
+                                            WlSurface::interface(),
+                                            wayland_handle.surface.as_ptr().cast(),
+                                        )
+                                    }
+                                    .unwrap(); // XXX unwrap
+                                    let surface = WlSurface::from_id(&conn, surface_id).unwrap();
+                                    match wayland::bind_bell(&conn, &surface) {
+                                        Some(bell) => Message::Bell(bell),
+                                        None => Message::Ignore,
+                                    }
+                                } else {
+                                    Message::Ignore
+                                },
+                            )
+                        },
+                    );
+                }
+            }
+            Message::Bell(bell) => {
+                self.bell = Some(bell);
+            }
+            Message::Ignore => {}
         }
 
         Task::none()
@@ -2988,6 +3034,15 @@ impl Application for App {
                 }
                 Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
                     Some(Message::CopyPrimary(None))
+                }
+                iced::Event::PlatformSpecific(iced::event::PlatformSpecific::Wayland(
+                    event::wayland::Event::Output(_, output),
+                )) => {
+                    if let Some(backend) = output.backend().upgrade() {
+                        Some(Message::WaylandConn(Connection::from_backend(backend)))
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             }),
