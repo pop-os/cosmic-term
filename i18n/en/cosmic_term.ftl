@@ -62,6 +62,11 @@ advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
 
+# Drop-down
+dropdown = Drop-down
+dropdown-height = Drop-down height
+dropdown-height-description = Height of the drop-down terminal in pixels
+
 # Find
 find-placeholder = Find...
 find-previous = Find previous
