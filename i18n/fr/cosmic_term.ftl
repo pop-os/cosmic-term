@@ -14,7 +14,7 @@ rename = Renommer
 export = Exporter
 delete = Supprimer
 import = Importer
-import-errors = Importer erreurs
+import-errors = Erreurs d'importation
 
 ## Profiles
 
@@ -43,7 +43,7 @@ dark = Sombre
 light = Clair
 syntax-dark = Palette de couleur sombre
 syntax-light = Palette de couleur claire
-default-zoom-step = Pas du zoom
+default-zoom-step = Niveaux de zoom
 opacity = Opacité de l'arrière-plan
 
 ### Font
@@ -53,9 +53,9 @@ advanced-font-settings = Paramètres de police avancés
 default-font = Police
 default-font-size = Taille de la police
 default-font-stretch = Étirement de la police
-default-font-weight = Graisse de caractère normale
-default-dim-font-weight = Graisse de caractère légère
-default-bold-font-weight = Graisse de caractère grasse
+default-font-weight = Poids de police normal
+default-dim-font-weight = Poids de police léger
+default-bold-font-weight = Poids de police en gras
 use-bright-bold = Rendre le texte en gras plus clair
 
 ### Splits
@@ -71,7 +71,7 @@ show-header-description = Révéler l'en-tête du menu contextuel.
 # Find
 find-placeholder = Rechercher...
 find-previous = Chercher précédent
-find-next = Chercher suivant
+find-next = Chercher prochain
 
 # Menu
 
@@ -93,19 +93,27 @@ copy = Copier
 paste = Coller
 select-all = Sélectionner tout
 find = Rechercher
-clear-scrollback = Effacer le défilement
+clear-scrollback = Effacer l'historique
 
 ## View
 
 view = Affichage
-zoom-in = Texte plus grand
-zoom-reset = Taille de texte par défaut
-zoom-out = Texte plus petit
+zoom-in = Agrandir le texte
+zoom-reset = Taille par défaut
+zoom-out = Réduire le texte
 next-tab = Onglet suivant
 previous-tab = Onglet précédent
-split-horizontal = Diviser horizontalement
-split-vertical = Diviser verticalement
-pane-toggle-maximize = Maximiser l'affichage
+split-horizontal = Scinder en horizontal
+split-vertical = Scinder en vertical
+pane-toggle-maximize = Vue unique
 menu-color-schemes = Palettes de couleurs...
 menu-settings = Paramètres...
-menu-about = À propos du terminal COSMIC...
+menu-about = À propos de terminal COSMIC...
+repository = Dépôt
+support = Support
+menu-password-manager = Mots de passe...
+passwords-title = Mots de passe
+add-password = Ajouter un mot de passe
+password-input = Mot de passe
+password-input-description = Description
+open-link = Ouvrir le lien

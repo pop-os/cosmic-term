@@ -12,18 +12,18 @@ support = الدعم
 ## Color schemes
 
 color-schemes = مخططات الألوان
-rename = إعادة التسمية
+rename = غيِّر الاسم
 export = تصدير
-delete = حذف
-import = استيراد
-import-errors = تعذر الاستيراد
+delete = احذف
+import = استورد
+import-errors = تعذَّر الاستيراد
 
 ## Profiles
 
 profiles = ملفات التعريف
 name = الاسم
 command-line = سطر الأوامر
-tab-title = عنوان علامة التبويب
+tab-title = عنوان اللسان
 tab-title-description = تجاوز عنوان اللسان المبدئي
 add-profile = أضف ملف تعريف
 new-profile = ملف تعريف جديد
@@ -39,8 +39,8 @@ settings = الإعدادات
 ### Appearance
 
 appearance = المظهر
-theme = سمة
-match-desktop = مطابقة مع سطح المكتب
+theme = النسق
+match-desktop = طابق سطح المكتب
 dark = داكن
 light = فاتح
 syntax-dark = مخطط الألوان الداكن
@@ -58,7 +58,7 @@ default-font-stretch = تمدد الخط
 default-font-weight = وزن الخط العادي
 default-dim-font-weight = وزن الخط الخافت
 default-bold-font-weight = وزن الخط السميك
-use-bright-bold = جعل النصوص السميكة اكثر سطوعاً
+use-bright-bold = اجعل النص السميك ساطعًا
 
 ### Splits
 
@@ -68,8 +68,8 @@ focus-follow-mouse = تركيز الكتابة يتبع الفأرة
 ### Advanced
 
 advanced = متقدم
-show-headerbar = إظهار العنوان
-show-header-description = إظهار العنوان من قائمة النقر بزر الماوس الأيمن.
+show-headerbar = أظهِر الترويسة
+show-header-description = اكشف الترويسة من خلال قائمة النقر باليمنى.
 # Find
 find-placeholder = ابحث عن...
 find-previous = ابحث عن السابق
@@ -81,21 +81,21 @@ find-next = ابحث عن التالي
 ## File
 
 file = ملف
-new-tab = علامة تبويب جديدة
+new-tab = لسان جديد
 new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...
-close-tab = إغلاق علامة التبويب
+close-tab = أغلق اللسان
 quit = أنهِ
 
 ## Edit
 
-edit = تعديل
-copy = نسخ
-paste = لصق
-select-all = تحديد الكل
+edit = عدِّل
+copy = انسخ
+paste = ألصِق
+select-all = حدِّد الكل
 find = ابحث عن
-clear-scrollback = مسح التمرير الخلفي
+clear-scrollback = امحُ التمرير الخلفي
 
 ## View
 
@@ -103,13 +103,17 @@ view = عرض
 zoom-in = نص أكبر
 zoom-reset = حجم النص المبدئي
 zoom-out = نص أصغر
-next-tab = علامة التبويب التالية
-previous-tab = علامة التبويب السابقة
-split-horizontal = تقسيم أفقيًا
-split-vertical = تقسيم عموديًا
-pane-toggle-maximize = تفعيل التكبير
+next-tab = اللسان التالي
+previous-tab = اللسان السابق
+split-horizontal = اقسم أفقيًا
+split-vertical = اقسم عموديًا
+pane-toggle-maximize = بدِّل التكبير
 menu-color-schemes = مخططات الألوان...
 menu-settings = الإعدادات...
 menu-about = حول طرفية COSMIC...
 passwords-title = كلمات السر
 add-password = أضف كلمة سر
+open-link = افتح الرابط
+menu-password-manager = كلمات السر...
+password-input = كلمة السر
+password-input-description = الوصف

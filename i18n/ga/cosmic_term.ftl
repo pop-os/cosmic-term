@@ -1,4 +1,4 @@
-cosmic-terminal = COSMIC Terminal
+cosmic-terminal = Teirminéal COSMIC
 new-terminal = Teirminéal nua
 
 # Context Pages
@@ -9,7 +9,7 @@ new-terminal = Teirminéal nua
 
 ## Color schemes
 
-color-schemes = Scéimeanna datha
+color-schemes = Scéimeanna dathanna
 rename = Athainmnigh
 export = Easpórtáil
 delete = Scrios
@@ -36,7 +36,7 @@ settings = Socruithe
 
 ### Appearance
 
-appearance = Dealramh
+appearance = Cuma
 theme = Téama
 match-desktop = Meaitseáil deasc
 dark = Dorcha
@@ -49,19 +49,19 @@ opacity = Teimhneacht cúlra
 ### Font
 
 font = Cló
-advanced-font-settings = Ardsocruithe Cló
+advanced-font-settings = Ardsocruithe cló
 default-font = Cló
-default-font-size = Méid an Chló
-default-font-stretch = Síneadh an Chló
-default-font-weight = Meáchan Cló Gnáth
-default-dim-font-weight = Meáchan Cló Lag
-default-bold-font-weight = Meáchan Cló Trom
-use-bright-bold = Déan Téacs Trom Níos Gile
+default-font-size = Méid an chló
+default-font-stretch = Síneadh cló
+default-font-weight = Meáchan cló gnáth
+default-dim-font-weight = Meáchan cló lag
+default-bold-font-weight = Meáchan cló trom
+use-bright-bold = Déan téacs trom níos gile
 
 ### Splits
 
 splits = Scoilteanna
-focus-follow-mouse = Leanann fócas clóscríbhneoireachta an luch
+focus-follow-mouse = Leanann fócas clóscríofa an luch
 
 ### Advanced
 
@@ -69,7 +69,7 @@ advanced = Casta
 show-headerbar = Taispeáin ceanntásc
 show-header-description = Nocht an ceanntásc ón roghchlár cliceáil deas.
 # Find
-find-placeholder = Cuardaigh...
+find-placeholder = Aimsigh...
 find-previous = Aimsigh an ceann roimhe seo
 find-next = Aimsigh an ceann eile
 
@@ -88,10 +88,10 @@ quit = Scoir
 
 ## Edit
 
-edit = Cuir in eagar
-copy = Cóip
+edit = Eagar
+copy = Cóipeáil
 paste = Greamaigh
-select-all = Roghnaigh go léir
+select-all = Roghnaigh gach ceann
 find = Aimsigh
 clear-scrollback = Glan siarscrollú
 
@@ -99,15 +99,21 @@ clear-scrollback = Glan siarscrollú
 
 view = Amharc
 zoom-in = Téacs níos mó
-zoom-reset = Méid an téacs réamhshocraithe
+zoom-reset = Méid téacs réamhshocraithe
 zoom-out = Téacs níos lú
 next-tab = An cluaisín ar aghaidh
 previous-tab = An cluaisín roimhe seo
 split-horizontal = Scoilt cothrománach
 split-vertical = Scoilt ingearach
-pane-toggle-maximize = Athraigh uasmhéadú
+pane-toggle-maximize = Scoránaigh uasmhéadú
 menu-color-schemes = Scéimeanna dathanna...
 menu-settings = Socruithe...
 menu-about = Maidir le COSMIC Teirminéal...
 repository = Stór
 support = Tacaíocht
+open-link = Oscail an Nasc
+menu-password-manager = Pasfhocail...
+passwords-title = Pasfhocail
+add-password = Cuir Pasfhocal leis
+password-input = Pasfhocal
+password-input-description = Cur síos

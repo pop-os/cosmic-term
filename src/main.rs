@@ -1034,7 +1034,7 @@ impl App {
                                 .spacing(space_xxxs)
                                 .into(),
                                 widget::horizontal_space().into(),
-                                widget::toggler(profile.hold)
+                                widget::toggler(profile.drain_on_exit)
                                     .on_toggle(move |t| Message::ProfileHold(profile_id, t))
                                     .into(),
                             ])
@@ -1320,7 +1320,7 @@ impl App {
                                         let options = tty::Options {
                                             shell,
                                             working_directory,
-                                            hold: profile.hold,
+                                            drain_on_exit: profile.drain_on_exit,
                                             env: HashMap::new(),
                                         };
                                         let tab_title_override = if profile.tab_title.is_empty() {
@@ -2266,9 +2266,9 @@ impl Application for App {
             Message::ProfileExpand(profile_id) => {
                 self.profile_expanded = Some(profile_id);
             }
-            Message::ProfileHold(profile_id, hold) => {
+            Message::ProfileHold(profile_id, drain_on_exit) => {
                 if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
-                    profile.hold = hold;
+                    profile.drain_on_exit = drain_on_exit;
                     return self.save_profiles();
                 }
             }
@@ -2675,6 +2675,15 @@ impl Application for App {
                     self.core.window.show_context = !self.core.window.show_context;
                     self.pane_model.update_terminal_focus();
 
+                    #[cfg(feature = "password_manager")]
+                    if ContextPage::PasswordManager == context_page {
+                        if self.core.window.show_context {
+                            self.password_mgr.pane = Some(self.pane_model.focused());
+                            return self.password_mgr.refresh_password_list();
+                        } else {
+                            self.password_mgr.clear();
+                        }
+                    }
                     return self.update_focus();
                 } else {
                     self.context_page = context_page;
@@ -2709,12 +2718,8 @@ impl Application for App {
 
                 #[cfg(feature = "password_manager")]
                 if ContextPage::PasswordManager == context_page {
-                    if self.core.window.show_context {
-                        self.password_mgr.pane = Some(self.pane_model.focused());
-                        return self.password_mgr.refresh_password_list();
-                    } else {
-                        self.password_mgr.clear();
-                    }
+                    self.password_mgr.pane = Some(self.pane_model.focused());
+                    return self.password_mgr.refresh_password_list();
                 }
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
