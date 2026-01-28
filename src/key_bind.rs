@@ -29,6 +29,7 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     bind!([Ctrl, Shift], Key::Character("N".into()), WindowNew);
     bind!([Ctrl, Shift], Key::Character("Q".into()), WindowClose);
     bind!([Ctrl, Shift], Key::Character("T".into()), TabNew);
+    bind!([Ctrl, Shift], Key::Character("R".into()), TabRename);
     bind!([Ctrl, Shift], Key::Character("V".into()), Paste);
     bind!([], Key::Named(Named::Paste), Paste);
     bind!([Shift], Key::Named(Named::Insert), PastePrimary);
