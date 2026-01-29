@@ -6,6 +6,8 @@ use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
+use cosmic::widget::pane_grid::Pane;
+use cosmic::widget::segmented_button::ReorderEvent;
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
@@ -390,6 +392,7 @@ pub enum Message {
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
+    ReorderTab(Pane, ReorderEvent),
     Surface(surface::Action),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
@@ -2751,6 +2754,20 @@ impl Application for App {
                     cosmic::app::Action::Surface(a),
                 ));
             }
+            Message::ReorderTab(
+                pane,
+                ReorderEvent {
+                    dragged,
+                    target,
+                    position,
+                },
+            ) => {
+                let Some(p) = self.pane_model.panes.get_mut(pane) else {
+                    log::error!("Failed to find reordered tab model.");
+                    return Task::none();
+                };
+                _ = p.reorder(dragged, target, position);
+            }
         }
 
         Task::none()
@@ -2823,6 +2840,9 @@ impl Application for App {
                 tab_column = tab_column.push(
                     widget::container(
                         widget::tab_bar::horizontal(tab_model)
+                            .enable_tab_drag(String::from("x-cosmic-term/tab"))
+                            .on_reorder(move |event| Message::ReorderTab(pane, event))
+                            .tab_drag_threshold(25.)
                             .button_height(32)
                             .button_spacing(space_xxs)
                             .on_activate(Message::TabActivate)
