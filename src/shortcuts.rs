@@ -2,7 +2,6 @@
 
 use cosmic::widget::menu::key_bind::{KeyBind, Modifier};
 use cosmic::{
-    cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry},
     iced::keyboard::{Key, Modifiers},
     iced_core::keyboard::key::Named,
 };
@@ -10,9 +9,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
 use crate::Action;
-
-pub const SHORTCUTS_CONFIG_ID: &str = "com.system76.CosmicTerm.Shortcuts";
-pub const SHORTCUTS_CONFIG_VERSION: u64 = 1;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum ModifierName {
@@ -167,7 +163,7 @@ pub struct ResolvedBinding {
     pub source: BindingSource,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, CosmicConfigEntry)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ShortcutsConfig {
     pub defaults: Shortcuts,
     pub custom: Shortcuts,
@@ -227,25 +223,6 @@ impl ShortcutsConfig {
             fallback_shortcuts()
         } else {
             self.defaults.clone()
-        }
-    }
-}
-
-pub fn load() -> (Option<cosmic_config::Config>, ShortcutsConfig) {
-    match cosmic_config::Config::new(SHORTCUTS_CONFIG_ID, SHORTCUTS_CONFIG_VERSION) {
-        Ok(config_handler) => {
-            let config = match ShortcutsConfig::get_entry(&config_handler) {
-                Ok(config) => config,
-                Err((errors, config)) => {
-                    log::info!("errors loading shortcuts config: {:?}", errors);
-                    config
-                }
-            };
-            (Some(config_handler), config)
-        }
-        Err(err) => {
-            log::error!("failed to create shortcuts config handler: {}", err);
-            (None, ShortcutsConfig::default())
         }
     }
 }

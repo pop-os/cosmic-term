@@ -162,7 +162,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let (shortcuts_config_handler, shortcuts_config) = shortcuts::load();
+    let shortcuts_config = shortcuts::ShortcutsConfig {
+        defaults: shortcuts::Shortcuts::default(),
+        custom: config.shortcuts_custom.clone(),
+    };
 
     let startup_options = if let Some(shell_program) = shell_program_opt {
         let options = tty::Options {
@@ -192,7 +195,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let flags = Flags {
         config_handler,
         config,
-        shortcuts_config_handler,
         shortcuts_config,
         startup_options,
         term_config,
@@ -220,7 +222,6 @@ Options:
 pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
-    shortcuts_config_handler: Option<cosmic_config::Config>,
     shortcuts_config: shortcuts::ShortcutsConfig,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
@@ -351,7 +352,6 @@ pub enum Message {
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
-    ShortcutsConfig(shortcuts::ShortcutsConfig),
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
@@ -451,7 +451,6 @@ pub struct App {
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
-    shortcuts_config_handler: Option<cosmic_config::Config>,
     shortcuts_config: shortcuts::ShortcutsConfig,
     key_binds: HashMap<KeyBind, Action>,
     app_themes: Vec<String>,
@@ -561,9 +560,13 @@ impl App {
     }
 
     fn save_shortcuts_custom(&mut self) {
-        match &self.shortcuts_config_handler {
+        self.config.shortcuts_custom = self.shortcuts_config.custom.clone();
+        match &self.config_handler {
             Some(config_handler) => {
-                if let Err(err) = config_handler.set("custom", &self.shortcuts_config.custom) {
+                if let Err(err) = config_handler.set(
+                    "shortcuts_custom",
+                    &self.config.shortcuts_custom,
+                ) {
                     log::warn!("failed to save shortcuts custom config: {}", err);
                 }
             }
@@ -1705,7 +1708,6 @@ impl Application for App {
             pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
-            shortcuts_config_handler: flags.shortcuts_config_handler,
             shortcuts_config: flags.shortcuts_config,
             key_binds,
             app_themes,
@@ -2023,17 +2025,19 @@ impl Application for App {
             }
             Message::Config(config) => {
                 if config != self.config {
+                    let shortcuts_changed =
+                        config.shortcuts_custom != self.config.shortcuts_custom;
                     log::info!("update config");
                     //TODO: update syntax theme by clearing tabs, only if needed
                     self.config = config;
+                    if shortcuts_changed {
+                        self.shortcuts_config = shortcuts::ShortcutsConfig {
+                            defaults: shortcuts::Shortcuts::default(),
+                            custom: self.config.shortcuts_custom.clone(),
+                        };
+                        self.key_binds = key_binds(&self.shortcuts_config);
+                    }
                     return self.update_config();
-                }
-            }
-            Message::ShortcutsConfig(config) => {
-                if config != self.shortcuts_config {
-                    log::info!("update shortcuts config");
-                    self.shortcuts_config = config;
-                    self.key_binds = key_binds(&self.shortcuts_config);
                 }
             }
             Message::Copy(entity_opt) => {
@@ -3169,7 +3173,6 @@ impl Application for App {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
-        struct ShortcutsConfigSubscription;
         struct TerminalEventSubscription;
 
         Subscription::batch([
@@ -3215,21 +3218,6 @@ impl Application for App {
                     );
                 }
                 Message::Config(update.config)
-            }),
-            cosmic_config::config_subscription::<_, shortcuts::ShortcutsConfig>(
-                TypeId::of::<ShortcutsConfigSubscription>(),
-                shortcuts::SHORTCUTS_CONFIG_ID.into(),
-                shortcuts::SHORTCUTS_CONFIG_VERSION,
-            )
-            .map(|update| {
-                if !update.errors.is_empty() {
-                    log::debug!(
-                        "errors loading shortcuts config {:?}: {:?}",
-                        update.keys,
-                        update.errors
-                    );
-                }
-                Message::ShortcutsConfig(update.config)
             }),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
