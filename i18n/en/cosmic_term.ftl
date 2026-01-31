@@ -62,7 +62,7 @@ focus-follow-mouse = Typing focus follows mouse
 ### Advanced
 advanced = Advanced
 show-headerbar = Show header
-show-header-description = Reveal the header from the right-click menu.
+show-header-description = Reveal the header from the right-click menu
 
 ### Keyboard shortcuts
 add-another-keybinding = Add another keybinding
