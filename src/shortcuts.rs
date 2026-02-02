@@ -8,7 +8,7 @@ use cosmic::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-use crate::Action;
+use crate::{Action, fl};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum ModifierName {
@@ -227,56 +227,56 @@ impl ShortcutsConfig {
     }
 }
 
-pub fn action_label(action: KeyBindAction) -> &'static str {
+pub fn action_label(action: KeyBindAction) -> String {
     match action {
-        KeyBindAction::Unbind => "Unbind",
-        KeyBindAction::ClearScrollback => "Clear scrollback",
-        KeyBindAction::Copy => "Copy",
-        KeyBindAction::CopyOrSigint => "Copy or SIGINT",
-        KeyBindAction::Find => "Find",
-        KeyBindAction::PaneFocusDown => "Focus pane down",
-        KeyBindAction::PaneFocusLeft => "Focus pane left",
-        KeyBindAction::PaneFocusRight => "Focus pane right",
-        KeyBindAction::PaneFocusUp => "Focus pane up",
-        KeyBindAction::PaneSplitHorizontal => "Split pane horizontally",
-        KeyBindAction::PaneSplitVertical => "Split pane vertically",
-        KeyBindAction::PaneToggleMaximized => "Toggle pane maximized",
-        KeyBindAction::Paste => "Paste",
-        KeyBindAction::PastePrimary => "Paste primary",
-        KeyBindAction::PasswordManager => "Password manager",
-        KeyBindAction::SelectAll => "Select all",
-        KeyBindAction::Settings => "Settings",
-        KeyBindAction::TabActivate0 => "Activate tab 1",
-        KeyBindAction::TabActivate1 => "Activate tab 2",
-        KeyBindAction::TabActivate2 => "Activate tab 3",
-        KeyBindAction::TabActivate3 => "Activate tab 4",
-        KeyBindAction::TabActivate4 => "Activate tab 5",
-        KeyBindAction::TabActivate5 => "Activate tab 6",
-        KeyBindAction::TabActivate6 => "Activate tab 7",
-        KeyBindAction::TabActivate7 => "Activate tab 8",
-        KeyBindAction::TabActivate8 => "Activate tab 9",
-        KeyBindAction::TabClose => "Close tab",
-        KeyBindAction::TabNew => "New tab",
-        KeyBindAction::TabNext => "Next tab",
-        KeyBindAction::TabPrev => "Previous tab",
-        KeyBindAction::ToggleFullscreen => "Toggle fullscreen",
-        KeyBindAction::WindowClose => "Close window",
-        KeyBindAction::WindowNew => "New window",
-        KeyBindAction::ZoomIn => "Zoom in",
-        KeyBindAction::ZoomOut => "Zoom out",
-        KeyBindAction::ZoomReset => "Reset zoom",
+        KeyBindAction::Unbind => fl!("unbind"),
+        KeyBindAction::ClearScrollback => fl!("clear-scrollback"),
+        KeyBindAction::Copy => fl!("copy"),
+        KeyBindAction::CopyOrSigint => fl!("copy-or-sigint"),
+        KeyBindAction::Find => fl!("find"),
+        KeyBindAction::PaneFocusDown => fl!("focus-pane-down"),
+        KeyBindAction::PaneFocusLeft => fl!("focus-pane-left"),
+        KeyBindAction::PaneFocusRight => fl!("focus-pane-right"),
+        KeyBindAction::PaneFocusUp => fl!("focus-pane-up"),
+        KeyBindAction::PaneSplitHorizontal => fl!("split-horizontal"),
+        KeyBindAction::PaneSplitVertical => fl!("split-vertical"),
+        KeyBindAction::PaneToggleMaximized => fl!("pane-toggle-maximize"),
+        KeyBindAction::Paste => fl!("paste"),
+        KeyBindAction::PastePrimary => fl!("paste-primary"),
+        KeyBindAction::PasswordManager => fl!("password-manager"),
+        KeyBindAction::SelectAll => fl!("select-all"),
+        KeyBindAction::Settings => fl!("settings"),
+        KeyBindAction::TabActivate0 => fl!("tab-activate", number = 1),
+        KeyBindAction::TabActivate1 => fl!("tab-activate", number = 2),
+        KeyBindAction::TabActivate2 => fl!("tab-activate", number = 3),
+        KeyBindAction::TabActivate3 => fl!("tab-activate", number = 4),
+        KeyBindAction::TabActivate4 => fl!("tab-activate", number = 5),
+        KeyBindAction::TabActivate5 => fl!("tab-activate", number = 6),
+        KeyBindAction::TabActivate6 => fl!("tab-activate", number = 7),
+        KeyBindAction::TabActivate7 => fl!("tab-activate", number = 8),
+        KeyBindAction::TabActivate8 => fl!("tab-activate", number = 9),
+        KeyBindAction::TabClose => fl!("close-tab"),
+        KeyBindAction::TabNew => fl!("new-tab"),
+        KeyBindAction::TabNext => fl!("next-tab"),
+        KeyBindAction::TabPrev => fl!("previous-tab"),
+        KeyBindAction::ToggleFullscreen => fl!("toggle-fullscreen"),
+        KeyBindAction::WindowClose => fl!("close-window"),
+        KeyBindAction::WindowNew => fl!("new-window"),
+        KeyBindAction::ZoomIn => fl!("zoom-in"),
+        KeyBindAction::ZoomOut => fl!("zoom-out"),
+        KeyBindAction::ZoomReset => fl!("zoom-reset"),
     }
 }
 
 pub struct ShortcutGroup {
-    pub title: &'static str,
+    pub title: String,
     pub actions: Vec<KeyBindAction>,
 }
 
 pub fn shortcut_groups() -> Vec<ShortcutGroup> {
     let mut groups = Vec::new();
     groups.push(ShortcutGroup {
-        title: "Clipboard",
+        title: fl!("shortcut-group-clipboard"),
         actions: vec![
             KeyBindAction::SelectAll,
             KeyBindAction::Copy,
@@ -287,7 +287,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
         ],
     });
     groups.push(ShortcutGroup {
-        title: "Tabs",
+        title: fl!("shortcut-group-tabs"),
         actions: vec![
             KeyBindAction::TabNew,
             KeyBindAction::TabClose,
@@ -305,7 +305,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
         ],
     });
     groups.push(ShortcutGroup {
-        title: "Splits",
+        title: fl!("splits"),
         actions: vec![
             KeyBindAction::PaneSplitHorizontal,
             KeyBindAction::PaneSplitVertical,
@@ -317,7 +317,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
         ],
     });
     groups.push(ShortcutGroup {
-        title: "Window",
+        title: fl!("shortcut-group-window"),
         actions: vec![
             KeyBindAction::WindowNew,
             KeyBindAction::WindowClose,
@@ -326,7 +326,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
         ],
     });
     groups.push(ShortcutGroup {
-        title: "Zoom",
+        title: fl!("shortcut-group-zoom"),
         actions: vec![
             KeyBindAction::ZoomIn,
             KeyBindAction::ZoomOut,
@@ -337,7 +337,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
     #[cfg(feature = "password_manager")]
     other_actions.push(KeyBindAction::PasswordManager);
     groups.push(ShortcutGroup {
-        title: "Other",
+        title: fl!("shortcut-group-other"),
         actions: other_actions,
     });
     groups

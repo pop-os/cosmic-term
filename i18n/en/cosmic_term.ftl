@@ -62,6 +62,30 @@ advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
 
+### Keyboard shortcuts
+keyboard-shortcuts = Keyboard shortcuts
+customize-shortcuts = Customize shortcuts
+shortcut-capture-hint = Press new shortcut, or Esc to cancel
+cancel = Cancel
+no-shortcuts = No shortcuts
+add-shortcut = + Add
+shortcut-group-clipboard = Clipboard
+shortcut-group-tabs = Tabs
+shortcut-group-window = Window
+shortcut-group-zoom = Zoom
+shortcut-group-other = Other
+unbind = Unbind
+copy-or-sigint = Copy or SIGINT
+paste-primary = Paste primary
+focus-pane-left = Focus pane left
+focus-pane-right = Focus pane right
+focus-pane-up = Focus pane up
+focus-pane-down = Focus pane down
+toggle-fullscreen = Toggle fullscreen
+close-window = Close window
+password-manager = Password manager
+tab-activate = Activate tab { $number }
+
 # Find
 find-placeholder = Find...
 find-previous = Find previous

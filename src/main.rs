@@ -1286,9 +1286,9 @@ impl App {
         );
 
         let mut shortcuts_section = widget::settings::section()
-            .title("Keyboard shortcuts")
+            .title(fl!("keyboard-shortcuts"))
             .add(
-                widget::settings::item::builder("Customize shortcuts").control(
+                widget::settings::item::builder(fl!("customize-shortcuts")).control(
                     if self.show_keyboard_shortcuts {
                         widget::button::custom(icon_cache_get("go-up-symbolic", 16))
                             .on_press(Message::KeyboardShortcuts(false))
@@ -1314,10 +1314,10 @@ impl App {
                         if self.shortcut_capture == Some(action) {
                             rows.push(
                                 widget::row::with_children(vec![
-                                    widget::text::body("Press new shortcut, or Esc to cancel")
+                                    widget::text::body(fl!("shortcut-capture-hint"))
                                         .into(),
                                     widget::horizontal_space().into(),
-                                    widget::button::standard("Cancel")
+                                    widget::button::standard(fl!("cancel"))
                                         .on_press(Message::ShortcutCaptureCancel)
                                         .into(),
                                 ])
@@ -1327,7 +1327,7 @@ impl App {
                         }
 
                         if bindings.is_empty() {
-                            rows.push(widget::text::body("No shortcuts").into());
+                            rows.push(widget::text::body(fl!("no-shortcuts")).into());
                         } else {
                             for resolved in bindings {
                                 let binding_text = widget::text::body(
@@ -1363,7 +1363,7 @@ impl App {
                         rows.push(
                             widget::row::with_children(vec![
                                 widget::horizontal_space().into(),
-                                widget::button::standard("+ Add")
+                                widget::button::standard(fl!("add-shortcut"))
                                     .on_press(Message::ShortcutCaptureStart(action))
                                     .into(),
                             ])
