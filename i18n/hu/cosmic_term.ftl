@@ -116,4 +116,4 @@ passwords-title = Jelszavak
 add-password = Jelszó hozzáadása
 password-input = Jelszó
 password-input-description = Leírás
-open-link = Link megnyitása
+open-link = Hivatkozás megnyitása
