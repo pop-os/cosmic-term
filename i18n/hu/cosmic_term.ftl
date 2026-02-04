@@ -30,7 +30,7 @@ new-profile = Új profil
 make-default = Beállítás alapértelmezettként
 working-directory = Munkakönyvtár
 hold = Maradjon nyitva
-remain-open = Maradjon nyitva a gyermekfolyamat kilépése után.
+remain-open = Maradjon nyitva a gyermekfolyamat kilépése után
 
 ## Settings
 
@@ -51,7 +51,7 @@ opacity = Háttér átlátszósága
 ### Font
 
 font = Betűtípus
-advanced-font-settings = Haladó betűtípus-beállítások
+advanced-font-settings = Speciális betűtípus-beállítások
 default-font = Betűtípus
 default-font-size = Betűméret
 default-font-stretch = Betűszélesség
@@ -67,11 +67,11 @@ focus-follow-mouse = A fókusz követi az egeret gépelés közben
 
 ### Advanced
 
-advanced = Haladó
+advanced = Speciális
 show-headerbar = Fejléc megjelenítése
-show-header-description = Fejléc megjelenítése a jobb gombos menüből.
+show-header-description = Fejléc megjelenítése a jobb gombos menüből
 # Find
-find-placeholder = Keresés...
+find-placeholder = Keresés…
 find-previous = Előző találat
 find-next = Következő találat
 
@@ -84,7 +84,7 @@ file = Fájl
 new-tab = Új lap
 new-window = Új ablak
 profile = Profil
-menu-profiles = Profilok...
+menu-profiles = Profilok…
 close-tab = Lap bezárása
 quit = Kilépés
 
@@ -108,12 +108,12 @@ previous-tab = Előző lap
 split-horizontal = Vízszintes felosztás
 split-vertical = Függőleges felosztás
 pane-toggle-maximize = Panel maximalizálása
-menu-color-schemes = Színsémák...
-menu-settings = Beállítások...
-menu-about = A COSMIC Terminál névjegye...
-menu-password-manager = Jelszavak...
+menu-color-schemes = Színsémák…
+menu-settings = Beállítások…
+menu-about = A COSMIC Terminál névjegye…
+menu-password-manager = Jelszavak…
 passwords-title = Jelszavak
 add-password = Jelszó hozzáadása
 password-input = Jelszó
 password-input-description = Leírás
-open-link = Link megnyitása
+open-link = Hivatkozás megnyitása

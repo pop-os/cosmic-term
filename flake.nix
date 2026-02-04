@@ -2,7 +2,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem
@@ -15,7 +18,7 @@
         in
         with pkgs;
         {
-          formatter = nixpkgs.legacyPackages.x86_64-linux.nixpkgs-fmt;
+          formatter = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
           devShells.default = mkShell {
             buildInputs = [
               rust-bin.stable.latest.default
