@@ -377,6 +377,8 @@ pub enum Message {
     Modifiers(Modifiers),
     ShortcutCaptureCancel,
     ShortcutCaptureStart(shortcuts::KeyBindAction),
+    ShortcutConflictCancel,
+    ShortcutConflictReplace,
     ShortcutRemove(shortcuts::Binding, shortcuts::BindingSource),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
@@ -444,6 +446,13 @@ pub enum ContextPage {
     PasswordManager,
 }
 
+#[derive(Clone, Debug)]
+struct ShortcutConflict {
+    binding: shortcuts::Binding,
+    existing_action: shortcuts::KeyBindAction,
+    new_action: shortcuts::KeyBindAction,
+}
+
 /// The [`App`] stores application-specific state.
 pub struct App {
     core: Core,
@@ -488,6 +497,8 @@ pub struct App {
     show_advanced_font_settings: bool,
     show_keyboard_shortcuts: bool,
     shortcut_capture: Option<shortcuts::KeyBindAction>,
+    shortcut_conflict: Option<ShortcutConflict>,
+    shortcut_conflict_overlay_restore: Option<bool>,
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
@@ -575,6 +586,37 @@ impl App {
             }
         }
         self.key_binds = key_binds(&self.shortcuts_config);
+    }
+
+    fn apply_shortcut_binding(
+        &mut self,
+        binding: shortcuts::Binding,
+        action: shortcuts::KeyBindAction,
+    ) {
+        self.shortcuts_config.custom.0.insert(binding, action);
+        self.save_shortcuts_custom();
+    }
+
+    fn set_context_overlay(&mut self, overlay: bool) {
+        if self.core.window.context_is_overlay != overlay {
+            self.core.window.context_is_overlay = overlay;
+            self.core.set_show_context(self.core.window.show_context);
+        }
+    }
+
+    fn begin_shortcut_conflict(&mut self, conflict: ShortcutConflict) {
+        if self.shortcut_conflict.is_none() {
+            self.shortcut_conflict_overlay_restore = Some(self.core.window.context_is_overlay);
+            self.set_context_overlay(false);
+        }
+        self.shortcut_conflict = Some(conflict);
+    }
+
+    fn clear_shortcut_conflict(&mut self) {
+        self.shortcut_conflict = None;
+        if let Some(overlay) = self.shortcut_conflict_overlay_restore.take() {
+            self.set_context_overlay(overlay);
+        }
     }
 
     fn update_config(&mut self) -> Task<Message> {
@@ -1744,6 +1786,8 @@ impl Application for App {
             show_advanced_font_settings: false,
             show_keyboard_shortcuts: false,
             shortcut_capture: None,
+            shortcut_conflict: None,
+            shortcut_conflict_overlay_restore: None,
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
@@ -2284,6 +2328,12 @@ impl Application for App {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, key) => {
+                if self.shortcut_conflict.is_some() {
+                    if key == Key::Named(Named::Escape) {
+                        self.clear_shortcut_conflict();
+                    }
+                    return Task::none();
+                }
                 if let Some(action) = self.shortcut_capture {
                     if key == Key::Named(Named::Escape) {
                         self.shortcut_capture = None;
@@ -2291,8 +2341,20 @@ impl Application for App {
                     }
                     if let Some(binding) = shortcuts::binding_from_key(modifiers, key) {
                         self.shortcut_capture = None;
-                        self.shortcuts_config.custom.0.insert(binding, action);
-                        self.save_shortcuts_custom();
+                        if let Some(existing_action) =
+                            self.shortcuts_config.action_for_binding(&binding)
+                        {
+                            if existing_action != action {
+                                self.begin_shortcut_conflict(ShortcutConflict {
+                                    binding,
+                                    existing_action,
+                                    new_action: action,
+                                });
+                                return Task::none();
+                            }
+                            return Task::none();
+                        }
+                        self.apply_shortcut_binding(binding, action);
                     }
                     return Task::none();
                 }
@@ -2336,6 +2398,15 @@ impl Application for App {
             }
             Message::ShortcutCaptureStart(action) => {
                 self.shortcut_capture = Some(action);
+            }
+            Message::ShortcutConflictCancel => {
+                self.clear_shortcut_conflict();
+            }
+            Message::ShortcutConflictReplace => {
+                if let Some(conflict) = self.shortcut_conflict.clone() {
+                    self.apply_shortcut_binding(conflict.binding, conflict.new_action);
+                }
+                self.clear_shortcut_conflict();
             }
             Message::ShortcutRemove(binding, source) => {
                 match source {
@@ -2986,6 +3057,34 @@ impl Application for App {
             )
             .title(fl!("passwords-title")),
         })
+    }
+
+    fn dialog(&self) -> Option<Element<'_, Message>> {
+        let conflict = self.shortcut_conflict.as_ref()?;
+        let binding = shortcuts::binding_display(&conflict.binding);
+        let existing = shortcuts::action_label(conflict.existing_action);
+        let new_action = shortcuts::action_label(conflict.new_action);
+        let body = fl!(
+            "shortcut-replace-body",
+            binding = binding.as_str(),
+            existing = existing.as_str(),
+            new_action = new_action.as_str()
+        );
+
+        Some(
+            widget::dialog()
+                .title(fl!("shortcut-replace-title"))
+                .body(body)
+                .primary_action(
+                    widget::button::suggested(fl!("replace"))
+                        .on_press(Message::ShortcutConflictReplace),
+                )
+                .secondary_action(
+                    widget::button::standard(fl!("cancel"))
+                        .on_press(Message::ShortcutConflictCancel),
+                )
+                .into(),
+        )
     }
 
     fn header_start(&self) -> Vec<Element<'_, Self::Message>> {

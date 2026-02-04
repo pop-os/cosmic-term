@@ -218,6 +218,18 @@ impl ShortcutsConfig {
         bindings
     }
 
+    pub fn action_for_binding(&self, binding: &Binding) -> Option<KeyBindAction> {
+        if let Some(action) = self.custom.0.get(binding) {
+            if *action == KeyBindAction::Unbind {
+                return None;
+            }
+            return Some(*action);
+        }
+
+        let defaults = self.defaults_or_fallback();
+        defaults.0.get(binding).copied()
+    }
+
     fn defaults_or_fallback(&self) -> Shortcuts {
         if self.defaults.0.is_empty() {
             fallback_shortcuts()
