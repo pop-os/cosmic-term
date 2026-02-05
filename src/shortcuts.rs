@@ -56,7 +56,7 @@ impl Binding {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum KeyBindAction {
-    Unbind,
+    Disable,
     ClearScrollback,
     Copy,
     CopyOrSigint,
@@ -98,7 +98,7 @@ pub enum KeyBindAction {
 impl KeyBindAction {
     fn to_action(self) -> Option<Action> {
         match self {
-            Self::Unbind => None,
+            Self::Disable => None,
             Self::ClearScrollback => Some(Action::ClearScrollback),
             Self::Copy => Some(Action::Copy),
             Self::CopyOrSigint => Some(Action::CopyOrSigint),
@@ -194,7 +194,7 @@ impl ShortcutsConfig {
             }
 
             match self.custom.0.get(binding) {
-                Some(KeyBindAction::Unbind) => {
+                Some(KeyBindAction::Disable) => {
                     changed = true;
                 }
                 Some(custom_action) => {
@@ -230,7 +230,7 @@ impl ShortcutsConfig {
 
     pub fn action_for_binding(&self, binding: &Binding) -> Option<KeyBindAction> {
         if let Some(action) = self.custom.0.get(binding) {
-            if *action == KeyBindAction::Unbind {
+            if *action == KeyBindAction::Disable {
                 return None;
             }
             return Some(*action);
@@ -258,7 +258,7 @@ impl ShortcutsConfig {
 
 pub fn action_label(action: KeyBindAction) -> String {
     match action {
-        KeyBindAction::Unbind => fl!("unbind"),
+        KeyBindAction::Disable => fl!("disable"),
         KeyBindAction::ClearScrollback => fl!("clear-scrollback"),
         KeyBindAction::Copy => fl!("copy"),
         KeyBindAction::CopyOrSigint => fl!("copy-or-sigint"),
@@ -406,7 +406,7 @@ pub fn binding_from_key(modifiers: Modifiers, key: Key) -> Option<Binding> {
 fn insert_shortcuts(
     shortcuts: &Shortcuts,
     binds: &mut HashMap<KeyBind, Action>,
-    allow_unbind: bool,
+    allow_disable: bool,
 ) {
     for (binding, action) in &shortcuts.0 {
         let key_bind = match binding.to_key_bind() {
@@ -416,7 +416,7 @@ fn insert_shortcuts(
                 continue;
             }
         };
-        if allow_unbind && *action == KeyBindAction::Unbind {
+        if allow_disable && *action == KeyBindAction::Disable {
             binds.remove(&key_bind);
             continue;
         }

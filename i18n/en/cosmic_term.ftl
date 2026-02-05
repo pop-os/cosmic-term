@@ -67,6 +67,7 @@ add-another-keybinding = Add another keybinding
 cancel = Cancel
 close-window = Close window
 copy-or-sigint = Copy or SIGINT
+disable = Disable
 focus-pane-down = Focus pane down
 focus-pane-left = Focus pane left
 focus-pane-right = Focus pane right
@@ -89,7 +90,6 @@ shortcut-replace-title = Replace shortcut?
 tab-activate = Activate tab { $number }
 toggle-fullscreen = Toggle fullscreen
 type-to-search = Type to search...
-unbind = Unbind
 
 # Find
 find-placeholder = Find...

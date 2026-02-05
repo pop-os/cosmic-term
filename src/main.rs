@@ -2450,7 +2450,7 @@ impl Application for App {
                         self.shortcuts_config
                             .custom
                             .0
-                            .insert(binding, shortcuts::KeyBindAction::Unbind);
+                            .insert(binding, shortcuts::KeyBindAction::Disable);
                     }
                     shortcuts::BindingSource::Custom => {
                         self.shortcuts_config.custom.0.remove(&binding);
