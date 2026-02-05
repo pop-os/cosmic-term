@@ -1,4 +1,5 @@
 // Copyright 2023 System76 <info@system76.com>
+// Copyright 2024-2025 Karan <https://github.com/lkaranl> (macOS Port Maintainer)
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::tty::Options;
