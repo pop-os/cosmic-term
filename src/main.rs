@@ -2560,7 +2560,6 @@ impl Application for App {
                 }
             }
             Message::TermEvent(pane, entity, event) => {
-                println!("DEBUG: TermEvent received: {:?}", event);
                 match event {
                     TermEvent::Bell => {
                         //TODO: audible or visible bell options?
@@ -3019,11 +3018,8 @@ impl Application for App {
         struct TerminalEventSubscription;
 
         Subscription::batch([
-            event::listen_with(|event, _status, _window_id| {
-                println!("DEBUG: Event: {:?}", event);
-                match event {
+            event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
-                    println!("DEBUG: App Subscription KeyPressed: {:?}", key);
                     Some(Message::Key(modifiers, key))
                 }
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
@@ -3033,7 +3029,7 @@ impl Application for App {
                     Some(Message::CopyPrimary(None))
                 }
                 _ => None,
-            }}),
+            }),
             Subscription::run_with_id(
                 TypeId::of::<TerminalEventSubscription>(),
                 stream::channel(100, |mut output| async move {

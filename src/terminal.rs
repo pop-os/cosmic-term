@@ -405,7 +405,6 @@ impl Terminal {
 
     pub fn input_no_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
         let input = input.into();
-        println!("DEBUG: input_no_scroll sending bytes: {:?}", input);
         self.notifier.notify(input);
     }
 

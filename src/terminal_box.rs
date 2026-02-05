@@ -1041,7 +1041,6 @@ where
                 key,
                 ..
             }) if state.is_focused => {
-                println!("DEBUG: KeyPressed Text: {:?}, Key: {:?}", text, key);
                 for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &key) {
                         return Status::Captured;
