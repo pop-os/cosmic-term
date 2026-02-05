@@ -819,6 +819,12 @@ where
         let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
         let mut status = Status::Ignored;
         match event {
+            Event::Keyboard(_) => {
+                println!("DEBUG: TerminalBox Event::Keyboard. Focused: {}, Disabled: {}", state.is_focused, self.disabled);
+            }
+            _ => {}
+        }
+        match event {
             Event::Window(event) => match event {
                 cosmic::iced::window::Event::Focused => {
                     if let Some(on_window_focused) = &self.on_window_focused {
@@ -1035,6 +1041,7 @@ where
                 key,
                 ..
             }) if state.is_focused => {
+                println!("DEBUG: KeyPressed Text: {:?}, Key: {:?}", text, key);
                 for key_bind in self.key_binds.keys() {
                     if key_bind.matches(modifiers, &key) {
                         return Status::Captured;

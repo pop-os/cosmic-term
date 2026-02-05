@@ -167,6 +167,31 @@ fn main() -> Result<(), Box<dyn Error>> {
         };
         Some(options)
     } else {
+        #[cfg(target_os = "macos")]
+        {
+            let fish_paths = ["/opt/homebrew/bin/fish", "/usr/local/bin/fish", "/usr/bin/fish"];
+            let shell_path = fish_paths.iter().find(|p| std::path::Path::new(p).exists())
+                .map(|p| p.to_string())
+                .or_else(|| {
+                     if std::path::Path::new("/bin/bash").exists() {
+                         Some("/bin/bash".to_string())
+                     } else {
+                         None
+                     }
+                });
+
+            if let Some(shell) = shell_path {
+                log::info!("MacOS: Using override shell: {}", shell);
+                let options = tty::Options {
+                    shell: Some(tty::Shell::new(shell, Vec::new())),
+                    ..tty::Options::default()
+                };
+                Some(options)
+            } else {
+                None
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
         None
     };
 
@@ -2982,6 +3007,7 @@ impl Application for App {
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
+                    println!("DEBUG: App Subscription KeyPressed: {:?}", key);
                     Some(Message::Key(modifiers, key))
                 }
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
