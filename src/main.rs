@@ -237,6 +237,7 @@ pub enum Action {
     CopyOrSigint,
     CopyPrimary,
     Find,
+    KeyboardShortcuts,
     LaunchUrlByMenu,
     PaneFocusDown,
     PaneFocusLeft,
@@ -288,6 +289,7 @@ impl Action {
             Self::CopyOrSigint => Message::CopyOrSigint(entity_opt),
             Self::CopyPrimary => Message::CopyPrimary(entity_opt),
             Self::Find => Message::Find(true),
+            Self::KeyboardShortcuts => Message::ToggleContextPage(ContextPage::KeyboardShortcuts),
             Self::LaunchUrlByMenu => Message::LaunchUrlByMenu,
             Self::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Self::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
@@ -1442,16 +1444,6 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let shortcuts_section = widget::settings::section()
-            .title(fl!("keyboard-shortcuts"))
-            .add(
-                widget::settings::item::builder(fl!("customize-shortcuts")).control(
-                    widget::button::custom(icon_cache_get("go-next-symbolic", 16))
-                        .on_press(Message::ToggleContextPage(ContextPage::KeyboardShortcuts))
-                        .class(style::Button::Icon),
-                ),
-            );
-
         let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
                 .description(fl!("show-header-description"))
@@ -1462,7 +1454,6 @@ impl App {
             appearance_section.into(),
             font_section.into(),
             splits_section.into(),
-            shortcuts_section.into(),
             advanced_section.into(),
         ])
         .into()
