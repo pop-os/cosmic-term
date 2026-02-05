@@ -1062,10 +1062,11 @@ impl App {
                 if self.shortcut_capture == Some(action) {
                     list = list.list_item_padding(pad_binding);
                     list = list.add(
-                        widget::row::with_children(vec![
-                            widget::text::body(fl!("shortcut-capture-hint")).into(),
-                            widget::horizontal_space().into(),
-                            widget::button::standard(fl!("cancel"))
+                        widget::settings::item_row(vec![
+                            widget::text::body(fl!("shortcut-capture-hint"))
+                                .width(Length::Fill)
+                                .into(),
+                            widget::button::text(fl!("cancel"))
                                 .on_press(Message::ShortcutCaptureCancel)
                                 .into(),
                         ])
