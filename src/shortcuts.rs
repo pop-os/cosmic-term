@@ -163,38 +163,47 @@ pub struct ResolvedBinding {
     pub source: BindingSource,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ShortcutsConfig {
-    pub defaults: Shortcuts,
+    defaults: Shortcuts,
     pub custom: Shortcuts,
 }
 
 impl ShortcutsConfig {
+    pub fn new(custom: Shortcuts) -> Self {
+        Self {
+            defaults: fallback_shortcuts(),
+            custom,
+        }
+    }
+
     pub fn key_binds(&self) -> HashMap<KeyBind, Action> {
         let mut binds = HashMap::new();
-        let defaults = self.defaults_or_fallback();
-        insert_shortcuts(&defaults, &mut binds, false);
+        insert_shortcuts(&self.defaults, &mut binds, false);
         insert_shortcuts(&self.custom, &mut binds, true);
         binds
     }
 
-    pub fn bindings_for_action(&self, action: KeyBindAction) -> Vec<ResolvedBinding> {
+    pub fn bindings_for_action(&self, action: KeyBindAction) -> (Vec<ResolvedBinding>, bool) {
         let mut bindings = Vec::new();
-        let defaults = self.defaults_or_fallback();
 
-        for (binding, default_action) in &defaults.0 {
+        let mut changed = false;
+        for (binding, default_action) in &self.defaults.0 {
             if *default_action != action {
                 continue;
             }
 
             match self.custom.0.get(binding) {
-                Some(KeyBindAction::Unbind) => (),
+                Some(KeyBindAction::Unbind) => {
+                    changed = true;
+                }
                 Some(custom_action) => {
                     if *custom_action == action {
                         bindings.push(ResolvedBinding {
                             binding: binding.clone(),
                             source: BindingSource::Custom,
                         });
+                        changed = true;
                     }
                 }
                 None => bindings.push(ResolvedBinding {
@@ -212,10 +221,11 @@ impl ShortcutsConfig {
                     binding: binding.clone(),
                     source: BindingSource::Custom,
                 });
+                changed = true;
             }
         }
 
-        bindings
+        (bindings, changed)
     }
 
     pub fn action_for_binding(&self, binding: &Binding) -> Option<KeyBindAction> {
@@ -226,16 +236,23 @@ impl ShortcutsConfig {
             return Some(*action);
         }
 
-        let defaults = self.defaults_or_fallback();
-        defaults.0.get(binding).copied()
+        self.defaults.0.get(binding).copied()
     }
 
-    fn defaults_or_fallback(&self) -> Shortcuts {
-        if self.defaults.0.is_empty() {
-            fallback_shortcuts()
-        } else {
-            self.defaults.clone()
-        }
+    pub fn reset_action(&mut self, reset_action: KeyBindAction) {
+        self.custom.0.retain(|binding, action| {
+            if *action == reset_action {
+                // Remove any matching bindings
+                return false;
+            }
+            if let Some(default_action) = self.defaults.0.get(binding) {
+                if *default_action == reset_action {
+                    // Remove binding that overrode a default
+                    return false;
+                }
+            }
+            true
+        });
     }
 }
 

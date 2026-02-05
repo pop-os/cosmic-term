@@ -163,10 +163,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let shortcuts_config = shortcuts::ShortcutsConfig {
-        defaults: shortcuts::Shortcuts::default(),
-        custom: config.shortcuts_custom.clone(),
-    };
+    let shortcuts_config = shortcuts::ShortcutsConfig::new(config.shortcuts_custom.clone());
 
     let startup_options = if let Some(shell_program) = shell_program_opt {
         let options = tty::Options {
@@ -382,6 +379,7 @@ pub enum Message {
     ShortcutConflictCancel,
     ShortcutConflictReplace,
     ShortcutRemove(shortcuts::Binding, shortcuts::BindingSource),
+    ShortcutReset(shortcuts::KeyBindAction),
     ShortcutSearch(String),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
@@ -1003,16 +1001,28 @@ impl App {
                 }
                 found_actions = true;
 
-                let bindings = self.shortcuts_config.bindings_for_action(action);
+                let (bindings, changed) = self.shortcuts_config.bindings_for_action(action);
+
+                let mut buttons = widget::row::with_capacity(2);
+                if changed {
+                    buttons = buttons.push(widget::tooltip(
+                        widget::button::custom(icon_cache_get("edit-undo-symbolic", 16))
+                            .class(style::Button::Icon)
+                            .on_press(Message::ShortcutReset(action)),
+                        widget::text::body(fl!("reset-to-default")),
+                        widget::tooltip::Position::Top,
+                    ));
+                }
+                buttons = buttons.push(widget::tooltip(
+                    widget::button::custom(icon_cache_get("list-add-symbolic", 16))
+                        .class(style::Button::Icon)
+                        .on_press(Message::ShortcutCaptureStart(action)),
+                    widget::text::body(fl!("add-another-keybinding")),
+                    widget::tooltip::Position::Top,
+                ));
 
                 list = list.list_item_padding(pad_m);
-                list = list.add(
-                    widget::settings::item::builder(action_label).control(
-                        widget::button::custom(icon_cache_get("list-add-symbolic", 16))
-                            .class(style::Button::Icon)
-                            .on_press(Message::ShortcutCaptureStart(action)),
-                    ),
-                );
+                list = list.add(widget::settings::item::builder(action_label).control(buttons));
                 list = list.divider_padding(div_m);
 
                 if bindings.is_empty() {
@@ -2090,10 +2100,8 @@ impl Application for App {
                     //TODO: update syntax theme by clearing tabs, only if needed
                     self.config = config;
                     if shortcuts_changed {
-                        self.shortcuts_config = shortcuts::ShortcutsConfig {
-                            defaults: shortcuts::Shortcuts::default(),
-                            custom: self.config.shortcuts_custom.clone(),
-                        };
+                        self.shortcuts_config =
+                            shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
                         self.key_binds = key_binds(&self.shortcuts_config);
                     }
                     return self.update_config();
@@ -2429,6 +2437,10 @@ impl Application for App {
                         self.shortcuts_config.custom.0.remove(&binding);
                     }
                 }
+                self.save_shortcuts_custom();
+            }
+            Message::ShortcutReset(reset_action) => {
+                self.shortcuts_config.reset_action(reset_action);
                 self.save_shortcuts_custom();
             }
             Message::ShortcutSearch(search) => {
