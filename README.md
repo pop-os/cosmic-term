@@ -1,9 +1,16 @@
-# cosmic-term
-WIP COSMIC terminal emulator, built using [alacritty\_terminal](https://docs.rs/alacritty_terminal) that is provided by the [alacritty](https://github.com/alacritty/alacritty) project. `cosmic-term` provides bidirectional rendering and ligatures with a custom renderer based on [cosmic-text](https://github.com/pop-os/cosmic-text).
+# cosmic-term (macOS Port)
 
-The `wgpu` feature, enabled by default, supports GPU rendering using `glyphon`
-and `wgpu`. If `wgpu` is not enabled or fails to initialize, then rendering falls
-back to using `softbuffer` and `tiny-skia`.
+This is a fork of `cosmic-term` focused on porting the emulator to run natively on **macOS**.
+
+Built using the robust [alacritty_terminal](https://docs.rs/alacritty_terminal) backend (from [alacritty](https://github.com/alacritty/alacritty)), this project adapts the original Linux-focused codebase to function as a standalone application on Mac. It retains the advanced bidirectional rendering and ligatures powered by [cosmic-text](https://github.com/pop-os/cosmic-text).
+
+**Goal:** Remove dependencies on the COSMIC Desktop Environment (Linux/Wayland specific) and ensure smooth integration with macOS windowing and input.
+
+## Rendering
+
+The `wgpu` feature is enabled by default and optimized to use **Metal** on macOS for high-performance GPU rendering via `glyphon`.
+
+If `wgpu` is not enabled or fails to initialize, rendering falls back to using `softbuffer` and `tiny-skia`.
 
 ## Color Schemes
 
