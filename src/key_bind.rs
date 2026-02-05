@@ -83,5 +83,9 @@ pub fn key_binds() -> HashMap<KeyBind, Action> {
     // CTRL+Alt+L clears the scrollback.
     bind!([Ctrl, Alt], Key::Character("L".into()), ClearScrollback);
 
+    // Ctrl+Shift+LeftRightArrows move tabs left and right
+    bind!([Ctrl, Shift], Key::Named(Named::ArrowLeft), TabMoveLeft);
+    bind!([Ctrl, Shift], Key::Named(Named::ArrowRight), TabMoveRight);
+
     key_binds
 }
