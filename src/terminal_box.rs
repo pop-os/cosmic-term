@@ -46,11 +46,7 @@ use std::{
 };
 
 use crate::{
-    Action,
-    Terminal,
-    TerminalScroll,
-    menu::MenuState,
-    mouse_reporter::MouseReporter,
+    Action, Terminal, TerminalScroll, menu::MenuState, mouse_reporter::MouseReporter,
     terminal::Metadata,
 };
 

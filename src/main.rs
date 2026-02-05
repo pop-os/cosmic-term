@@ -4,9 +4,9 @@
 use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
+use cosmic::iced_core::keyboard::key::Named;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
-use cosmic::iced_core::keyboard::key::Named;
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
@@ -368,7 +368,6 @@ pub enum Message {
     FindNext,
     FindPrevious,
     FindSearchValueChanged(String),
-    KeyboardShortcuts(bool),
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
     Key(Modifiers, Key),
@@ -440,6 +439,7 @@ pub enum Message {
 pub enum ContextPage {
     About,
     ColorSchemes(ColorSchemeKind),
+    KeyboardShortcuts,
     Profiles,
     Settings,
     #[cfg(feature = "password_manager")]
@@ -495,7 +495,6 @@ pub struct App {
     color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
-    show_keyboard_shortcuts: bool,
     shortcut_capture: Option<shortcuts::KeyBindAction>,
     shortcut_conflict: Option<ShortcutConflict>,
     shortcut_conflict_overlay_restore: Option<bool>,
@@ -574,10 +573,9 @@ impl App {
         self.config.shortcuts_custom = self.shortcuts_config.custom.clone();
         match &self.config_handler {
             Some(config_handler) => {
-                if let Err(err) = config_handler.set(
-                    "shortcuts_custom",
-                    &self.config.shortcuts_custom,
-                ) {
+                if let Err(err) =
+                    config_handler.set("shortcuts_custom", &self.config.shortcuts_custom)
+                {
                     log::warn!("failed to save shortcuts custom config: {}", err);
                 }
             }
@@ -946,6 +944,88 @@ impl App {
         widget::settings::view_column(sections).into()
     }
 
+    fn keyboard_shortcuts(&self) -> Element<'_, Message> {
+        let cosmic_theme::Spacing {
+            space_xxs,
+            space_xs,
+            space_m,
+            ..
+        } = self.core().system_theme().cosmic().spacing;
+
+        let pad_m = [space_xxs, space_m];
+        let div_m = 16;
+        let pad_l = [space_xxs, space_m + 32];
+        let div_l = div_m + 32;
+
+        let mut groups = Vec::new();
+        for group in shortcuts::shortcut_groups() {
+            let mut list = widget::list::list_column();
+
+            for action in group.actions {
+                let bindings = self.shortcuts_config.bindings_for_action(action);
+
+                list = list.list_item_padding(pad_m);
+                list = list.add(
+                    widget::settings::item::builder(shortcuts::action_label(action)).control(
+                        widget::button::custom(icon_cache_get("list-add-symbolic", 16))
+                            .class(style::Button::Icon)
+                            .on_press(Message::ShortcutCaptureStart(action)),
+                    ),
+                );
+                list = list.divider_padding(div_m);
+
+                if bindings.is_empty() {
+                    list = list.list_item_padding(pad_l);
+                    list = list.add(widget::text::body(fl!("no-shortcuts")));
+                    list = list.divider_padding(div_l);
+                } else {
+                    for resolved in bindings {
+                        list = list.list_item_padding(pad_l);
+                        list = list.add(
+                            widget::settings::item::builder(shortcuts::binding_display(
+                                &resolved.binding,
+                            ))
+                            .control(
+                                widget::button::custom(icon_cache_get("edit-delete-symbolic", 16))
+                                    .class(style::Button::Icon)
+                                    .on_press(Message::ShortcutRemove(
+                                        resolved.binding.clone(),
+                                        resolved.source,
+                                    )),
+                            ),
+                        );
+                        list = list.divider_padding(div_l);
+                    }
+                }
+
+                if self.shortcut_capture == Some(action) {
+                    list = list.list_item_padding(pad_l);
+                    list = list.add(
+                        widget::row::with_children(vec![
+                            widget::text::body(fl!("shortcut-capture-hint")).into(),
+                            widget::horizontal_space().into(),
+                            widget::button::standard(fl!("cancel"))
+                                .on_press(Message::ShortcutCaptureCancel)
+                                .into(),
+                        ])
+                        .spacing(space_xxs),
+                    );
+                    list = list.divider_padding(div_l);
+                }
+            }
+
+            groups.push(
+                widget::settings::section::with_column(list)
+                    .title(group.title)
+                    .into(),
+            );
+        }
+
+        widget::column::with_children(groups)
+            .spacing(space_xs)
+            .into()
+    }
+
     fn profiles(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing {
             space_s,
@@ -1143,10 +1223,6 @@ impl App {
     }
 
     fn settings(&self) -> Element<'_, Message> {
-        let cosmic_theme::Spacing {
-            space_xxs, space_xs, ..
-        } = self.core().system_theme().cosmic().spacing;
-
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1327,116 +1403,15 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let mut shortcuts_section = widget::settings::section()
+        let shortcuts_section = widget::settings::section()
             .title(fl!("keyboard-shortcuts"))
             .add(
                 widget::settings::item::builder(fl!("customize-shortcuts")).control(
-                    if self.show_keyboard_shortcuts {
-                        widget::button::custom(icon_cache_get("go-up-symbolic", 16))
-                            .on_press(Message::KeyboardShortcuts(false))
-                    } else {
-                        widget::button::custom(icon_cache_get("go-down-symbolic", 16))
-                            .on_press(Message::KeyboardShortcuts(true))
-                    }
-                    .class(style::Button::Icon),
+                    widget::button::custom(icon_cache_get("go-next-symbolic", 16))
+                        .on_press(Message::ToggleContextPage(ContextPage::KeyboardShortcuts))
+                        .class(style::Button::Icon),
                 ),
             );
-
-        if self.show_keyboard_shortcuts {
-            let shortcuts_content = || {
-                let mut groups = Vec::new();
-
-                for group in shortcuts::shortcut_groups() {
-                    let mut group_section = widget::settings::section().title(group.title);
-
-                    for action in group.actions {
-                        let bindings = self.shortcuts_config.bindings_for_action(action);
-                        let mut rows: Vec<Element<Message>> = Vec::new();
-
-                        if self.shortcut_capture == Some(action) {
-                            rows.push(
-                                widget::row::with_children(vec![
-                                    widget::text::body(fl!("shortcut-capture-hint"))
-                                        .into(),
-                                    widget::horizontal_space().into(),
-                                    widget::button::standard(fl!("cancel"))
-                                        .on_press(Message::ShortcutCaptureCancel)
-                                        .into(),
-                                ])
-                                .spacing(space_xxs)
-                                .into(),
-                            );
-                        }
-
-                        if bindings.is_empty() {
-                            rows.push(widget::text::body(fl!("no-shortcuts")).into());
-                        } else {
-                            for resolved in bindings {
-                                let binding_text = widget::text::body(
-                                    shortcuts::binding_display(&resolved.binding),
-                                )
-                                .width(Length::Fill)
-                                .align_x(Alignment::End);
-                                let binding_chip = widget::container(
-                                    widget::row::with_children(vec![
-                                        binding_text.into(),
-                                        widget::button::custom(icon_cache_get(
-                                            "edit-delete-symbolic",
-                                            16,
-                                        ))
-                                        .class(style::Button::Icon)
-                                        .on_press(Message::ShortcutRemove(
-                                            resolved.binding.clone(),
-                                            resolved.source,
-                                        ))
-                                        .into(),
-                                    ])
-                                    .spacing(space_xxs)
-                                    .align_y(Alignment::Center)
-                                    .width(Length::Fill),
-                                )
-                                .padding(Padding::new(6.0))
-                                .class(style::Container::Background)
-                                .width(Length::Fill);
-                                rows.push(binding_chip.into());
-                            }
-                        }
-
-                        rows.push(
-                            widget::row::with_children(vec![
-                                widget::horizontal_space().into(),
-                                widget::button::standard(fl!("add-shortcut"))
-                                    .on_press(Message::ShortcutCaptureStart(action))
-                                    .into(),
-                            ])
-                            .into(),
-                        );
-
-                        let bindings_column = widget::column::with_children(rows)
-                            .spacing(space_xxs)
-                            .width(Length::Fill);
-
-                        group_section = group_section.add(
-                            widget::settings::item::builder(shortcuts::action_label(action))
-                                .control(bindings_column),
-                        );
-                    }
-
-                    groups.push(group_section.into());
-                }
-
-                widget::column::with_children(groups).spacing(space_xs)
-            };
-
-            let padding = Padding {
-                top: 0.0,
-                bottom: 0.0,
-                left: 12.0,
-                right: 12.0,
-            };
-            shortcuts_section =
-                shortcuts_section.add(widget::container(shortcuts_content()).padding(padding));
-        }
 
         let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
@@ -1784,7 +1759,6 @@ impl Application for App {
             color_scheme_tab_model: widget::segmented_button::Model::default(),
             profile_expanded: None,
             show_advanced_font_settings: false,
-            show_keyboard_shortcuts: false,
             shortcut_capture: None,
             shortcut_conflict: None,
             shortcut_conflict_overlay_restore: None,
@@ -1802,12 +1776,20 @@ impl Application for App {
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
         if self.core.window.show_context {
-            // Close context drawer if open
-            self.core.window.show_context = false;
-            #[cfg(feature = "password_manager")]
-            if self.context_page == ContextPage::PasswordManager {
-                self.password_mgr.clear();
+            // Handle keyboard shortcut page escape
+            if let ContextPage::KeyboardShortcuts = self.context_page {
+                // Cancel shortcut capture
+                if self.shortcut_capture.take().is_some() {
+                    return Task::none();
+                }
+
+                // Cancel shortcut conflict dialog
+                if self.shortcut_conflict.take().is_some() {
+                    return Task::none();
+                }
             }
+
+            return self.update(Message::ToggleContextPage(self.context_page));
         } else if self.find {
             // Close find if open
             self.find = false;
@@ -2069,8 +2051,7 @@ impl Application for App {
             }
             Message::Config(config) => {
                 if config != self.config {
-                    let shortcuts_changed =
-                        config.shortcuts_custom != self.config.shortcuts_custom;
+                    let shortcuts_changed = config.shortcuts_custom != self.config.shortcuts_custom;
                     log::info!("update config");
                     //TODO: update syntax theme by clearing tabs, only if needed
                     self.config = config;
@@ -2307,12 +2288,6 @@ impl Application for App {
             }
             Message::FindSearchValueChanged(value) => {
                 self.find_search_value = value;
-            }
-            Message::KeyboardShortcuts(show) => {
-                self.show_keyboard_shortcuts = show;
-                if !show {
-                    self.shortcut_capture = None;
-                }
             }
             Message::MiddleClick(pane, entity_opt) => {
                 self.pane_model.set_focus(pane);
@@ -2975,6 +2950,12 @@ impl Application for App {
                         });
                 }
 
+                if let ContextPage::KeyboardShortcuts = context_page {
+                    self.shortcut_capture = None;
+                    self.shortcut_conflict = None;
+                    self.shortcut_conflict_overlay_restore = None;
+                }
+
                 #[cfg(feature = "password_manager")]
                 if ContextPage::PasswordManager == context_page {
                     self.password_mgr.pane = Some(self.pane_model.focused());
@@ -3045,6 +3026,11 @@ impl Application for App {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind)),
             )
             .title(fl!("color-schemes")),
+            ContextPage::KeyboardShortcuts => context_drawer::context_drawer(
+                self.keyboard_shortcuts(),
+                Message::ToggleContextPage(ContextPage::KeyboardShortcuts),
+            )
+            .title(fl!("keyboard-shortcuts")),
             ContextPage::Profiles => context_drawer::context_drawer(
                 self.profiles(),
                 Message::ToggleContextPage(ContextPage::Profiles),
