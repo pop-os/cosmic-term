@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use crate::{fl, localize::LANGUAGE_SORTER};
+use crate::{fl, localize::LANGUAGE_SORTER, shortcuts::Shortcuts};
 
 pub const CONFIG_VERSION: u64 = 1;
 pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
@@ -236,6 +236,8 @@ pub struct Config {
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
     pub default_profile: Option<ProfileId>,
+    #[serde(default)]
+    pub shortcuts_custom: Shortcuts,
 }
 
 impl Default for Config {
@@ -259,6 +261,7 @@ impl Default for Config {
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
+            shortcuts_custom: Shortcuts::default(),
         }
     }
 }

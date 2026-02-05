@@ -46,8 +46,8 @@ use std::{
 };
 
 use crate::{
-    Action, Terminal, TerminalScroll, key_bind::key_binds, menu::MenuState,
-    mouse_reporter::MouseReporter, terminal::Metadata,
+    Action, Terminal, TerminalScroll, menu::MenuState, mouse_reporter::MouseReporter,
+    terminal::Metadata,
 };
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -122,7 +122,7 @@ pub struct TerminalBox<'a, Message> {
     on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
     on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
-    key_binds: HashMap<KeyBind, Action>,
+    key_binds: &'a HashMap<KeyBind, Action>,
     sharp_corners: bool,
     disabled: bool,
 }
@@ -131,7 +131,7 @@ impl<'a, Message> TerminalBox<'a, Message>
 where
     Message: Clone,
 {
-    pub fn new(terminal: &'a Mutex<Terminal>) -> Self {
+    pub fn new(terminal: &'a Mutex<Terminal>, key_binds: &'a HashMap<KeyBind, Action>) -> Self {
         Self {
             terminal,
             id: None,
@@ -145,7 +145,7 @@ where
             opacity: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
-            key_binds: key_binds(),
+            key_binds,
             on_open_hyperlink: None,
             on_window_focused: None,
             on_window_unfocused: None,
@@ -236,11 +236,14 @@ where
     }
 }
 
-pub fn terminal_box<Message>(terminal: &Mutex<Terminal>) -> TerminalBox<'_, Message>
+pub fn terminal_box<'a, Message>(
+    terminal: &'a Mutex<Terminal>,
+    key_binds: &'a HashMap<KeyBind, Action>,
+) -> TerminalBox<'a, Message>
 where
     Message: Clone,
 {
-    TerminalBox::new(terminal)
+    TerminalBox::new(terminal, key_binds)
 }
 
 impl<'a, Message> Widget<Message, cosmic::Theme, Renderer> for TerminalBox<'a, Message>
