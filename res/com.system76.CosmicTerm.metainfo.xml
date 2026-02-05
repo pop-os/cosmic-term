@@ -5,9 +5,9 @@
   <project_license>GPL-3.0-only</project_license>
   <project_group>COSMIC</project_group>
   <developer_name>System76 &amp; Karan (macOS Port)</developer_name>
-  <update_contact>jeremy@system76.com</update_contact>
-  <url type="homepage">https://github.com/pop-os/cosmic-term</url>
-  <url type="bugtracker">https://github.com/pop-os/cosmic-term</url>
+  <update_contact>karanluciano11@gmail.com</update_contact>
+  <url type="homepage">https://github.com/lkaranl/cosmic-mac-term</url>
+  <url type="bugtracker">https://github.com/lkaranl/cosmic-mac-term</url>
   <name>COSMIC Terminal</name>
   <name xml:lang="ar">طرفية COSMIC</name>
   <name xml:lang="cs">Terminál COSMIC</name>

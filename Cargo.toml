@@ -3,6 +3,7 @@ name = "cosmic-term"
 version = "1.0.5"
 authors = ["Jeremy Soller <jeremy@system76.com>", "Karan <https://github.com/lkaranl>"]
 edition = "2024"
+repository = "https://github.com/lkaranl/cosmic-mac-term"
 license = "GPL-3.0-only"
 rust-version = "1.85"
 
