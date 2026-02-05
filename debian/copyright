@@ -1,8 +1,0 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: cosmic-term
-Upstream-Contact: Jeremy Soller <jeremy@system76.com>, Karan Luciano <https://github.com/lkaranl>
-Source: https://github.com/lkaranl/cosmic-mac-term
-Files: *
-Copyright: System76 <info@system76.com>
-           2024-2025 Karan Luciano <https://github.com/lkaranl> (macOS Port)
-License: GPL-3.0
