@@ -1447,6 +1447,19 @@ impl Application for App {
 
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Task<Self::Message>) {
+        #[cfg(target_os = "macos")]
+        {
+            use objc::{msg_send, sel, sel_impl};
+            use objc::runtime::{Object, Class};
+
+            unsafe {
+                 let app_class = Class::get("NSApplication").unwrap();
+                 let app: *mut Object = msg_send![app_class, sharedApplication];
+                 let policy = 0; // NSApplicationActivationPolicyRegular
+                 let _: () = msg_send![app, setActivationPolicy: policy];
+                 let _: () = msg_send![app, activateIgnoringOtherApps: true];
+            }
+        }
         core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
 
@@ -2547,6 +2560,7 @@ impl Application for App {
                 }
             }
             Message::TermEvent(pane, entity, event) => {
+                println!("DEBUG: TermEvent received: {:?}", event);
                 match event {
                     TermEvent::Bell => {
                         //TODO: audible or visible bell options?
@@ -3005,7 +3019,9 @@ impl Application for App {
         struct TerminalEventSubscription;
 
         Subscription::batch([
-            event::listen_with(|event, _status, _window_id| match event {
+            event::listen_with(|event, _status, _window_id| {
+                println!("DEBUG: Event: {:?}", event);
+                match event {
                 Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
                     println!("DEBUG: App Subscription KeyPressed: {:?}", key);
                     Some(Message::Key(modifiers, key))
@@ -3017,7 +3033,7 @@ impl Application for App {
                     Some(Message::CopyPrimary(None))
                 }
                 _ => None,
-            }),
+            }}),
             Subscription::run_with_id(
                 TypeId::of::<TerminalEventSubscription>(),
                 stream::channel(100, |mut output| async move {

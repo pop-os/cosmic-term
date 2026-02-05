@@ -1582,6 +1582,7 @@ dependencies = [
  "indexmap 2.13.0",
  "libcosmic",
  "log",
+ "objc",
  "open",
  "palette",
  "paste",

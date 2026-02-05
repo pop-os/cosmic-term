@@ -53,6 +53,9 @@ features = ["about", "multi-window", "tokio", "winit", "surface-message"]
 [target.'cfg(unix)'.dependencies]
 fork = "0.4"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2"
+
 [features]
 # macOS: use apenas "wgpu" (default)
 # Linux: adicione "wayland,dbus-config,password_manager"
