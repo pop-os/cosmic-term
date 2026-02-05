@@ -1,84 +1,36 @@
-# Mudanças para Portabilidade macOS
+# macOS Porting Changes
 
-Este documento lista todas as modificações realizadas para portar o `cosmic-term` para macOS.
+This document details the modifications made to the `cosmic-term` codebase to enable support for macOS (Darwin).
 
-## Sumário
+## 1. Dependencies (`Cargo.toml`)
 
-| Mudança | Arquivo | Motivo |
-|---------|---------|--------|
-| Features padrão | `Cargo.toml` | macOS não suporta Wayland/D-Bus |
-| Daemonização | `src/main.rs` | fork() não é idiomático no macOS |
-| Password Manager | `Cargo.toml` | secret-service usa D-Bus (N/A no macOS) |
+-   **`objc` crate**: Added `objc = "0.2"` under `[target.'cfg(target_os = "macos")'.dependencies]` to enable Objective-C runtime interaction for window activation.
+-   **`cosmic-files`**: Vendorized locally to resolve dependency conflicts or apply patches if needed (currently using `path = "vendor/cosmic-files"`).
+-   **`fontconfig` / `freetype`**: Configured features to avoid linking issues where possible, relying on system font loading.
 
----
+## 2. Application Initialization (`src/main.rs`)
 
-## 1. Features Padrão (`Cargo.toml`)
+### Shell Detection Fallback
+Modified `main()` to detect viable shells on macOS, as standard Linux paths might not exist or user configuration files (like `.zshrc`) might cause issues in the raw PTY environment.
+-   Checks for `fish` in Homebrew paths (`/opt/homebrew/bin/fish`).
+-   Fallbacks to `/bin/bash` if standard shell detection fails.
 
-**Antes:**
-```toml
-default = ["dbus-config", "wgpu", "wayland", "password_manager"]
-```
+### Window Activation Policy (Keyboard Fix)
+**Critical Fix:** macOS applications launched directly from a terminal binary (via `cargo run` or raw executable) do not automatically acquire the "Regular" activation policy, meaning they don't appear in the Dock and **do not receive keyboard focus**.
 
-**Depois:**
-```toml
-default = ["wgpu"]
-```
+Implemented a fix in `App::init` using the `objc` crate:
+-   Accesses `NSApplication.sharedApplication`.
+-   Sets `setActivationPolicy:` to `NSApplicationActivationPolicyRegular` (0).
+-   Calls `activateIgnoringOtherApps:YES` to steal focus immediately upon launch.
 
-### Motivo
-- `wayland`: macOS usa Cocoa/Metal, não Wayland
-- `dbus-config`: D-Bus não existe no macOS
-- `password_manager`: Depende de `secret-service` (D-Bus)
+This ensures the terminal window receives key events (like typing) instead of them being captured by the parent terminal running `cargo run`.
 
-### Build por Plataforma
+### Daemonization
+-   Disabled daemonization logic (`fork`) on macOS, as strictly required by `launchd` and macOS application lifecycle guidelines.
 
-**macOS:**
-```bash
-cargo build --release
-```
+## 3. Terminal & PTY
+-   The underlying `alacritty_terminal` crate handles PTY interactions.
+-   Linking against `libxkbcommon` is required manually via `RUSTFLAGS` due to path differences on macOS (Homebrew location).
 
-**Linux:**
-```bash
-cargo build --release --features "wayland,dbus-config,password_manager"
-```
-
----
-
-## 2. Daemonização (`src/main.rs`)
-
-**Antes:**
-```rust
-#[cfg(all(unix, not(target_os = "redox")))]
-```
-
-**Depois:**
-```rust
-#[cfg(all(unix, not(target_os = "redox"), not(target_os = "macos")))]
-```
-
-### Motivo
-Aplicações macOS não devem fazer `fork()` para se tornarem daemons. O macOS usa `launchd` para serviços em background, e aplicações GUI devem rodar normalmente.
-
----
-
-## 3. Password Manager (Desabilitado no macOS)
-
-### Motivo
-O módulo `password_manager` usa a crate `secret-service`, que se comunica com o daemon de senhas via D-Bus. Como D-Bus não existe no macOS, a feature está desabilitada.
-
-### Alternativa Futura
-Para suportar gerenciamento de senhas no macOS, seria necessário:
-1. Usar a crate `security-framework` para acessar o macOS Keychain
-2. Criar abstração condicional `#[cfg(target_os = "macos")]`
-
----
-
-## Limitações Conhecidas
-
-| Feature | Status no macOS |
-|---------|-----------------|
-| Terminal básico | ✅ Funciona |
-| Abas e splits | ✅ Funciona |
-| Temas de cores | ✅ Funciona |
-| Password Manager | ❌ Não disponível |
-| Integração D-Bus | ❌ N/A |
-| Decorações de janela | ⚠️ Client-side (não nativo) |
+## 4. Debugging Artifacts
+-   Temporary `println!` debug logs were injected into `src/main.rs`, `src/terminal.rs`, and `src/terminal_box.rs` to diagnose the event loop flow but have been removed in the final source.

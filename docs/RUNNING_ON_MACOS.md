@@ -1,39 +1,46 @@
-# Executando Cosmic Term no macOS
+# Running Cosmic Term on macOS
 
-Este guia explica como compilar e executar o Cosmic Term no macOS (Apple Silicon/Intel), contornando problemas conhecidos de linkagem.
+This document outlines the steps required to build and run `cosmic-term` on macOS.
 
-## 1. Pré-requisitos
-Algumas dependências do Linux ainda são necessárias para a compilação, mesmo que não sejam usadas ativamente. Instale-as via Homebrew:
+## Prerequisites
+
+1.  **Rust & Cargo**: Ensure you have a recent version of Rust installed via `rustup`.
+2.  **Homebrew**: Required for installing system dependencies.
+3.  **libxkbcommon**: This library is required for keyboard handling.
 
 ```bash
 brew install libxkbcommon
 ```
 
-## 2. Como Rodar (Desenvolvimento)
-Para rodar em modo DEBUG (mais rápido para compilar, recomendado para testes):
+## Running Development Build
 
-É necessário apontar o linker para a biblioteca `libxkbcommon` instalada pelo Homebrew:
+Due to linking requirements with `libxkbcommon`, you must specify the library path in `RUSTFLAGS` when running the application.
+
+```fish
+# In Fish shell
+set -x RUSTFLAGS "-L "(brew --prefix libxkbcommon)"/lib"
+cargo run
+```
 
 ```bash
-# Para Apple Silicon (M1/M2/M3) e Intel
+# In Bash/Zsh
 export RUSTFLAGS="-L $(brew --prefix libxkbcommon)/lib"
 cargo run
 ```
 
-## 3. Como Criar Build Final (Release)
-Para criar um binário otimizado:
+## Building for Release
 
-```bash
-export RUSTFLAGS="-L $(brew --prefix libxkbcommon)/lib"
+To create an optimized release binary:
+
+```fish
+set -x RUSTFLAGS "-L "(brew --prefix libxkbcommon)"/lib"
 cargo build --release
 ```
 
-O binário será gerado em: `target/release/cosmic-term`
+The binary will be located at `target/release/cosmic-term`.
 
-## Solução de Problemas
+## Known Issues
 
-### Erro: `ld: library 'xkbcommon' not found`
-Se você ver este erro, significa que o linker não encontrou a biblioteca. Certifique-se de que a variável `RUSTFLAGS` está definida conforme o passo 2.
-
-### Erro: `feature: winit`
-Se ocorrer erros relacionados a features, certifique-se de rodar apenas `cargo run` (que usa o default `wgpu`) e não `cargo run --features winit` (feature inexistente no pacote raiz).
+-   **Window Icon**: The application uses a generic executable icon when run specifically from the target directory. Creating a `.app` bundle would resolve this.
+-   **Fonts**: Ensure a suitable monospace font is installed. The application defaults to system monospace priorities.
+-   **Daemonization**: Daemon mode is disabled on macOS to comply with platform lifecycle management.
