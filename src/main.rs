@@ -1,5 +1,5 @@
 // Copyright 2023 System76 <info@system76.com>
-// Copyright 2024-2025 Karan <https://github.com/lkaranl> (macOS Port Maintainer)
+// Copyright 2024-2025 Karan Luciano <https://github.com/lkaranl> (macOS Port Maintainer)
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::tty::Options;
@@ -1582,7 +1582,7 @@ impl Application for App {
             .license("GPL-3.0-only")
             .license_url("https://spdx.org/licenses/GPL-3.0-only")
             .developers([
-                ("Karan", "https://github.com/lkaranl"),
+                ("Karan Luciano", "https://github.com/lkaranl"),
                 ("Jeremy Soller", "jeremy@system76.com"),
             ])
             .links([

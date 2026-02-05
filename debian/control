@@ -1,7 +1,7 @@
 Source: cosmic-term
 Section: admin
 Priority: optional
-Maintainer: Karan <karanluciano11@gmail.com>
+Maintainer: Karan Luciano <karanluciano1@gmail.com>
 Build-Depends:
     debhelper-compat (=13),
     git,

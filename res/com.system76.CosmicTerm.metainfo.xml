@@ -4,8 +4,8 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
   <project_group>COSMIC</project_group>
-  <developer_name>System76 &amp; Karan (macOS Port)</developer_name>
-  <update_contact>karanluciano11@gmail.com</update_contact>
+  <developer_name>System76 &amp; Karan Luciano (macOS Port)</developer_name>
+  <update_contact>karanluciano1@gmail.com</update_contact>
   <url type="homepage">https://github.com/lkaranl/cosmic-mac-term</url>
   <url type="bugtracker">https://github.com/lkaranl/cosmic-mac-term</url>
   <name>COSMIC Terminal</name>
