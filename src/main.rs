@@ -30,6 +30,7 @@ use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
 use localize::LANGUAGE_SORTER;
 use std::{
     any::TypeId,
+    cell::Cell,
     cmp,
     collections::{BTreeMap, BTreeSet, HashMap},
     env,
@@ -379,6 +380,7 @@ pub enum Message {
     ShortcutConflictCancel,
     ShortcutConflictReplace,
     ShortcutRemove(shortcuts::Binding, shortcuts::BindingSource),
+    ShortcutSearch(String),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
     PaneClicked(pane_grid::Pane),
@@ -498,6 +500,10 @@ pub struct App {
     shortcut_capture: Option<shortcuts::KeyBindAction>,
     shortcut_conflict: Option<ShortcutConflict>,
     shortcut_conflict_overlay_restore: Option<bool>,
+    shortcut_search_focus: Cell<bool>,
+    shortcut_search_id: widget::Id,
+    shortcut_search_regex: Option<regex::Regex>,
+    shortcut_search_value: String,
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
@@ -617,6 +623,15 @@ impl App {
         }
     }
 
+    fn shortcut_page_toggle(&mut self) {
+        self.shortcut_capture = None;
+        self.clear_shortcut_conflict();
+        self.shortcut_search_focus
+            .set(self.core.window.show_context);
+        self.shortcut_search_regex = None;
+        self.shortcut_search_value.clear();
+    }
+
     fn update_config(&mut self) -> Task<Message> {
         let theme = self.config.app_theme.theme();
 
@@ -712,7 +727,16 @@ impl App {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if self.core.window.show_context {
-            // TODO focus the context page?
+            match self.context_page {
+                ContextPage::KeyboardShortcuts => {
+                    if self.shortcut_search_focus.get() {
+                        self.shortcut_search_focus.set(false);
+                        return widget::text_input::focus(self.shortcut_search_id.clone());
+                    }
+                }
+                // TODO focus for other context pages?
+                _ => {}
+            }
             Task::none()
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
@@ -946,10 +970,7 @@ impl App {
 
     fn keyboard_shortcuts(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing {
-            space_xxs,
-            space_xs,
-            space_m,
-            ..
+            space_xxs, space_m, ..
         } = self.core().system_theme().cosmic().spacing;
 
         let pad_m = [space_xxs, space_m];
@@ -958,15 +979,33 @@ impl App {
         let div_l = div_m + 32;
 
         let mut groups = Vec::new();
+        //TODO: fix text input focus going outside bounds
+        groups.push(widget::horizontal_space().into());
+        groups.push(
+            widget::text_input::search_input(fl!("type-to-search"), &self.shortcut_search_value)
+                .id(self.shortcut_search_id.clone())
+                .on_input(Message::ShortcutSearch)
+                .into(),
+        );
+
         for group in shortcuts::shortcut_groups() {
             let mut list = widget::list::list_column();
 
+            let mut found_actions = false;
             for action in group.actions {
+                let action_label = shortcuts::action_label(action);
+                if let Some(regex) = &self.shortcut_search_regex {
+                    if regex.find(&action_label).is_none() {
+                        continue;
+                    }
+                }
+                found_actions = true;
+
                 let bindings = self.shortcuts_config.bindings_for_action(action);
 
                 list = list.list_item_padding(pad_m);
                 list = list.add(
-                    widget::settings::item::builder(shortcuts::action_label(action)).control(
+                    widget::settings::item::builder(action_label).control(
                         widget::button::custom(icon_cache_get("list-add-symbolic", 16))
                             .class(style::Button::Icon)
                             .on_press(Message::ShortcutCaptureStart(action)),
@@ -1014,16 +1053,16 @@ impl App {
                 }
             }
 
-            groups.push(
-                widget::settings::section::with_column(list)
-                    .title(group.title)
-                    .into(),
-            );
+            if found_actions {
+                groups.push(
+                    widget::settings::section::with_column(list)
+                        .title(group.title)
+                        .into(),
+                );
+            }
         }
 
-        widget::column::with_children(groups)
-            .spacing(space_xs)
-            .into()
+        widget::settings::view_column(groups).into()
     }
 
     fn profiles(&self) -> Element<'_, Message> {
@@ -1762,13 +1801,21 @@ impl Application for App {
             shortcut_capture: None,
             shortcut_conflict: None,
             shortcut_conflict_overlay_restore: None,
+            shortcut_search_focus: Cell::new(true),
+            shortcut_search_id: widget::Id::unique(),
+            shortcut_search_regex: None,
+            shortcut_search_value: String::new(),
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = Task::batch([app.update_config(), app.update_title(None)]);
+        let command = Task::batch([
+            app.update_config(),
+            app.update_title(None),
+            app.update(Message::ToggleContextPage(ContextPage::KeyboardShortcuts)),
+        ]);
 
         (app, command)
     }
@@ -2397,6 +2444,26 @@ impl Application for App {
                 }
                 self.save_shortcuts_custom();
             }
+            Message::ShortcutSearch(search) => {
+                self.shortcut_search_focus.set(true);
+                self.shortcut_search_regex = None;
+                if !search.is_empty() {
+                    let pattern = regex::escape(&search);
+                    match regex::RegexBuilder::new(&pattern)
+                        .case_insensitive(true)
+                        .build()
+                    {
+                        Ok(regex) => {
+                            self.shortcut_search_regex = Some(regex);
+                        }
+                        Err(err) => {
+                            log::warn!("failed to parse regex {:?}: {}", pattern, err);
+                        }
+                    };
+                }
+                self.shortcut_search_value = search;
+                return self.update_focus();
+            }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
             }
@@ -2909,6 +2976,10 @@ impl Application for App {
                     self.core.window.show_context = !self.core.window.show_context;
                     self.pane_model.update_terminal_focus();
 
+                    if let ContextPage::KeyboardShortcuts = context_page {
+                        self.shortcut_page_toggle();
+                    }
+
                     #[cfg(feature = "password_manager")]
                     if ContextPage::PasswordManager == context_page {
                         if self.core.window.show_context {
@@ -2951,9 +3022,8 @@ impl Application for App {
                 }
 
                 if let ContextPage::KeyboardShortcuts = context_page {
-                    self.shortcut_capture = None;
-                    self.shortcut_conflict = None;
-                    self.shortcut_conflict_overlay_restore = None;
+                    self.shortcut_page_toggle();
+                    return self.update_focus();
                 }
 
                 #[cfg(feature = "password_manager")]

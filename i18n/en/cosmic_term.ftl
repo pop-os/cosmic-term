@@ -63,6 +63,7 @@ show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
 
 ### Keyboard shortcuts
+type-to-search = Type to search...
 keyboard-shortcuts = Keyboard shortcuts
 customize-shortcuts = Customize shortcuts
 shortcut-capture-hint = Press new shortcut, or Esc to cancel
