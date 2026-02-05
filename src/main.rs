@@ -127,8 +127,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Platform-specific daemonization logic
+    // Disabled on macOS - macOS apps should not daemonize via fork
 
-    #[cfg(all(unix, not(target_os = "redox")))]
+    #[cfg(all(unix, not(target_os = "redox"), not(target_os = "macos")))]
     if daemonize {
         match fork::daemon(true, true) {
             Ok(fork::Fork::Child) => (),
