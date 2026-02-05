@@ -446,14 +446,12 @@ fn fallback_shortcuts() -> Shortcuts {
     // Standard key bindings
     bind!([Ctrl, Shift], "A", SelectAll);
     bind!([Ctrl, Shift], "C", Copy);
-    bind!([], "Copy", Copy);
     bind!([Ctrl], "c", CopyOrSigint);
     bind!([Ctrl, Shift], "F", Find);
     bind!([Ctrl, Shift], "N", WindowNew);
     bind!([Ctrl, Shift], "Q", WindowClose);
     bind!([Ctrl, Shift], "T", TabNew);
     bind!([Ctrl, Shift], "V", Paste);
-    bind!([], "Paste", Paste);
     bind!([Shift], "Insert", PastePrimary);
     bind!([Ctrl, Shift], "W", TabClose);
     bind!([Ctrl], ",", Settings);
@@ -507,8 +505,6 @@ fn fallback_shortcuts() -> Shortcuts {
 
 fn key_from_string(value: &str) -> Option<Key> {
     match value {
-        "Copy" => Some(Key::Named(Named::Copy)),
-        "Paste" => Some(Key::Named(Named::Paste)),
         "Insert" => Some(Key::Named(Named::Insert)),
         "Tab" => Some(Key::Named(Named::Tab)),
         "F11" => Some(Key::Named(Named::F11)),

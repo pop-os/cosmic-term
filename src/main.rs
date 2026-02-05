@@ -970,13 +970,18 @@ impl App {
 
     fn keyboard_shortcuts(&self) -> Element<'_, Message> {
         let cosmic_theme::Spacing {
-            space_xxs, space_m, ..
+            space_xxs,
+            space_s,
+            space_m,
+            space_l,
+            space_xl,
+            ..
         } = self.core().system_theme().cosmic().spacing;
 
-        let pad_m = [space_xxs, space_m];
-        let div_m = 16;
-        let pad_l = [space_xxs, space_m + 32];
-        let div_l = div_m + 32;
+        let pad_action = [space_xxs, space_m];
+        let div_action = space_s;
+        let pad_binding = [space_xxs, space_xl];
+        let div_binding = space_l;
 
         let mut groups = Vec::new();
         //TODO: fix text input focus going outside bounds
@@ -1021,17 +1026,22 @@ impl App {
                     widget::tooltip::Position::Top,
                 ));
 
-                list = list.list_item_padding(pad_m);
-                list = list.add(widget::settings::item::builder(action_label).control(buttons));
-                list = list.divider_padding(div_m);
+                list = list.list_item_padding(pad_action);
+                list = list.divider_padding(div_action);
+                list = list.add(widget::settings::item_row(vec![
+                    widget::text::heading(action_label)
+                        .width(Length::Fill)
+                        .into(),
+                    buttons.into(),
+                ]));
 
                 if bindings.is_empty() {
-                    list = list.list_item_padding(pad_l);
+                    list = list.list_item_padding(pad_binding);
                     list = list.add(widget::text::body(fl!("no-shortcuts")));
-                    list = list.divider_padding(div_l);
+                    list = list.divider_padding(div_binding);
                 } else {
                     for resolved in bindings {
-                        list = list.list_item_padding(pad_l);
+                        list = list.list_item_padding(pad_binding);
                         list = list.add(
                             widget::settings::item::builder(shortcuts::binding_display(
                                 &resolved.binding,
@@ -1045,12 +1055,12 @@ impl App {
                                     )),
                             ),
                         );
-                        list = list.divider_padding(div_l);
+                        list = list.divider_padding(div_binding);
                     }
                 }
 
                 if self.shortcut_capture == Some(action) {
-                    list = list.list_item_padding(pad_l);
+                    list = list.list_item_padding(pad_binding);
                     list = list.add(
                         widget::row::with_children(vec![
                             widget::text::body(fl!("shortcut-capture-hint")).into(),
@@ -1061,7 +1071,7 @@ impl App {
                         ])
                         .spacing(space_xxs),
                     );
-                    list = list.divider_padding(div_l);
+                    list = list.divider_padding(div_binding);
                 }
             }
 
@@ -2345,17 +2355,19 @@ impl Application for App {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, key) => {
-                if self.shortcut_conflict.is_some() {
-                    if key == Key::Named(Named::Escape) {
-                        self.clear_shortcut_conflict();
+                // Hard-coded keys
+                match key {
+                    Key::Named(Named::Copy) => {
+                        return self.update(Message::Copy(None));
                     }
-                    return Task::none();
+                    Key::Named(Named::Paste) => {
+                        return self.update(Message::Paste(None));
+                    }
+                    _ => {}
                 }
+
+                // Handle shortcut capture
                 if let Some(action) = self.shortcut_capture {
-                    if key == Key::Named(Named::Escape) {
-                        self.shortcut_capture = None;
-                        return Task::none();
-                    }
                     if let Some(binding) = shortcuts::binding_from_key(modifiers, key) {
                         self.shortcut_capture = None;
                         if let Some(existing_action) =
@@ -2375,6 +2387,8 @@ impl Application for App {
                     }
                     return Task::none();
                 }
+
+                // Handle configurable keys
                 for (key_bind, action) in &self.key_binds {
                     if key_bind.matches(modifiers, &key) {
                         return self.update(action.message(None));
