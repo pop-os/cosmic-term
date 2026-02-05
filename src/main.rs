@@ -2364,6 +2364,10 @@ impl Application for App {
                     Key::Named(Named::Paste) => {
                         return self.update(Message::Paste(None));
                     }
+                    Key::Named(Named::Escape) => {
+                        // Handled by on_escape
+                        return Task::none();
+                    }
                     _ => {}
                 }
 
