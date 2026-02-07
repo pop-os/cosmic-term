@@ -13,7 +13,7 @@ use cosmic::{
     cosmic_config::{self, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
-        self, Alignment, Border, Color, Event, Length, Limits, Padding, Subscription,
+        self, Alignment, Color, Event, Length, Limits, Padding, Subscription,
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
@@ -3353,11 +3353,7 @@ impl Application for App {
                                 let cosmic = theme.cosmic();
                                 let component = &cosmic.background.component;
                                 widget::container::Style {
-                                    border: Border {
-                                        width: 1.0,
-                                        color: component.divider.into(),
-                                        ..Default::default()
-                                    },
+                                    background: Some(Color::from(component.divider).into()),
                                     ..Default::default()
                                 }
                             }),
