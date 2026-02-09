@@ -11,9 +11,9 @@ new-terminal = Nieuwe terminal
 
 color-schemes = Kleurenschema's
 rename = Hernoem
-export = Exporteer
+export = Exporteren
 delete = Verwijder
-import = Importeer
+import = Importeren
 import-errors = Importfouten
 
 ## Profiles
@@ -111,3 +111,6 @@ menu-settings = Instellingen…
 menu-about = Over COSMIC Terminal…
 support = Ondersteuning
 repository = Bibliotheek
+cancel = Annuleren
+type-to-search = Typ om te zoeken…
+replace = Vervangen
