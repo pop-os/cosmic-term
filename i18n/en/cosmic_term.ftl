@@ -27,6 +27,8 @@ make-default = Make default
 working-directory = Working directory
 hold = Hold
 remain-open = Remain open after child process exits.
+scrollback-history = Scrollback history
+scrollback-history-description = Maximum lines kept in scroll buffer (0-100,000). Changes apply to new terminals.
 
 ## Settings
 settings = Settings
