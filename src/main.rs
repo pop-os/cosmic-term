@@ -196,7 +196,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         None
     };
 
-    // Terminal config setup
+    // Terminal config setup teste
     let term_config = term::Config::default();
     // Set up environmental variables for terminal
     tty::setup_env();
