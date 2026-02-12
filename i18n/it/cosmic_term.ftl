@@ -1,4 +1,6 @@
 cosmic-terminal = Terminale COSMIC
+comment = Emulatore di terminale di COSMIC
+keywords = Comando;Shell;Terminale;Console;
 new-terminal = Nuovo terminale
 
 # Context Pages

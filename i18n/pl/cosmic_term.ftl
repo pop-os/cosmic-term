@@ -1,4 +1,6 @@
 cosmic-terminal = Terminal COSMIC
+comment = Emulator terminala dla pulpitu COSMIC
+keywords = Cli;WierszPoleceń;Powłoka;Terminal;
 new-terminal = Nowy terminal
 
 # Context Pages

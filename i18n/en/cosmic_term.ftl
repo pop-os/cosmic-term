@@ -1,4 +1,6 @@
 cosmic-terminal = COSMIC Terminal
+comment = Terminal emulator for the COSMIC desktop
+keywords = Command;Shell;Terminal;CLI;
 new-terminal = New terminal
 
 # Context Pages

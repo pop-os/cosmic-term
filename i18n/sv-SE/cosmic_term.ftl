@@ -1,4 +1,6 @@
 cosmic-terminal = COSMIC Terminal
+comment = Terminalemulator för skribordsmiljön COSMIC
+keywords = Kommando;Skal;Terminal;CLI;Konsol;
 new-terminal = Ny terminal
 
 # Context Pages

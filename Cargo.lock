@@ -1596,6 +1596,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "url",
+ "xdgen",
 ]
 
 [[package]]
@@ -2518,6 +2519,16 @@ dependencies = [
  "thiserror 2.0.18",
  "unicase",
  "xdg",
+]
+
+[[package]]
+name = "freedesktop_entry_parser"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc6d3a3635983a889f065aa9ce760384713f23a9b4a04f696f86c39a5d7a6a5a"
+dependencies = [
+ "indexmap 2.13.0",
+ "nom 8.0.0",
 ]
 
 [[package]]
@@ -8635,6 +8646,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "xdgen"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25af88f104f06d5aeb80c77e5eb85e6f6f355f86f6e34307a14befd716efe4bf"
+dependencies = [
+ "fluent",
+ "freedesktop_entry_parser",
+ "unic-langid",
+ "xmltree",
+]
+
+[[package]]
 name = "xkbcommon"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8690,10 +8713,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "xml"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8aa498d22c9bbaf482329839bc5620c46be275a19a812e9a22a2b07529a642a"
+
+[[package]]
 name = "xml-rs"
 version = "0.8.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
+
+[[package]]
+name = "xmltree"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbc04313cab124e498ab1724e739720807b6dc405b9ed0edc5860164d2e4ff70"
+dependencies = [
+ "xml",
+]
 
 [[package]]
 name = "xmlwriter"
