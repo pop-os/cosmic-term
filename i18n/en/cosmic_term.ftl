@@ -62,6 +62,35 @@ advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
 
+### Keyboard shortcuts
+add-another-keybinding = Add another keybinding
+cancel = Cancel
+close-window = Close window
+copy-or-sigint = Copy or SIGINT
+disable = Disable
+focus-pane-down = Focus pane down
+focus-pane-left = Focus pane left
+focus-pane-right = Focus pane right
+focus-pane-up = Focus pane up
+keyboard-shortcuts = Keyboard shortcuts
+menu-keyboard-shortcuts = Keyboard shortcuts...
+no-shortcuts = No shortcuts
+password-manager = Password manager
+paste-primary = Paste primary
+replace = Replace
+reset-to-default = Reset to default
+shortcut-capture-hint = Press the key combination
+shortcut-group-clipboard = Clipboard
+shortcut-group-other = Other
+shortcut-group-tabs = Tabs
+shortcut-group-window = Window
+shortcut-group-zoom = Zoom
+shortcut-replace-body = { $binding } is already assigned to { $existing }. Replace it with { $new_action }?
+shortcut-replace-title = Replace shortcut?
+tab-activate = Activate tab { $number }
+toggle-fullscreen = Toggle fullscreen
+type-to-search = Type to search...
+
 # Find
 find-placeholder = Find...
 find-previous = Find previous

@@ -44,7 +44,7 @@ light = Светлая
 syntax-dark = Цёмны сінтаксіс
 syntax-light = Светлы сінтаксіс
 default-zoom-step = Крок маштабавання
-opacity = Непразрыстаць фону
+opacity = Непразрыстасць фону
 
 ### Font
 
@@ -97,7 +97,7 @@ find = Знайсці
 ## View
 
 view = Выгляд
-zoom-in = Большы тэкст
+zoom-in = Павялічыць тэкст
 zoom-reset = Прадв. памер тэксту
 zoom-out = Меньшы тэкст
 next-tab = Наступная ўкладка

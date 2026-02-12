@@ -265,6 +265,11 @@ pub fn menu_bar<'a>(
                             None,
                             Action::ColorSchemes(config.color_scheme_kind()),
                         ),
+                        MenuItem::Button(
+                            fl!("menu-keyboard-shortcuts"),
+                            None,
+                            Action::KeyboardShortcuts,
+                        ),
                         MenuItem::Button(fl!("menu-settings"), None, Action::Settings),
                         #[cfg(feature = "password_manager")]
                         MenuItem::Button(
