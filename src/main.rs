@@ -2769,8 +2769,10 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.active_mut() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
 
-                    // Activate closest item
-                    if let Some(position) = tab_model.position(entity) {
+                    // Activate closest item if closing active tab
+                    if entity == tab_model.active()
+                        && let Some(position) = tab_model.position(entity)
+                    {
                         if position > 0 {
                             tab_model.activate_position(position - 1);
                         } else {
