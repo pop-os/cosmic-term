@@ -7,4 +7,3 @@ use crate::shortcuts::ShortcutsConfig;
 pub fn key_binds(shortcuts: &ShortcutsConfig) -> HashMap<KeyBind, Action> {
     shortcuts.key_binds()
 }
-}

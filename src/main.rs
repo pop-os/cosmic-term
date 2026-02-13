@@ -19,7 +19,7 @@ use cosmic::{
         advanced::graphics::text::font_system,
         clipboard, event,
         futures::SinkExt,
-        keyboard::{Event as KeyEvent, Key, Modifiers, key::Named},
+        keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
         stream, window,
     },
