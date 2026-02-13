@@ -1,4 +1,6 @@
 cosmic-terminal = طرفية COSMIC
+comment = محاكي طرفي لسطح مكتب COSMIC
+keywords = cli;طرفية;أوامر;صدفة;
 new-terminal = طرفية جديدة
 
 # Context Pages

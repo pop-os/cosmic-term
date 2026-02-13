@@ -1,4 +1,6 @@
 cosmic-terminal = Терминал COSMIC
+comment = Эмулятор терминала для рабочей среды COSMIC
+keywords = Команда;Оболочка;Терминал;Консоль;
 new-terminal = Новый терминал
 
 # Context Pages

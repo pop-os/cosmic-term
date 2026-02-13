@@ -1,4 +1,6 @@
 cosmic-terminal = COSMIC Terminál
+comment = Terminálemulátor a COSMIC asztali környezethez
+keywords = parancssor;terminál;
 new-terminal = Új terminál
 
 # Context Pages

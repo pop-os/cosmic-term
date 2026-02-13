@@ -53,6 +53,9 @@ features = ["about", "multi-window", "tokio", "winit", "surface-message"]
 [target.'cfg(unix)'.dependencies]
 fork = "0.4"
 
+[build-dependencies]
+xdgen = "0.1"
+
 [features]
 default = ["dbus-config", "wgpu", "wayland", "password_manager"]
 dbus-config = ["libcosmic/dbus-config"]

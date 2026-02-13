@@ -13,11 +13,11 @@ bin-src := cargo-target-dir / 'release' / name
 bin-dst := base-dir / 'bin' / name
 
 desktop := APPID + '.desktop'
-desktop-src := 'res' / desktop
+desktop-src := 'target/xdgen' / desktop
 desktop-dst := clean(rootdir / prefix) / 'share' / 'applications' / desktop
 
 metainfo := APPID + '.metainfo.xml'
-metainfo-src := 'res' / metainfo
+metainfo-src := 'target/xdgen' / metainfo
 metainfo-dst := clean(rootdir / prefix) / 'share' / 'metainfo' / metainfo
 
 icons-src := 'res' / 'icons' / 'hicolor'
