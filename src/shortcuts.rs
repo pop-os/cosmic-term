@@ -85,6 +85,7 @@ pub enum KeyBindAction {
     TabActivate8,
     TabClose,
     TabNew,
+    TabRename,
     TabNext,
     TabPrev,
     ToggleFullscreen,
@@ -125,6 +126,7 @@ impl KeyBindAction {
             Self::TabActivate8 => Some(Action::TabActivate8),
             Self::TabClose => Some(Action::TabClose),
             Self::TabNew => Some(Action::TabNew),
+            Self::TabRename => Some(Action::TabRename),
             Self::TabNext => Some(Action::TabNext),
             Self::TabPrev => Some(Action::TabPrev),
             Self::ToggleFullscreen => Some(Action::ToggleFullscreen),
@@ -286,6 +288,7 @@ pub fn action_label(action: KeyBindAction) -> String {
         KeyBindAction::TabActivate8 => fl!("tab-activate", number = 9),
         KeyBindAction::TabClose => fl!("close-tab"),
         KeyBindAction::TabNew => fl!("new-tab"),
+        KeyBindAction::TabRename => fl!("rename-tab"),
         KeyBindAction::TabNext => fl!("next-tab"),
         KeyBindAction::TabPrev => fl!("previous-tab"),
         KeyBindAction::ToggleFullscreen => fl!("toggle-fullscreen"),
@@ -320,6 +323,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
         actions: vec![
             KeyBindAction::TabNew,
             KeyBindAction::TabClose,
+            KeyBindAction::TabRename,
             KeyBindAction::TabNext,
             KeyBindAction::TabPrev,
             KeyBindAction::TabActivate0,
@@ -451,6 +455,7 @@ fn fallback_shortcuts() -> Shortcuts {
     bind!([Ctrl, Shift], "N", WindowNew);
     bind!([Ctrl, Shift], "Q", WindowClose);
     bind!([Ctrl, Shift], "T", TabNew);
+    bind!([Ctrl, Shift], "R", TabRename);
     bind!([Ctrl, Shift], "V", Paste);
     bind!([Shift], "Insert", PastePrimary);
     bind!([Ctrl, Shift], "W", TabClose);
