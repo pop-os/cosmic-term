@@ -200,6 +200,8 @@ pub struct Profile {
     pub working_directory: String,
     #[serde(default)]
     pub drain_on_exit: bool,
+    #[serde(default)]
+    pub open_in_cwd: bool,
 }
 
 impl Default for Profile {
@@ -212,6 +214,7 @@ impl Default for Profile {
             tab_title: String::new(),
             working_directory: String::new(),
             drain_on_exit: false,
+            open_in_cwd: true,
         }
     }
 }

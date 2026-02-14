@@ -29,6 +29,8 @@ make-default = Make default
 working-directory = Working directory
 hold = Hold
 remain-open = Remain open after child process exits.
+open-in-cwd = Use parent CWD
+open-in-cwd-description = Open new terminals using the focused tab's working directory.
 
 ## Settings
 settings = Settings

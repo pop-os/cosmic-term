@@ -29,6 +29,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     io, mem,
+    path::PathBuf,
     sync::{
         Arc, Mutex, Weak,
         atomic::{AtomicU32, Ordering},
@@ -41,6 +42,7 @@ pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
     config::{ColorSchemeKind, Config as AppConfig, ProfileId},
+    current_working_directory::CWD,
     menu::MenuState,
     mouse_reporter::MouseReporter,
 };
@@ -260,6 +262,7 @@ pub struct Terminal {
     size: Size,
     use_bright_bold: bool,
     zoom_adj: i8,
+    cwd: CWD,
 }
 
 impl Terminal {
@@ -329,6 +332,8 @@ impl Terminal {
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
 
+        let cwd = CWD::new(&pty);
+
         let pty_event_loop =
             EventLoop::new(term.clone(), event_proxy, pty, options.drain_on_exit, false)?;
         let notifier = Notifier(pty_event_loop.channel());
@@ -358,6 +363,7 @@ impl Terminal {
             use_bright_bold,
             zoom_adj: Default::default(),
             is_focused: true,
+            cwd,
         })
     }
 
@@ -1035,6 +1041,10 @@ impl Terminal {
                 delta,
             );
         }
+    }
+
+    pub fn current_working_directory(&self) -> Option<PathBuf> {
+        self.cwd.current_working_directory()
     }
 }
 /// Iterate over all visible regex matches.
