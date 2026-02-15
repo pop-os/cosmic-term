@@ -119,6 +119,7 @@ clear-scrollback = Clear scrollback
 
 ## Open
 open-link = Open Link
+copy-link = Copy Link
 
 ## View
 view = View

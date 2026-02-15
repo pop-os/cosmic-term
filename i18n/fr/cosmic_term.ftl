@@ -117,6 +117,7 @@ add-password = Ajouter un mot de passe
 password-input = Mot de passe
 password-input-description = Description
 open-link = Ouvrir le lien
+copy-link = Copier le lien
 add-another-keybinding = Ajouter un autre raccourci clavier
 cancel = Annuler
 close-window = Fermer la fenêtre
