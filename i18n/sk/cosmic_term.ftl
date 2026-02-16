@@ -1,4 +1,6 @@
 cosmic-terminal = Terminál COSMIC
+comment = Emulátor terminálu pre pracovné prostredie COSMIC
+keywords = Príkaz;Shell;Terminál;Konzola;
 new-terminal = Nový terminál
 
 # Kontextové stránky

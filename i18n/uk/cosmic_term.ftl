@@ -9,10 +9,10 @@ new-terminal = Новий термінал
 
 ## Color schemes
 
-color-schemes = Схеми кольорів
+color-schemes = Кольорові схеми
 rename = Перейменувати
-export = Експортувати
-delete = Вилучити
+export = Експорт
+delete = Видалити
 import = Імпортувати
 import-errors = Помилки імпорту
 
@@ -21,7 +21,7 @@ import-errors = Помилки імпорту
 profiles = Профілі
 name = Назва
 command-line = Командний рядок
-tab-title = Назва вкладки
+tab-title = Заголовок вкладки
 tab-title-description = Замінити типовий заголовок вкладки
 add-profile = Додати профіль
 new-profile = Новий профіль
@@ -38,30 +38,30 @@ settings = Налаштування
 
 appearance = Зовнішній вигляд
 theme = Тема
-match-desktop = Відповідно системі
+match-desktop = Системна
 dark = Темна
 light = Світла
-syntax-dark = Темна схема кольорів
-syntax-light = Світла схема кольорів
+syntax-dark = Темна колірна схема
+syntax-light = Світла колірна схема
 default-zoom-step = Зміна масштабу
 opacity = Непрозорість тла
 
 ### Font
 
 font = Шрифт
-advanced-font-settings = Розширені налаштування шрифтів
+advanced-font-settings = Розширені налаштування шрифту
 default-font = Шрифт
 default-font-size = Розмір шрифту
 default-font-stretch = Розтягнення шрифту
-default-font-weight = Звичайна товщина шрифту
-default-dim-font-weight = Товщина тьмяного шрифту
-default-bold-font-weight = Товщина жирного шрифту
-use-bright-bold = Збільшити яскравість жирного шрифту
+default-font-weight = Звичайне накреслення шрифту
+default-dim-font-weight = Приглушене накреслення шрифту
+default-bold-font-weight = Жирне накреслення шрифту
+use-bright-bold = Зробити жирний текст яскравішим
 
 ### Splits
 
 splits = Розділення
-focus-follow-mouse = Ділянка під мишею отримує фокус для введення даних
+focus-follow-mouse = Фокус введення слідує за мишею
 
 ### Advanced
 
@@ -96,7 +96,7 @@ find = Знайти
 
 ## View
 
-view = Вигляд
+view = Вид
 zoom-in = Збільшити текст
 zoom-reset = Типовий розмір тексту
 zoom-out = Зменшити текст
@@ -105,15 +105,42 @@ previous-tab = Попередня вкладка
 split-horizontal = Розділити горизонтально
 split-vertical = Розділити вертикально
 pane-toggle-maximize = Перемкнути розгортання
-menu-color-schemes = Схеми кольорів...
+menu-color-schemes = Кольорові схеми...
 menu-settings = Налаштування...
 menu-about = Про Термінал COSMIC...
-repository = Репозиторій
+repository = Сховище
 support = Підтримка
-clear-scrollback = Очистити текст поза межами екрану
+clear-scrollback = Очистити прокрутку
 menu-password-manager = Паролі...
 passwords-title = Паролі
 add-password = Додати пароль
 password-input = Пароль
 password-input-description = Опис
-open-link = Відкрити посилання
+open-link = Відкрити ланку
+cancel = Скасувати
+close-window = Закрити вікно
+disable = Вимкнути
+keyboard-shortcuts = Сполучення клавіш
+menu-keyboard-shortcuts = Сполучення клавіш...
+password-manager = Менеджер паролів
+replace = Замінити
+reset-to-default = Типові значення
+shortcut-group-tabs = Вкладки
+shortcut-group-window = Вікно
+shortcut-replace-body = { $binding } вже призначено { $existing }. Замінити на { $new_action }?
+shortcut-replace-title = Замінити сполучення?
+type-to-search = Введіть для пошуку…
+copy-or-sigint = Копіювати або SIGINT
+no-shortcuts = Сполучення не призначено
+paste-primary = Вставити основне
+shortcut-capture-hint = Натисніть комбінацію клавіш
+shortcut-group-clipboard = Буфер обміну
+shortcut-group-other = Інше
+shortcut-group-zoom = Масштаб
+tab-activate = Вибрати вкладку { $number }
+toggle-fullscreen = На весь екран
+add-another-keybinding = Додати ще сполучення
+focus-pane-down = Фокус на нижню панель
+focus-pane-left = Фокус на ліву панель
+focus-pane-right = Фокус на праву панель
+focus-pane-up = Фокус на верхню панель

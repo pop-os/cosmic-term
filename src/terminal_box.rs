@@ -46,8 +46,8 @@ use std::{
 };
 
 use crate::{
-    Action, Terminal, TerminalScroll, key_bind::key_binds, menu::MenuState,
-    mouse_reporter::MouseReporter, terminal::Metadata,
+    Action, Terminal, TerminalScroll, menu::MenuState, mouse_reporter::MouseReporter,
+    terminal::Metadata,
 };
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -122,7 +122,7 @@ pub struct TerminalBox<'a, Message> {
     on_open_hyperlink: Option<Box<dyn Fn(String) -> Message + 'a>>,
     on_window_focused: Option<Box<dyn Fn() -> Message + 'a>>,
     on_window_unfocused: Option<Box<dyn Fn() -> Message + 'a>>,
-    key_binds: HashMap<KeyBind, Action>,
+    key_binds: &'a HashMap<KeyBind, Action>,
     sharp_corners: bool,
     disabled: bool,
 }
@@ -131,7 +131,7 @@ impl<'a, Message> TerminalBox<'a, Message>
 where
     Message: Clone,
 {
-    pub fn new(terminal: &'a Mutex<Terminal>) -> Self {
+    pub fn new(terminal: &'a Mutex<Terminal>, key_binds: &'a HashMap<KeyBind, Action>) -> Self {
         Self {
             terminal,
             id: None,
@@ -145,7 +145,7 @@ where
             opacity: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
-            key_binds: key_binds(),
+            key_binds,
             on_open_hyperlink: None,
             on_window_focused: None,
             on_window_unfocused: None,
@@ -236,11 +236,14 @@ where
     }
 }
 
-pub fn terminal_box<Message>(terminal: &Mutex<Terminal>) -> TerminalBox<'_, Message>
+pub fn terminal_box<'a, Message>(
+    terminal: &'a Mutex<Terminal>,
+    key_binds: &'a HashMap<KeyBind, Action>,
+) -> TerminalBox<'a, Message>
 where
     Message: Clone,
 {
-    TerminalBox::new(terminal)
+    TerminalBox::new(terminal, key_binds)
 }
 
 impl<'a, Message> Widget<Message, cosmic::Theme, Renderer> for TerminalBox<'a, Message>
@@ -336,11 +339,7 @@ where
 
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    if terminal
-                        .regex_matches
-                        .iter()
-                        .any(|bounds| bounds.contains(&location))
-                    {
+                    if get_hyperlink(&terminal, location).is_some() {
                         return mouse::Interaction::Pointer;
                     }
                 }
@@ -724,66 +723,75 @@ where
             state.scrollbar_rect.set(Rectangle::default())
         }
 
-        // Draw cursor
+        // Draw cursor (only when not scrolled, as cursor is at bottom of active area)
         {
-            let cursor = terminal.term.lock().renderable_content().cursor;
-            let col = cursor.point.column.0;
-            let line = cursor.point.line.0;
-            let color = terminal.term.lock().colors()[NamedColor::Cursor]
-                .or(terminal.colors()[NamedColor::Cursor])
-                .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
-                .unwrap_or(Color::WHITE); // TODO default color from theme?
-            let width = terminal.size().cell_width;
-            let height = terminal.size().cell_height;
-            let top_left = view_position
-                + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
-            match cursor.shape {
-                CursorShape::Beam => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(top_left, Size::new(1.0, height)),
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, color);
-                }
-                CursorShape::Underline => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(
-                            view_position
-                                + Vector::new(
-                                    (col as f32 * width).floor(),
-                                    ((line + 1) as f32 * height).floor(),
-                                ),
-                            Size::new(width, 1.0),
-                        ),
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, color);
-                }
-                CursorShape::Block if !state.is_focused => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(top_left, Size::new(width, height)),
-                        border: Border {
-                            width: 1.0,
-                            color,
+            let term = terminal.term.lock();
+            let display_offset = term.grid().display_offset();
+            let cursor = term.renderable_content().cursor;
+            drop(term);
+
+            // Skip drawing cursor when scrolled - the cursor is below the visible viewport
+            if display_offset > 0 {
+                // Cursor is off-screen when scrolled up
+            } else {
+                let col = cursor.point.column.0;
+                let line = cursor.point.line.0;
+                let color = terminal.term.lock().colors()[NamedColor::Cursor]
+                    .or(terminal.colors()[NamedColor::Cursor])
+                    .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
+                    .unwrap_or(Color::WHITE); // TODO default color from theme?
+                let width = terminal.size().cell_width;
+                let height = terminal.size().cell_height;
+                let top_left = view_position
+                    + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
+                match cursor.shape {
+                    CursorShape::Beam => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(top_left, Size::new(1.0, height)),
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, Color::TRANSPARENT);
-                }
-                CursorShape::HollowBlock => {
-                    let quad = Quad {
-                        bounds: Rectangle::new(top_left, Size::new(width, height)),
-                        border: Border {
-                            width: 1.0,
-                            color,
+                        };
+                        renderer.fill_quad(quad, color);
+                    }
+                    CursorShape::Underline => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(
+                                view_position
+                                    + Vector::new(
+                                        (col as f32 * width).floor(),
+                                        ((line + 1) as f32 * height).floor(),
+                                    ),
+                                Size::new(width, 1.0),
+                            ),
                             ..Default::default()
-                        },
-                        ..Default::default()
-                    };
-                    renderer.fill_quad(quad, Color::TRANSPARENT);
+                        };
+                        renderer.fill_quad(quad, color);
+                    }
+                    CursorShape::Block if !state.is_focused => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(top_left, Size::new(width, height)),
+                            border: Border {
+                                width: 1.0,
+                                color,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        };
+                        renderer.fill_quad(quad, Color::TRANSPARENT);
+                    }
+                    CursorShape::HollowBlock => {
+                        let quad = Quad {
+                            bounds: Rectangle::new(top_left, Size::new(width, height)),
+                            border: Border {
+                                width: 1.0,
+                                color,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        };
+                        renderer.fill_quad(quad, Color::TRANSPARENT);
+                    }
+                    CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
                 }
-                CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
             }
         }
 
@@ -1002,12 +1010,15 @@ where
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                 state.modifiers = modifiers;
 
-                if modifiers.contains(Modifiers::CTRL) || terminal.active_regex_match.is_some() {
+                if modifiers.contains(Modifiers::CTRL)
+                    || terminal.active_regex_match.is_some()
+                    || terminal.active_hyperlink_id.is_some()
+                {
                     //Might need to update the url regex highlight,
                     //so we need to calculate the mouse position
-                    let location = if let Some(p) = cursor_position.position() {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
-                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                    let location = if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
                         //TODO: better calculation of position
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
@@ -1145,18 +1156,30 @@ where
                                 } else {
                                     TermSide::Right
                                 };
-                                let selection = match click_kind {
-                                    ClickKind::Single => {
-                                        Selection::new(SelectionType::Simple, location, side)
+                                // Check if shift is pressed and there's an existing selection to extend
+                                if state.modifiers.shift() {
+                                    let mut term = terminal.term.lock();
+                                    if let Some(ref mut selection) = term.selection {
+                                        selection.update(location, side);
+                                    } else {
+                                        term.selection = Some(Selection::new(
+                                            SelectionType::Simple,
+                                            location,
+                                            side,
+                                        ));
                                     }
-                                    ClickKind::Double => {
-                                        Selection::new(SelectionType::Semantic, location, side)
-                                    }
-                                    ClickKind::Triple => {
-                                        Selection::new(SelectionType::Lines, location, side)
-                                    }
-                                };
-                                {
+                                } else {
+                                    let selection = match click_kind {
+                                        ClickKind::Single => {
+                                            Selection::new(SelectionType::Simple, location, side)
+                                        }
+                                        ClickKind::Double => {
+                                            Selection::new(SelectionType::Semantic, location, side)
+                                        }
+                                        ClickKind::Triple => {
+                                            Selection::new(SelectionType::Lines, location, side)
+                                        }
+                                    };
                                     let mut term = terminal.term.lock();
                                     term.selection = Some(selection);
                                 }
@@ -1304,29 +1327,38 @@ where
                         self.mouse_inside_boundary = Some(mouse_is_inside);
                     }
                 }
-                if let Some(p) = cursor_position.position() {
+                if let Some(p_global) = cursor_position.position() {
                     let bounds = layout.bounds();
-                    let x = (p.x - bounds.x) - self.padding.left;
-                    let y = (p.y - bounds.y) - self.padding.top;
-                    //TODO: better calculation of position
-                    let col = x / terminal.size().cell_width;
-                    let row = y / terminal.size().cell_height;
-                    let location = terminal
-                        .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    update_active_regex_match(
-                        &mut terminal,
-                        Some(location),
-                        Some(&state.modifiers),
-                    );
+                    let col_row_opt = if let Some(p) = cursor_position.position_in(bounds) {
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
+                        //TODO: better calculation of position
+                        let col = x / terminal.size().cell_width;
+                        let row = y / terminal.size().cell_height;
+                        let location = terminal.viewport_to_point(TermPoint::new(
+                            row as usize,
+                            TermColumn(col as usize),
+                        ));
+                        update_active_regex_match(
+                            &mut terminal,
+                            Some(location),
+                            Some(&state.modifiers),
+                        );
+                        Some((col, row))
+                    } else {
+                        None
+                    };
 
                     if is_mouse_mode {
-                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        if let Some((col, row)) = col_row_opt {
+                            terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        }
                     } else {
                         let handled_buffer_drag = update_buffer_drag(
                             state,
                             &mut terminal,
                             buffer_size,
-                            p,
+                            p_global,
                             bounds,
                             self.padding,
                             0.0,
@@ -1338,6 +1370,7 @@ where
                             start_scroll,
                         }) = state.dragging.as_mut()
                         {
+                            let y = p_global.y - bounds.y - self.padding.top;
                             let start_y = *start_y;
                             let start_scroll = *start_scroll;
                             let scroll_offset = terminal.with_buffer(|buffer| {
@@ -1352,9 +1385,9 @@ where
                                 state.autoscroll.stop();
                             } else {
                                 if state.autoscroll.is_active() {
-                                    state.autoscroll.update_pointer(p);
+                                    state.autoscroll.update_pointer(p_global);
                                 } else {
-                                    state.autoscroll.start(p);
+                                    state.autoscroll.start(p_global);
                                 }
                                 shell.request_redraw(RedrawRequest::NextFrame);
                             }
@@ -1367,8 +1400,8 @@ where
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     if is_mouse_mode {
-                        let x = (p.x - layout.bounds().x) - self.padding.left;
-                        let y = (p.y - layout.bounds().y) - self.padding.top;
+                        let x = p.x - self.padding.left;
+                        let y = p.y - self.padding.top;
                         //TODO: better calculation of position
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
@@ -1442,6 +1475,9 @@ fn get_hyperlink(
     terminal: &std::sync::MutexGuard<'_, Terminal>,
     location: TermPoint,
 ) -> Option<String> {
+    if let Some(link) = osc8_hyperlink_at(terminal, location) {
+        return Some(link.uri().to_string());
+    }
     if let Some(match_) = terminal
         .regex_matches
         .iter()
@@ -1452,6 +1488,37 @@ fn get_hyperlink(
     } else {
         None
     }
+}
+
+fn get_hyperlink_id(
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) -> Option<String> {
+    osc8_hyperlink_at(terminal, location).map(|link| link.id().to_string())
+}
+
+fn osc8_hyperlink_at(
+    terminal: &std::sync::MutexGuard<'_, Terminal>,
+    location: TermPoint,
+) -> Option<alacritty_terminal::term::cell::Hyperlink> {
+    let term = terminal.term.lock();
+    if location.line >= term.screen_lines() || location.column.0 >= term.columns() {
+        return None;
+    }
+    let grid = term.grid();
+    let cell = &grid[location];
+    if let Some(link) = cell.hyperlink() {
+        return Some(link);
+    }
+    if cell
+        .flags
+        .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
+        && location.column.0 > 0
+    {
+        let left = TermPoint::new(location.line, TermColumn(location.column.0 - 1));
+        return grid[left].hyperlink();
+    }
+    None
 }
 
 fn update_active_regex_match(
@@ -1466,6 +1533,9 @@ fn update_active_regex_match(
         return;
     }
 
+    let allow_hyperlink = modifiers
+        .map(|mods| mods.contains(Modifiers::CTRL))
+        .unwrap_or(false);
     //Require CTRL for keyboard and mouse interaction
     if let Some(modifiers) = modifiers {
         if !modifiers.contains(Modifiers::CTRL) {
@@ -1473,16 +1543,37 @@ fn update_active_regex_match(
                 terminal.active_regex_match = None;
                 terminal.needs_update = true;
             }
+            if terminal.active_hyperlink_id.is_some() {
+                terminal.active_hyperlink_id = None;
+                terminal.needs_update = true;
+            }
             return;
         }
+    } else if terminal.active_hyperlink_id.is_some() {
+        terminal.active_hyperlink_id = None;
+        terminal.needs_update = true;
     }
     let Some(location) = location else {
         if terminal.active_regex_match.is_some() {
             terminal.active_regex_match = None;
             terminal.needs_update = true;
         }
+        if terminal.active_hyperlink_id.is_some() {
+            terminal.active_hyperlink_id = None;
+            terminal.needs_update = true;
+        }
         return;
     };
+    if allow_hyperlink {
+        let next_hyperlink_id = get_hyperlink_id(terminal, location);
+        if terminal.active_hyperlink_id != next_hyperlink_id {
+            terminal.active_hyperlink_id = next_hyperlink_id;
+            terminal.needs_update = true;
+        }
+    } else if terminal.active_hyperlink_id.is_some() {
+        terminal.active_hyperlink_id = None;
+        terminal.needs_update = true;
+    }
     if let Some(match_) = terminal
         .regex_matches
         .iter()

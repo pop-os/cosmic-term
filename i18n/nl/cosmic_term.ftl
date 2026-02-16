@@ -11,9 +11,9 @@ new-terminal = Nieuwe terminal
 
 color-schemes = Kleurenschema's
 rename = Hernoem
-export = Exporteer
+export = Exporteren
 delete = Verwijder
-import = Importeer
+import = Importeren
 import-errors = Importfouten
 
 ## Profiles
@@ -80,7 +80,7 @@ find-next = Zoek volgende
 
 file = Bestand
 new-tab = Nieuw tabblad
-new-window = Nieuw venster
+new-window = Nieuw venster openen
 profile = Profiel
 menu-profiles = Profielen...
 close-tab = Sluit tabblad
@@ -89,7 +89,7 @@ quit = Beëindig
 ## Edit
 
 edit = Bewerk
-copy = Kopieer
+copy = Kopiëer
 paste = Plak
 select-all = Selecteer alles
 find = Zoek
@@ -107,7 +107,10 @@ split-horizontal = Splits horizontaal
 split-vertical = Splits verticaal
 pane-toggle-maximize = Gemaximaliseerd
 menu-color-schemes = Kleurenpaletten...
-menu-settings = Instellingen...
+menu-settings = Instellingen…
 menu-about = Over COSMIC Terminal…
 support = Ondersteuning
 repository = Bibliotheek
+cancel = Annuleren
+type-to-search = Typ om te zoeken…
+replace = Vervangen

@@ -1,4 +1,6 @@
 cosmic-terminal = Terminal COSMIC
+comment = Emulator terminala dla pulpitu COSMIC
+keywords = Cli;WierszPoleceń;Powłoka;Terminal;
 new-terminal = Nowy terminal
 
 # Context Pages
@@ -117,3 +119,30 @@ add-password = Dodaj Hasło
 password-input = Hasło
 password-input-description = Opis
 open-link = Otwórz Odnośnik
+add-another-keybinding = Dodaj kolejny skrót klawiszowy
+cancel = Anuluj
+close-window = Zamknij okno
+copy-or-sigint = Kopiuj lub SIGINT
+disable = Wyłącz
+keyboard-shortcuts = Skróty klawiszowe
+menu-keyboard-shortcuts = Skróty klawiszowe…
+no-shortcuts = Brak skrótów
+password-manager = Menedżer haseł
+paste-primary = Wklej główne
+replace = Zastąp
+reset-to-default = Przywróć domyślne
+shortcut-capture-hint = Naciśnij kombinację klawiszy
+shortcut-group-clipboard = Schowek
+shortcut-group-other = Inne
+shortcut-group-tabs = Karty
+shortcut-group-window = Okno
+shortcut-group-zoom = Przybliżenie
+shortcut-replace-body = { $binding } jest już przypisany do { $existing }. Zastąpć je przez { $new_action }?
+shortcut-replace-title = Zastąpić skrót klawiszowy?
+tab-activate = Aktywuj kartę { $number }
+toggle-fullscreen = Przełącznik pełnego ekranu
+type-to-search = Zacznij pisać by wyszukać…
+focus-pane-down = Aktywuj panel niżej
+focus-pane-left = Aktywuj lewy panel
+focus-pane-right = Aktywuj prawy panel
+focus-pane-up = Aktywuj panel wyżej

@@ -246,6 +246,7 @@ pub struct Terminal {
     pub url_regex_search: RegexSearch,
     pub regex_matches: Vec<alacritty_terminal::term::search::Match>,
     pub active_regex_match: Option<alacritty_terminal::term::search::Match>,
+    pub active_hyperlink_id: Option<String>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
     is_focused: bool,
@@ -335,6 +336,7 @@ impl Terminal {
 
         Ok(Self {
             active_regex_match: None,
+            active_hyperlink_id: None,
             url_regex_search: url_regex_search(),
             regex_matches: Vec::new(),
             bold_font_weight: Weight(bold_font_weight),
@@ -884,6 +886,28 @@ impl Terminal {
 
                     if let Some(active_match) = &self.active_regex_match {
                         if active_match.contains(&indexed.point) {
+                            flags |= Flags::UNDERLINE;
+                        }
+                    }
+                    if let Some(active_id) = &self.active_hyperlink_id {
+                        let mut matches_active = indexed
+                            .cell
+                            .hyperlink()
+                            .is_some_and(|link| link.id() == active_id);
+                        if !matches_active
+                            && indexed.cell.flags.intersects(
+                                Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER,
+                            )
+                            && indexed.point.column.0 > 0
+                        {
+                            matches_active = grid[Point::new(
+                                indexed.point.line,
+                                Column(indexed.point.column.0 - 1),
+                            )]
+                            .hyperlink()
+                            .is_some_and(|link| link.id() == active_id);
+                        }
+                        if matches_active {
                             flags |= Flags::UNDERLINE;
                         }
                     }
