@@ -1523,14 +1523,13 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            let mut options = self.startup_options.take().unwrap_or_default();
-                            let mut tab_title_override = None;
-                            if let Some(profile) = profile_id_opt
+                            let (options, tab_title_override) = if let Some(profile) = profile_id_opt
                                 .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
                                 // Merge profile and startup options, preferring startup options
-                                options = tty::Options {
-                                    shell: options.shell.or_else(|| {
+                                let startup_options = self.startup_options.take().unwrap_or_default();
+                                let options = tty::Options {
+                                    shell: startup_options.shell.or_else(|| {
                                         if let Some(mut args) = shlex::split(&profile.command) {
                                             if !args.is_empty() {
                                                 let command = args.remove(0);
@@ -1539,19 +1538,22 @@ impl App {
                                         }
                                         return None;
                                     }),
-                                    working_directory: options.working_directory.or_else(|| {
+                                    working_directory: startup_options.working_directory.or_else(|| {
                                         (!profile.working_directory.is_empty())
                                             .then(|| profile.working_directory.clone().into())
                                     }),
-                                    drain_on_exit: options.drain_on_exit || profile.drain_on_exit,
-                                    ..options
+                                    drain_on_exit: startup_options.drain_on_exit || profile.drain_on_exit,
+                                    ..startup_options
                                 };
-                                tab_title_override = if profile.tab_title.is_empty() {
+                                let tab_title_override = if profile.tab_title.is_empty() {
                                     None
                                 } else {
                                     Some(profile.tab_title.clone())
                                 };
-                            }
+                                (options, tab_title_override)
+                            } else {
+                                (self.startup_options.take().unwrap_or_default(), None)
+                            };
 
                             let entity = tab_model
                                 .insert()
