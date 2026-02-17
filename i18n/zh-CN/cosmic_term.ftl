@@ -144,3 +144,4 @@ shortcut-replace-body = { $binding } 已分配给 { $existing }。是否将其�
 shortcut-replace-title = 是否替换快捷键？
 tab-activate = 启用标签 { $number }
 toggle-fullscreen = 切换全屏
+comment = COSMIC 桌面的终端模拟器

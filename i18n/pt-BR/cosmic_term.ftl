@@ -1,6 +1,6 @@
 cosmic-terminal = Terminal COSMIC
-comment = Emulador de terminal do desktop COSMIC
-keywords = Comando;Shell;Terminal;
+comment = Emulador de terminal do ambiente COSMIC
+keywords = Comando;Shell;Terminal;CLI;
 new-terminal = Novo terminal
 
 # Context Pages
@@ -74,7 +74,7 @@ show-headerbar = Mostrar a barra de título
 show-header-description = Mostrar a barra de título da janela no menu de contexto.
 # Find
 find-placeholder = Localizar...
-find-previous = Localizar anterior
+find-previous = Localizar o anterior
 find-next = Localizar o próximo
 
 # Menu

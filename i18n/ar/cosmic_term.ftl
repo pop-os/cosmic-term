@@ -15,7 +15,7 @@ support = الدعم
 
 color-schemes = مخططات الألوان
 rename = غيِّر الاسم
-export = تصدير
+export = صدِّر
 delete = احذف
 import = استورد
 import-errors = تعذَّر الاستيراد

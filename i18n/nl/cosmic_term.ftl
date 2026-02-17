@@ -10,9 +10,9 @@ new-terminal = Nieuwe terminal
 ## Color schemes
 
 color-schemes = Kleurenschema's
-rename = Hernoem
+rename = Hernoemen
 export = Exporteren
-delete = Verwijder
+delete = Verwijderen
 import = Importeren
 import-errors = Importfouten
 
@@ -23,7 +23,7 @@ name = Naam
 command-line = Opdrachtregel
 tab-title = Tabbladtitel
 tab-title-description = Overschrijf de standaard tabbladtitel
-add-profile = Voeg profiel toe
+add-profile = Profiel toevoegen
 new-profile = Nieuw profiel
 make-default = Stel als standaard in
 working-directory = Werkmap
@@ -38,11 +38,11 @@ settings = Instellingen
 
 appearance = Uiterlijk
 theme = Thema
-match-desktop = Maak gelijk aan bureaublad
+match-desktop = Systeemstandaard
 dark = Donker
 light = Licht
-syntax-dark = Donkere syntaxiskleuring
-syntax-light = Lichte syntaxiskleuring
+syntax-dark = Donker kleurenpalet
+syntax-light = Licht kleurenpalet
 default-zoom-step = Zoomstappen
 opacity = Achtergronddoorzichtigheid
 
@@ -69,9 +69,9 @@ advanced = Geavanceerd
 show-headerbar = Toon koptekst
 show-header-description = Toon de koptekst via het rechtermuisknopmenu.
 # Find
-find-placeholder = Zoek…
-find-previous = Zoek vorige
-find-next = Zoek volgende
+find-placeholder = Zoeken…
+find-previous = Vorige zoeken
+find-next = Volgende zoeken
 
 # Menu
 
@@ -80,19 +80,19 @@ find-next = Zoek volgende
 
 file = Bestand
 new-tab = Nieuw tabblad
-new-window = Nieuw venster openen
+new-window = Nieuw venster
 profile = Profiel
 menu-profiles = Profielen...
-close-tab = Sluit tabblad
-quit = Beëindig
+close-tab = Tabblad sluiten
+quit = Sluiten
 
 ## Edit
 
-edit = Bewerk
-copy = Kopiëer
-paste = Plak
-select-all = Selecteer alles
-find = Zoek
+edit = Bewerken
+copy = Kopiëren
+paste = Plakken
+select-all = Alles selecteren
+find = Zoeken
 clear-scrollback = Wis scrollgeschiedenis
 
 ## View
@@ -107,10 +107,14 @@ split-horizontal = Splits horizontaal
 split-vertical = Splits verticaal
 pane-toggle-maximize = Gemaximaliseerd
 menu-color-schemes = Kleurenpaletten...
-menu-settings = Instellingen…
+menu-settings = Instellingen...
 menu-about = Over COSMIC Terminal…
 support = Ondersteuning
-repository = Bibliotheek
+repository = Broncode
 cancel = Annuleren
 type-to-search = Typ om te zoeken…
 replace = Vervangen
+shortcut-group-clipboard = Klembord
+close-window = Venster sluiten
+keyboard-shortcuts = Toetsencombinaties
+menu-keyboard-shortcuts = Toetsencombinaties…

@@ -60,7 +60,7 @@ use-bright-bold = Зробити жирний текст яскравішим
 
 ### Splits
 
-splits = Розділення
+splits = Розділити
 focus-follow-mouse = Фокус введення слідує за мишею
 
 ### Advanced
@@ -97,9 +97,9 @@ find = Знайти
 ## View
 
 view = Вид
-zoom-in = Збільшити текст
-zoom-reset = Типовий розмір тексту
-zoom-out = Зменшити текст
+zoom-in = Збільшити
+zoom-reset = Звичайний розмір
+zoom-out = Зменшити
 next-tab = Наступна вкладка
 previous-tab = Попередня вкладка
 split-horizontal = Розділити горизонтально
@@ -124,14 +124,14 @@ keyboard-shortcuts = Сполучення клавіш
 menu-keyboard-shortcuts = Сполучення клавіш...
 password-manager = Менеджер паролів
 replace = Замінити
-reset-to-default = Типові значення
+reset-to-default = Відновити
 shortcut-group-tabs = Вкладки
 shortcut-group-window = Вікно
 shortcut-replace-body = { $binding } вже призначено { $existing }. Замінити на { $new_action }?
 shortcut-replace-title = Замінити сполучення?
 type-to-search = Введіть для пошуку…
 copy-or-sigint = Копіювати або SIGINT
-no-shortcuts = Сполучення не призначено
+no-shortcuts = Не призначено
 paste-primary = Вставити основне
 shortcut-capture-hint = Натисніть комбінацію клавіш
 shortcut-group-clipboard = Буфер обміну
@@ -144,3 +144,5 @@ focus-pane-down = Фокус на нижню панель
 focus-pane-left = Фокус на ліву панель
 focus-pane-right = Фокус на праву панель
 focus-pane-up = Фокус на верхню панель
+comment = Емулятор терміналу для середовища COSMIC
+keywords = Команда;Оболонка;Термінал;Інтерфейс;CLI;
