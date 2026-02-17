@@ -104,3 +104,5 @@ shortcut-replace-title = Жарлықты алмастыру керек пе?
 tab-activate = { $number }-бетті белсендіру
 toggle-fullscreen = Толық экран режиміне ауысу
 type-to-search = Іздеу үшін теріңіз...
+comment = COSMIC жұмыс үстелі үшін терминал эмуляторы
+keywords = Command;Shell;Terminal;CLI;Команда;Қоршам;Терминал;

@@ -1,5 +1,5 @@
-comment = Emulátor terminálu pro pracovní prostředí COSMIC
-keywords = Příkaz;Shell;Terminál;Konzole;CLI;
+comment = Emulátor terminálu pro prostředí COSMIC
+keywords = Příkazy;Shell;Terminál;Konzole;CLI;
 settings = Nastavení
 appearance = Vzhled
 theme = Motiv

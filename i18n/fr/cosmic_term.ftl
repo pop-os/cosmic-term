@@ -144,3 +144,5 @@ focus-pane-right = Passer au panneau de droite
 focus-pane-up = Passer au panneau du dessus
 reset-to-default = Rétablir les paramètres par défaut
 toggle-fullscreen = Basculer en plein écran
+comment = Émulateur de terminal pour le bureau COSMIC
+keywords = Commande;Shell;Terminal;CLI;
