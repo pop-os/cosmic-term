@@ -212,7 +212,7 @@ pub fn cosmic_light() -> Colors {
     colors[NamedColor::Blue] = Some(encode_rgb(0x516D94));
     colors[NamedColor::Magenta] = Some(encode_rgb(0x9A30CA));
     colors[NamedColor::Cyan] = Some(encode_rgb(0x227A85));
-    colors[NamedColor::White] = Some(encode_rgb(0xC4C4C4));
+    colors[NamedColor::White] = Some(encode_rgb(0xD7D7D7));
 
     colors[NamedColor::BrightBlack] = Some(encode_rgb(0x000000));
     colors[NamedColor::BrightRed] = Some(encode_rgb(0x890418));
