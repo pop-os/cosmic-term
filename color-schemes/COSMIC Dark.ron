@@ -3,7 +3,7 @@
     foreground: "#C4C4C4",
     cursor: "#C4C4C4",
     bright_foreground: "#C4C4C4",
-    dim_foreground: "#8E8E8E",
+    dim_foreground: "#898989",
     normal: (
         black: "#1B1B1B",
         red: "#F16161",
