@@ -117,7 +117,11 @@ pub fn context_menu<'a>(
             0,
             Element::from(menu_item(fl!("open-link"), Action::LaunchUrlByMenu)),
         );
-        rows.insert(1, Element::from(divider::horizontal::light()));
+        rows.insert(
+            1,
+            Element::from(menu_item(fl!("copy-link"), Action::CopyUrlByMenu)),
+        );
+        rows.insert(2, Element::from(divider::horizontal::light()));
     }
     let content = Column::with_children(rows);
     widget::container(content)

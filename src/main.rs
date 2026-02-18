@@ -233,6 +233,7 @@ pub enum Action {
     ClearScrollback,
     ColorSchemes(ColorSchemeKind),
     Copy,
+    CopyUrlByMenu,
     CopyOrSigint,
     CopyPrimary,
     Find,
@@ -285,6 +286,7 @@ impl Action {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
             Self::Copy => Message::Copy(entity_opt),
+            Self::CopyUrlByMenu => Message::CopyUrlByMenu,
             Self::CopyOrSigint => Message::CopyOrSigint(entity_opt),
             Self::CopyPrimary => Message::CopyPrimary(entity_opt),
             Self::Find => Message::Find(true),
@@ -357,6 +359,7 @@ pub enum Message {
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
+    CopyUrlByMenu,
     DefaultBoldFontWeight(usize),
     DefaultDimFontWeight(usize),
     DefaultFont(usize),
@@ -2409,6 +2412,23 @@ impl Application for App {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
             }
+            Message::CopyUrlByMenu => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        // Update context menu position
+                        let terminal = terminal.lock().unwrap();
+                        if let Some(url) =
+                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                        {
+                            return Task::batch([
+                                clipboard::write(url.to_owned()),
+                                self.update_focus(),
+                            ]);
+                        }
+                    }
+                }
+            }
             Message::LaunchUrlByMenu => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = tab_model.active();
@@ -2778,6 +2798,11 @@ impl Application for App {
                             //so only clear the position for them.
                             match action {
                                 Action::LaunchUrlByMenu => {
+                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
+                                        context_menu.position = None;
+                                    }
+                                }
+                                Action::CopyUrlByMenu => {
                                     if let Some(context_menu) = terminal.context_menu.as_mut() {
                                         context_menu.position = None;
                                     }
