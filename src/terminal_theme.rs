@@ -3,7 +3,6 @@ use alacritty_terminal::{
     vte::ansi::{NamedColor, Rgb},
 };
 use hex_color::HexColor;
-use palette::{FromColor, Okhsl, encoding::Srgb, rgb::Rgb as PRgb};
 use std::{collections::HashMap, fs};
 
 use crate::config::{
