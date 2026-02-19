@@ -37,7 +37,9 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     env,
     error::Error,
-    fs, process,
+    fs,
+    path::PathBuf,
+    process,
     rc::Rc,
     sync::{LazyLock, Mutex, atomic::Ordering},
 };
@@ -96,6 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut daemonize = true;
+    let mut working_directory = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
@@ -109,6 +112,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     env!("CARGO_PKG_VERSION"),
                 );
                 return Ok(());
+            }
+            Some(arg_str @ "--working-directory") | Some(arg_str @ "-w") => {
+                if let Some(dir_arg) = raw_args.next_os(&mut cursor) {
+                    working_directory = Some(PathBuf::from(dir_arg));
+                } else {
+                    eprintln!("Missing argument for {arg_str}");
+                    process::exit(1);
+                }
             }
             Some("--no-daemon") => {
                 daemonize = false;
@@ -167,15 +178,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let shortcuts_config = shortcuts::ShortcutsConfig::new(config.shortcuts_custom.clone());
 
-    let startup_options = if let Some(shell_program) = shell_program_opt {
-        let options = tty::Options {
-            shell: Some(tty::Shell::new(shell_program, shell_args)),
-            ..tty::Options::default()
-        };
-        Some(options)
+    let shell = if let Some(shell_program) = shell_program_opt {
+        Some(tty::Shell::new(shell_program, shell_args))
     } else {
         None
     };
+    let startup_options = Some(tty::Options {
+        shell,
+        working_directory,
+        ..tty::Options::default()
+    });
 
     // Terminal config setup
     let term_config = term::Config::default();
@@ -213,8 +225,9 @@ Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based
 
 Project home page: https://github.com/pop-os/cosmic-term
 Options:
-  --help     Show this message
-  --version  Show the version of cosmic-term"#
+  --help                          Show this message
+  --version                       Show the version of cosmic-term
+  -w, --working-directory <dir>   Set the working directory for the terminal"#
     );
 }
 
@@ -1513,40 +1526,38 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            // Use the startup options, profile options, or defaults
-                            let (options, tab_title_override) = match self.startup_options.take() {
-                                Some(options) => (options, None),
-                                None => match profile_id_opt
-                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
-                                {
-                                    Some(profile) => {
-                                        let mut shell = None;
+                            let (options, tab_title_override) = if let Some(profile) = profile_id_opt
+                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                            {
+                                // Merge profile and startup options, preferring startup options
+                                let startup_options = self.startup_options.take().unwrap_or_default();
+                                let options = tty::Options {
+                                    shell: startup_options.shell.or_else(|| {
                                         if let Some(mut args) = shlex::split(&profile.command) {
                                             if !args.is_empty() {
                                                 let command = args.remove(0);
-                                                shell = Some(tty::Shell::new(command, args));
+                                                return Some(tty::Shell::new(command, args));
                                             }
                                         }
-                                        let working_directory =
-                                            (!profile.working_directory.is_empty())
-                                                .then(|| profile.working_directory.clone().into());
-
-                                        let options = tty::Options {
-                                            shell,
-                                            working_directory,
-                                            drain_on_exit: profile.drain_on_exit,
-                                            env: HashMap::new(),
-                                        };
-                                        let tab_title_override = if profile.tab_title.is_empty() {
-                                            None
-                                        } else {
-                                            Some(profile.tab_title.clone())
-                                        };
-                                        (options, tab_title_override)
-                                    }
-                                    None => (Options::default(), None),
-                                },
+                                        return None;
+                                    }),
+                                    working_directory: startup_options.working_directory.or_else(|| {
+                                        (!profile.working_directory.is_empty())
+                                            .then(|| profile.working_directory.clone().into())
+                                    }),
+                                    drain_on_exit: startup_options.drain_on_exit || profile.drain_on_exit,
+                                    ..startup_options
+                                };
+                                let tab_title_override = if profile.tab_title.is_empty() {
+                                    None
+                                } else {
+                                    Some(profile.tab_title.clone())
+                                };
+                                (options, tab_title_override)
+                            } else {
+                                (self.startup_options.take().unwrap_or_default(), None)
                             };
+
                             let entity = tab_model
                                 .insert()
                                 .text(
