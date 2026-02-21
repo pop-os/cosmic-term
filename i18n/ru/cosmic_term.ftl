@@ -140,3 +140,4 @@ shortcut-replace-title = Заменить сочетание клавиш?
 tab-activate = Активировать вкладку { $number }
 toggle-fullscreen = Вкл./выкл. полноэкранный режим
 type-to-search = Введите для поиска...
+copy-link = Копировать ссылку

@@ -106,3 +106,4 @@ focus-pane-right = Fokuskan panel ke kanan
 focus-pane-up = Fokuskan panel ke atas
 comment = Emulator terminal untuk desktop COSMIC
 keywords = Perintah;Shell;Terminal;CLI;
+copy-link = Salin Tautan

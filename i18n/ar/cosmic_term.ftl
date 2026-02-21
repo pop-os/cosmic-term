@@ -144,3 +144,4 @@ shortcut-replace-title = استبدل الاختصار؟
 tab-activate = نشّط لسان { $number }
 toggle-fullscreen = بدّل ملء الشاشة
 type-to-search = اكتب للبحث...
+copy-link = انسخ الرابط
