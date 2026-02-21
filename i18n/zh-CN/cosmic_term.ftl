@@ -145,3 +145,5 @@ shortcut-replace-title = 是否替换快捷键？
 tab-activate = 启用标签 { $number }
 toggle-fullscreen = 切换全屏
 comment = COSMIC 桌面的终端模拟器
+keywords = 指令;外壳;终端;命令行界面;
+copy-link = 复制链接

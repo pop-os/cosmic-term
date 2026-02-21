@@ -146,3 +146,4 @@ focus-pane-down = Aktywuj panel niżej
 focus-pane-left = Aktywuj lewy panel
 focus-pane-right = Aktywuj prawy panel
 focus-pane-up = Aktywuj panel wyżej
+copy-link = Skopiuj Odnośnik

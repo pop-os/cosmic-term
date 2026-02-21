@@ -106,3 +106,4 @@ focus-pane-up = Zaměřit panel nahoře
 shortcut-replace-body = { $binding } je již přiřazena k „{ $existing }“. Nahradit za „{ $new_action }“?
 shortcut-capture-hint = Stiskněte kombinaci kláves
 paste-primary = Vložit primární
+copy-link = Kopírovat odkaz
