@@ -430,6 +430,7 @@ pub enum Message {
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
+    ShowPaneBorders(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabActivate(segmented_button::Entity),
@@ -1479,10 +1480,16 @@ impl App {
             font_section = font_section.add(advanced_font_settings());
         }
 
-        let splits_section = widget::settings::section().title(fl!("splits")).add(
-            widget::settings::item::builder(fl!("focus-follow-mouse"))
-                .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
-        );
+        let splits_section = widget::settings::section()
+            .title(fl!("splits"))
+            .add(
+                widget::settings::item::builder(fl!("focus-follow-mouse"))
+                    .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
+            )
+            .add(
+                widget::settings::item::builder(fl!("show-pane-borders"))
+                    .toggler(self.config.show_pane_borders, Message::ShowPaneBorders),
+            );
 
         let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
@@ -2712,6 +2719,11 @@ impl Application for App {
                     return self.update_config();
                 }
             }
+            Message::ShowPaneBorders(show_pane_borders) => {
+                if show_pane_borders != self.config.show_pane_borders {
+                    config_set!(show_pane_borders, show_pane_borders);
+                }
+            }
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
                     config_set!(use_bright_bold, use_bright_bold);
@@ -3247,6 +3259,7 @@ impl Application for App {
     fn view(&self) -> Element<'_, Self::Message> {
         let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
 
+        let show_pane_borders = self.config.show_pane_borders;
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
@@ -3388,7 +3401,26 @@ impl Application for App {
                     Message::Drop(None)
                 }
             })
-            .apply(pane_grid::Content::new)
+            .apply(|w| {
+                if show_pane_borders {
+                    pane_grid::Content::new(
+                        widget::container(w)
+                            .padding(1)
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .style(|theme| {
+                                let cosmic = theme.cosmic();
+                                let component = &cosmic.background.component;
+                                widget::container::Style {
+                                    background: Some(Color::from(component.divider).into()),
+                                    ..Default::default()
+                                }
+                            }),
+                    )
+                } else {
+                    pane_grid::Content::new(w)
+                }
+            })
         })
         .width(Length::Fill)
         .height(Length::Fill)
