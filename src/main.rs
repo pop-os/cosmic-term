@@ -712,6 +712,14 @@ impl App {
         Task::none()
     }
 
+    fn active_terminal_cwd(&self) -> Option<std::path::PathBuf> {
+        let tab_model = self.pane_model.active()?;
+        let entity = tab_model.active();
+        let terminal = tab_model.data::<Mutex<Terminal>>(entity)?;
+        let terminal = terminal.lock().ok()?;
+        terminal.current_working_dir()
+    }
+
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Task<Message> {
         // Optimized for just saving color_schemes
         if let Some(ref config_handler) = self.config_handler {
@@ -3101,12 +3109,18 @@ impl Application for App {
                 }
             }
             Message::WindowNew => match env::current_exe() {
-                Ok(exe) => match process::Command::new(&exe).spawn() {
-                    Ok(_child) => {}
-                    Err(err) => {
-                        log::error!("failed to execute {:?}: {}", exe, err);
+                Ok(exe) => {
+                    let mut cmd = process::Command::new(&exe);
+                    if let Some(cwd) = self.active_terminal_cwd().filter(|path| path.is_dir()) {
+                        cmd.current_dir(cwd);
                     }
-                },
+                    match cmd.spawn() {
+                        Ok(_child) => {}
+                        Err(err) => {
+                            log::error!("failed to execute {:?}: {}", exe, err);
+                        }
+                    }
+                }
                 Err(err) => {
                     log::error!("failed to get current executable path: {}", err);
                 }

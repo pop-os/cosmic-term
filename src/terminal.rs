@@ -242,6 +242,7 @@ pub struct Terminal {
     pub needs_update: bool,
     pub profile_id_opt: Option<ProfileId>,
     pub tab_title_override: Option<String>,
+    child_pid: Option<u32>,
     pub term: Arc<FairMutex<Term<EventProxy>>>,
     pub url_regex_search: RegexSearch,
     pub regex_matches: Vec<alacritty_terminal::term::search::Match>,
@@ -328,6 +329,20 @@ impl Terminal {
 
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
+        let child_pid = {
+            #[cfg(unix)]
+            {
+                Some(pty.child().id())
+            }
+            #[cfg(windows)]
+            {
+                pty.child_watcher().pid().map(|pid| pid.get())
+            }
+            #[cfg(not(any(unix, windows)))]
+            {
+                None
+            }
+        };
 
         let pty_event_loop =
             EventLoop::new(term.clone(), event_proxy, pty, options.drain_on_exit, false)?;
@@ -343,6 +358,7 @@ impl Terminal {
             buffer: Arc::new(buffer),
             colors,
             context_menu: None,
+            child_pid,
             default_attrs,
             dim_font_weight: Weight(dim_font_weight),
             metadata_set,
@@ -393,6 +409,18 @@ impl Terminal {
 
     pub fn set_zoom_adj(&mut self, value: i8) {
         self.zoom_adj = value;
+    }
+
+    pub fn current_working_dir(&self) -> Option<std::path::PathBuf> {
+        #[cfg(target_os = "linux")]
+        {
+            let pid = self.child_pid?;
+            return std::fs::read_link(format!("/proc/{pid}/cwd")).ok();
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            None
+        }
     }
 
     pub fn redraw(&self) -> bool {
