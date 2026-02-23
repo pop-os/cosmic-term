@@ -1,6 +1,6 @@
 [package]
 name = "cosmic-term"
-version = "1.0.7"
+version = "1.0.8"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2024"
 license = "GPL-3.0-only"
