@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::iced::Point;
-use cosmic::widget::Column;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
+use cosmic::widget::{Column, space};
 use cosmic::{
     Element,
     app::Core,
-    iced::{
-        Background, Length, advanced::widget::text::Style as TextStyle, widget::horizontal_space,
-    },
+    iced::{Background, Length, advanced::widget::text::Style as TextStyle},
     iced_core::Border,
     theme,
     widget::{
@@ -57,7 +55,7 @@ pub fn context_menu<'a>(
         let key = find_key(&action);
         menu_button(vec![
             widget::text(label).into(),
-            horizontal_space().into(),
+            space::horizontal().into(),
             widget::text(key)
                 .class(theme::Text::Custom(key_style))
                 .into(),
@@ -68,7 +66,7 @@ pub fn context_menu<'a>(
     let menu_checkbox = |label, value, action| {
         menu_button(vec![
             widget::text(label).into(),
-            widget::horizontal_space().into(),
+            widget::space::horizontal().into(),
             widget::toggler(value)
                 .on_toggle(move |_| Message::TabContextAction(entity, action))
                 .size(16.0)
