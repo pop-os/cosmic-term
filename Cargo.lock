@@ -1259,6 +1259,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "configparser"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e57e3272f0190c3f1584272d613719ba5fc7df7f4942fe542e63d949cf3a649b"
+
+[[package]]
 name = "constant_time_eq"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1385,11 +1391,28 @@ name = "cosmic-config"
 version = "1.0.0"
 dependencies = [
  "atomicwrites",
- "cosmic-config-derive",
+ "cosmic-config-derive 1.0.0",
+ "dirs 6.0.0",
+ "iced_futures 0.14.0",
+ "known-folders",
+ "notify",
+ "ron 0.12.0",
+ "serde",
+ "tracing",
+ "xdg",
+]
+
+[[package]]
+name = "cosmic-config"
+version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
+dependencies = [
+ "atomicwrites",
+ "cosmic-config-derive 1.0.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "cosmic-settings-daemon",
  "dirs 6.0.0",
  "futures-util",
- "iced_futures",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "known-folders",
  "notify",
  "ron 0.12.0",
@@ -1409,8 +1432,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-config-derive"
+version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "cosmic-files"
-version = "1.0.5"
+version = "1.0.8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1455,6 +1487,7 @@ dependencies = [
  "walkdir",
  "wayland-client",
  "xdg-mime",
+ "xdgen",
  "zip",
 ]
 
@@ -1505,7 +1538,7 @@ name = "cosmic-settings-config"
 version = "0.1.0"
 source = "git+https://github.com/pop-os/cosmic-settings-daemon#defa9f790432c70054ca1f39737d879ada5d0252"
 dependencies = [
- "cosmic-config",
+ "cosmic-config 1.0.0",
  "ron 0.11.0",
  "serde",
  "serde_with",
@@ -1555,7 +1588,7 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.18.2"
-source = "git+https://github.com/pop-os/cosmic-text.git#f31b9d86959676d97fde54ff5907a58ab4308897"
+source = "git+https://github.com/pop-os/cosmic-text.git#29034e56b47b7e259f9a18a01fcda8ff267fc2d1"
 dependencies = [
  "bitflags 2.11.0",
  "fontdb",
@@ -1578,9 +1611,11 @@ dependencies = [
 [[package]]
 name = "cosmic-theme"
 version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "almost",
- "cosmic-config",
+ "configparser",
+ "cosmic-config 1.0.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "csscolorparser",
  "dirs 6.0.0",
  "palette",
@@ -2735,7 +2770,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.58.0",
+ "windows 0.56.0",
 ]
 
 [[package]]
@@ -2970,7 +3005,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.56.0",
 ]
 
 [[package]]
@@ -2985,12 +3020,13 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "dnd",
  "iced_accessibility",
- "iced_core",
+ "iced_core 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "iced_debug",
- "iced_futures",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "iced_program",
  "iced_renderer",
  "iced_runtime",
@@ -3005,6 +3041,7 @@ dependencies = [
 [[package]]
 name = "iced_accessibility"
 version = "0.1.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3013,6 +3050,28 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0"
+dependencies = [
+ "bitflags 2.11.0",
+ "bytes",
+ "dnd",
+ "glam",
+ "lilt",
+ "log",
+ "mime 0.1.0",
+ "num-traits",
+ "palette",
+ "raw-window-handle",
+ "rustc-hash 2.1.1",
+ "smol_str",
+ "thiserror 2.0.18",
+ "web-time",
+ "window_clipboard",
+]
+
+[[package]]
+name = "iced_core"
+version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bitflags 2.11.0",
  "bytes",
@@ -3036,9 +3095,10 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "log",
 ]
 
@@ -3047,7 +3107,20 @@ name = "iced_futures"
 version = "0.14.0"
 dependencies = [
  "futures",
- "iced_core",
+ "iced_core 0.14.0",
+ "log",
+ "rustc-hash 2.1.1",
+ "wasm-bindgen-futures",
+ "wasmtimer",
+]
+
+[[package]]
+name = "iced_futures"
+version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
+dependencies = [
+ "futures",
+ "iced_core 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "log",
  "rustc-hash 2.1.1",
  "tokio",
@@ -3058,13 +3131,14 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
  "cosmic-text",
  "half",
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "image",
  "kamadak-exif",
  "log",
@@ -3078,6 +3152,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3086,6 +3161,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3097,12 +3173,13 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bytes",
  "cosmic-client-toolkit 0.2.0",
  "dnd",
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "raw-window-handle",
  "thiserror 2.0.18",
  "window_clipboard",
@@ -3111,6 +3188,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3127,6 +3205,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "as-raw-xcb-connection",
  "bitflags 2.11.0",
@@ -3157,6 +3236,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.2"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "cosmic-client-toolkit 0.2.0",
  "dnd",
@@ -3174,12 +3254,13 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "cosmic-client-toolkit 0.2.0",
  "cursor-icon",
  "dnd",
  "iced_debug",
- "iced_futures",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "iced_graphics",
  "iced_program",
  "iced_runtime",
@@ -3837,10 +3918,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3e3d65f018c6ae946ab16e80944b97096ed73c35b221d1c478a6c81d8f57940"
 dependencies = [
  "jiff-static",
+ "jiff-tzdb-platform",
  "log",
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3852,6 +3935,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "jiff-tzdb"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68971ebff725b9e2ca27a601c5eb38a4c5d64422c4cbab0c535f248087eda5c2"
+
+[[package]]
+name = "jiff-tzdb-platform"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "875a5a69ac2bab1a891711cf5eccbec1ce0341ea805560dcd90b7a2e925132e8"
+dependencies = [
+ "jiff-tzdb",
 ]
 
 [[package]]
@@ -4195,13 +4293,13 @@ checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
 [[package]]
 name = "libcosmic"
 version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "apply",
  "ashpd 0.12.3",
  "auto_enums",
- "chrono",
  "cosmic-client-toolkit 0.1.0",
- "cosmic-config",
+ "cosmic-config 1.0.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "cosmic-freedesktop-icons",
  "cosmic-settings-config",
  "cosmic-settings-daemon",
@@ -4214,8 +4312,8 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "iced",
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
+ "iced_futures 0.14.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "iced_renderer",
  "iced_runtime",
  "iced_tiny_skia",
@@ -4223,6 +4321,7 @@ dependencies = [
  "iced_widget",
  "iced_winit",
  "image",
+ "jiff",
  "libc",
  "log",
  "mime 0.3.17",
@@ -5826,7 +5925,8 @@ dependencies = [
 [[package]]
 name = "recently-used-xbel"
 version = "1.2.0"
-source = "git+https://github.com/pop-os/recently-used-xbel.git#5e58e49acc5c0148eac464706a0cac3a2fc5d321"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63ab2febcd4f0245fbadd0b44f7cd35207128a7b210a089e65740625a45399b5"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
@@ -7859,19 +7959,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-core"
-version = "0.62.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8e83a14d34d0623b51dce9581199302a221863196a1dde71a7663a4c2be9deb"
-dependencies = [
- "windows-implement 0.60.2",
- "windows-interface 0.59.3",
- "windows-link 0.2.1",
- "windows-result 0.4.1",
- "windows-strings 0.5.1",
-]
-
-[[package]]
 name = "windows-future"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7998,15 +8085,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-result"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7781fa89eaf60850ac3d2da7af8e5242a5ea78d1a11c49bf2910bb5a73853eb5"
-dependencies = [
- "windows-link 0.2.1",
-]
-
-[[package]]
 name = "windows-strings"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8023,15 +8101,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
 dependencies = [
  "windows-link 0.1.3",
-]
-
-[[package]]
-name = "windows-strings"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7837d08f69c77cf6b07689544538e017c1bfcf57e34b4c0ff58e6c2cd3b37091"
-dependencies = [
- "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -9227,3 +9296,7 @@ dependencies = [
  "syn",
  "winnow",
 ]
+
+[[patch.unused]]
+name = "cosmic-theme"
+version = "1.0.0"

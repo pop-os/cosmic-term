@@ -69,6 +69,6 @@ debug = true
 
 
 [patch.'https://github.com/pop-os/libcosmic']
-libcosmic = { path = "../libcosmic" }
+libcosmic = { git = "https://github.com/kenz-gelsoft/libcosmic.git", branch = "minimal-input-method-support" }
 cosmic-config = { path = "../libcosmic/cosmic-config" }
 cosmic-theme = { path = "../libcosmic/cosmic-theme" }
