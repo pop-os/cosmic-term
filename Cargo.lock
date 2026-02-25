@@ -1363,22 +1363,6 @@ dependencies = [
 [[package]]
 name = "cosmic-config"
 version = "1.0.0"
-dependencies = [
- "atomicwrites",
- "cosmic-config-derive 1.0.0",
- "dirs 6.0.0",
- "iced_futures 0.14.0",
- "known-folders",
- "notify",
- "ron 0.12.0",
- "serde",
- "tracing",
- "xdg",
-]
-
-[[package]]
-name = "cosmic-config"
-version = "1.0.0"
 source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#dbbac9bd26a6356d037913d4a5541dc9d6add1ff"
 dependencies = [
  "atomicwrites",
@@ -1398,11 +1382,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "cosmic-config-derive"
+name = "cosmic-config"
 version = "1.0.0"
+source = "git+https://github.com/pop-os/libcosmic.git#3d2c018cd1df25697fa2825dbc5d040cff39389a"
 dependencies = [
- "quote",
- "syn",
+ "atomicwrites",
+ "cosmic-config-derive 1.0.0 (git+https://github.com/pop-os/libcosmic.git)",
+ "dirs 6.0.0",
+ "iced_futures 0.14.0 (git+https://github.com/pop-os/libcosmic.git)",
+ "known-folders",
+ "notify",
+ "ron 0.12.0",
+ "serde",
+ "tracing",
+ "xdg",
 ]
 
 [[package]]
@@ -1415,8 +1408,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-config-derive"
+version = "1.0.0"
+source = "git+https://github.com/pop-os/libcosmic.git#3d2c018cd1df25697fa2825dbc5d040cff39389a"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "cosmic-files"
 version = "1.0.8"
+source = "git+https://github.com/pop-os/cosmic-files.git?branch=iced-rebase#dc2992a96985e13071862ae7f8a5083b34dee8dd"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1512,7 +1515,7 @@ name = "cosmic-settings-config"
 version = "0.1.0"
 source = "git+https://github.com/pop-os/cosmic-settings-daemon#e37160f14d1e7ee428f973cd2848b4e95f83dfe1"
 dependencies = [
- "cosmic-config 1.0.0",
+ "cosmic-config 1.0.0 (git+https://github.com/pop-os/libcosmic.git)",
  "ron 0.11.0",
  "serde",
  "serde_with",
@@ -2744,7 +2747,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.58.0",
+ "windows 0.56.0",
 ]
 
 [[package]]
@@ -2979,7 +2982,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.56.0",
 ]
 
 [[package]]
@@ -3024,27 +3027,6 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0"
-dependencies = [
- "bitflags 2.11.0",
- "bytes",
- "dnd",
- "glam",
- "lilt",
- "log",
- "mime 0.1.0",
- "num-traits",
- "palette",
- "raw-window-handle",
- "rustc-hash 2.1.1",
- "smol_str",
- "thiserror 2.0.18",
- "web-time",
- "window_clipboard",
-]
-
-[[package]]
-name = "iced_core"
-version = "0.14.0"
 source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#dbbac9bd26a6356d037913d4a5541dc9d6add1ff"
 dependencies = [
  "bitflags 2.11.0",
@@ -3067,6 +3049,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_core"
+version = "0.14.0"
+source = "git+https://github.com/pop-os/libcosmic.git#3d2c018cd1df25697fa2825dbc5d040cff39389a"
+dependencies = [
+ "bitflags 2.11.0",
+ "bytes",
+ "dnd",
+ "glam",
+ "lilt",
+ "log",
+ "mime 0.1.0",
+ "num-traits",
+ "palette",
+ "raw-window-handle",
+ "rustc-hash 2.1.1",
+ "smol_str",
+ "thiserror 2.0.18",
+ "web-time",
+ "window_clipboard",
+]
+
+[[package]]
 name = "iced_debug"
 version = "0.14.0"
 source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#dbbac9bd26a6356d037913d4a5541dc9d6add1ff"
@@ -3079,18 +3083,6 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.14.0"
-dependencies = [
- "futures",
- "iced_core 0.14.0",
- "log",
- "rustc-hash 2.1.1",
- "wasm-bindgen-futures",
- "wasmtimer",
-]
-
-[[package]]
-name = "iced_futures"
-version = "0.14.0"
 source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#dbbac9bd26a6356d037913d4a5541dc9d6add1ff"
 dependencies = [
  "futures",
@@ -3098,6 +3090,19 @@ dependencies = [
  "log",
  "rustc-hash 2.1.1",
  "tokio",
+ "wasm-bindgen-futures",
+ "wasmtimer",
+]
+
+[[package]]
+name = "iced_futures"
+version = "0.14.0"
+source = "git+https://github.com/pop-os/libcosmic.git#3d2c018cd1df25697fa2825dbc5d040cff39389a"
+dependencies = [
+ "futures",
+ "iced_core 0.14.0 (git+https://github.com/pop-os/libcosmic.git)",
+ "log",
+ "rustc-hash 2.1.1",
  "wasm-bindgen-futures",
  "wasmtimer",
 ]
@@ -9264,7 +9269,3 @@ dependencies = [
  "syn",
  "winnow",
 ]
-
-[[patch.unused]]
-name = "cosmic-theme"
-version = "1.0.0"
