@@ -254,22 +254,24 @@ where
         let mut col = cursor.point.column.0;
         let line = cursor.point.line.0;
         let width = terminal.size().cell_width;
-        let mut bottom_left = Vector::<f32>::ZERO;
+        let mut cursor_position = Vector::<f32>::ZERO;
+        let mut line_height = 0.0;
         terminal.with_buffer(|buffer| {
             let layout = buffer.layout_runs().nth(line as usize).unwrap();
             for glyph in layout.glyphs {
-                bottom_left.x += glyph.w;
+                cursor_position.x += glyph.w;
                 let ch_width = if glyph.w > width { 2 } else { 1 };
                 if ch_width > col {
                     break;
                 }
                 col -= ch_width;
             }
-            bottom_left.y = layout.line_top + layout.line_height;
+            cursor_position.y = layout.line_top;
+            line_height = layout.line_height;
         });
 
         InputMethod::Enabled {
-            cursor: Rectangle::new(view_position + bottom_left, Size::default()),
+            cursor: Rectangle::new(view_position + cursor_position, Size::new(1.0, line_height)),
             purpose: input_method::Purpose::Normal,
             preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
         }
