@@ -44,6 +44,11 @@ use std::{
     sync::{LazyLock, Mutex, atomic::Ordering},
 };
 use tokio::sync::mpsc;
+use tracing_journald as journald;
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 use config::{
     AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile,
@@ -92,6 +97,27 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
 /// Runs application with these settings
 #[rustfmt::skip]
 fn main() -> Result<(), Box<dyn Error>> {
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::WARN.into())
+        .from_env_lossy();
+
+    let fmt_layer = fmt::layer().compact();
+
+    match journald::layer() {
+        Ok(journald_layer) => tracing_subscriber::registry()
+            .with(fmt_layer)
+            .with(journald_layer)
+            .with(filter)
+            .init(),
+        Err(_) => {
+            tracing_subscriber::registry()
+                .with(fmt_layer)
+                .with(filter)
+                .init();
+            log::warn!("Failed to init journald logging.");
+        }
+    };
+
     let raw_args = RawArgs::from_args();
     let mut cursor = raw_args.cursor();
 
