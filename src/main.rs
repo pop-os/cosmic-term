@@ -1526,11 +1526,13 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            let (options, tab_title_override) = if let Some(profile) = profile_id_opt
-                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                            let (options, tab_title_override) = if let Some(profile) =
+                                profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
                                 // Merge profile and startup options, preferring startup options
-                                let startup_options = self.startup_options.take().unwrap_or_default();
+                                let startup_options =
+                                    self.startup_options.take().unwrap_or_default();
                                 let options = tty::Options {
                                     shell: startup_options.shell.or_else(|| {
                                         if let Some(mut args) = shlex::split(&profile.command) {
@@ -1541,11 +1543,14 @@ impl App {
                                         }
                                         return None;
                                     }),
-                                    working_directory: startup_options.working_directory.or_else(|| {
-                                        (!profile.working_directory.is_empty())
-                                            .then(|| profile.working_directory.clone().into())
-                                    }),
-                                    drain_on_exit: startup_options.drain_on_exit || profile.drain_on_exit,
+                                    working_directory: startup_options.working_directory.or_else(
+                                        || {
+                                            (!profile.working_directory.is_empty())
+                                                .then(|| profile.working_directory.clone().into())
+                                        },
+                                    ),
+                                    drain_on_exit: startup_options.drain_on_exit
+                                        || profile.drain_on_exit,
                                     ..startup_options
                                 };
                                 let tab_title_override = if profile.tab_title.is_empty() {
