@@ -152,7 +152,7 @@ dependencies = [
  "libc",
  "log",
  "miow",
- "parking_lot",
+ "parking_lot 0.12.5",
  "piper",
  "polling",
  "regex-automata",
@@ -1259,6 +1259,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "configparser"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e57e3272f0190c3f1584272d613719ba5fc7df7f4942fe542e63d949cf3a649b"
+
+[[package]]
 name = "constant_time_eq"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1383,13 +1389,14 @@ dependencies = [
 [[package]]
 name = "cosmic-config"
 version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "atomicwrites",
- "cosmic-config-derive",
+ "cosmic-config-derive 1.0.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "cosmic-settings-daemon",
  "dirs 6.0.0",
  "futures-util",
- "iced_futures",
+ "iced_futures 0.14.0",
  "known-folders",
  "notify",
  "ron 0.12.0",
@@ -1401,8 +1408,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-config"
+version = "1.0.0"
+source = "git+https://github.com/pop-os/libcosmic.git#a37be90e811f365273bf632bf7090b63a368f092"
+dependencies = [
+ "atomicwrites",
+ "cosmic-config-derive 1.0.0 (git+https://github.com/pop-os/libcosmic.git)",
+ "dirs 6.0.0",
+ "iced_futures 0.14.0-dev",
+ "known-folders",
+ "notify",
+ "ron 0.12.0",
+ "serde",
+ "tracing",
+ "xdg",
+]
+
+[[package]]
 name = "cosmic-config-derive"
 version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "cosmic-config-derive"
+version = "1.0.0"
+source = "git+https://github.com/pop-os/libcosmic.git#a37be90e811f365273bf632bf7090b63a368f092"
 dependencies = [
  "quote",
  "syn",
@@ -1410,7 +1444,8 @@ dependencies = [
 
 [[package]]
 name = "cosmic-files"
-version = "1.0.5"
+version = "1.0.8"
+source = "git+https://github.com/pop-os/cosmic-files.git?branch=iced-rebase#341078df8ff93b6b0a1808b2abc312852727bf95"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1455,6 +1490,7 @@ dependencies = [
  "walkdir",
  "wayland-client",
  "xdg-mime",
+ "xdgen",
  "zip",
 ]
 
@@ -1505,7 +1541,7 @@ name = "cosmic-settings-config"
 version = "0.1.0"
 source = "git+https://github.com/pop-os/cosmic-settings-daemon#defa9f790432c70054ca1f39737d879ada5d0252"
 dependencies = [
- "cosmic-config",
+ "cosmic-config 1.0.0 (git+https://github.com/pop-os/libcosmic.git)",
  "ron 0.11.0",
  "serde",
  "serde_with",
@@ -1555,7 +1591,7 @@ dependencies = [
 [[package]]
 name = "cosmic-text"
 version = "0.18.2"
-source = "git+https://github.com/pop-os/cosmic-text.git#f31b9d86959676d97fde54ff5907a58ab4308897"
+source = "git+https://github.com/pop-os/cosmic-text.git#29034e56b47b7e259f9a18a01fcda8ff267fc2d1"
 dependencies = [
  "bitflags 2.11.0",
  "fontdb",
@@ -1566,7 +1602,7 @@ dependencies = [
  "rustc-hash 2.1.1",
  "self_cell",
  "skrifa 0.40.0",
- "smol_str",
+ "smol_str 0.3.5",
  "swash",
  "sys-locale",
  "unicode-bidi",
@@ -1578,9 +1614,11 @@ dependencies = [
 [[package]]
 name = "cosmic-theme"
 version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "almost",
- "cosmic-config",
+ "configparser",
+ "cosmic-config 1.0.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "csscolorparser",
  "dirs 6.0.0",
  "palette",
@@ -2918,7 +2956,7 @@ dependencies = [
  "i18n-embed-impl",
  "intl-memoizer",
  "log",
- "parking_lot",
+ "parking_lot 0.12.5",
  "rust-embed",
  "sys-locale",
  "thiserror 1.0.69",
@@ -2970,7 +3008,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.61.2",
 ]
 
 [[package]]
@@ -2985,12 +3023,13 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "dnd",
  "iced_accessibility",
- "iced_core",
+ "iced_core 0.14.0",
  "iced_debug",
- "iced_futures",
+ "iced_futures 0.14.0",
  "iced_program",
  "iced_renderer",
  "iced_runtime",
@@ -3005,6 +3044,7 @@ dependencies = [
 [[package]]
 name = "iced_accessibility"
 version = "0.1.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3012,7 +3052,30 @@ dependencies = [
 
 [[package]]
 name = "iced_core"
+version = "0.14.0-dev"
+source = "git+https://github.com/pop-os/libcosmic.git#a37be90e811f365273bf632bf7090b63a368f092"
+dependencies = [
+ "bitflags 2.11.0",
+ "bytes",
+ "dnd",
+ "glam",
+ "log",
+ "mime 0.1.0",
+ "num-traits",
+ "once_cell",
+ "palette",
+ "raw-window-handle",
+ "rustc-hash 2.1.1",
+ "smol_str 0.2.2",
+ "thiserror 1.0.69",
+ "web-time",
+ "window_clipboard",
+]
+
+[[package]]
+name = "iced_core"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bitflags 2.11.0",
  "bytes",
@@ -3027,7 +3090,7 @@ dependencies = [
  "raw-window-handle",
  "rustc-hash 2.1.1",
  "serde",
- "smol_str",
+ "smol_str 0.3.5",
  "thiserror 2.0.18",
  "web-time",
  "window_clipboard",
@@ -3036,18 +3099,33 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0",
+ "iced_futures 0.14.0",
  "log",
 ]
 
 [[package]]
 name = "iced_futures"
-version = "0.14.0"
+version = "0.14.0-dev"
+source = "git+https://github.com/pop-os/libcosmic.git#a37be90e811f365273bf632bf7090b63a368f092"
 dependencies = [
  "futures",
- "iced_core",
+ "iced_core 0.14.0-dev",
+ "log",
+ "rustc-hash 2.1.1",
+ "wasm-bindgen-futures",
+ "wasm-timer",
+]
+
+[[package]]
+name = "iced_futures"
+version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
+dependencies = [
+ "futures",
+ "iced_core 0.14.0",
  "log",
  "rustc-hash 2.1.1",
  "tokio",
@@ -3058,13 +3136,14 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bitflags 2.11.0",
  "bytemuck",
  "cosmic-text",
  "half",
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0",
+ "iced_futures 0.14.0",
  "image",
  "kamadak-exif",
  "log",
@@ -3078,6 +3157,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -3086,6 +3166,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -3097,12 +3178,13 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bytes",
  "cosmic-client-toolkit 0.2.0",
  "dnd",
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0",
+ "iced_futures 0.14.0",
  "raw-window-handle",
  "thiserror 2.0.18",
  "window_clipboard",
@@ -3111,6 +3193,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -3127,6 +3210,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "as-raw-xcb-connection",
  "bitflags 2.11.0",
@@ -3157,6 +3241,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.2"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "cosmic-client-toolkit 0.2.0",
  "dnd",
@@ -3174,12 +3259,13 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "cosmic-client-toolkit 0.2.0",
  "cursor-icon",
  "dnd",
  "iced_debug",
- "iced_futures",
+ "iced_futures 0.14.0",
  "iced_graphics",
  "iced_program",
  "iced_runtime",
@@ -3755,6 +3841,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3837,10 +3932,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3e3d65f018c6ae946ab16e80944b97096ed73c35b221d1c478a6c81d8f57940"
 dependencies = [
  "jiff-static",
+ "jiff-tzdb-platform",
  "log",
  "portable-atomic",
  "portable-atomic-util",
  "serde_core",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3852,6 +3949,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "jiff-tzdb"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68971ebff725b9e2ca27a601c5eb38a4c5d64422c4cbab0c535f248087eda5c2"
+
+[[package]]
+name = "jiff-tzdb-platform"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "875a5a69ac2bab1a891711cf5eccbec1ce0341ea805560dcd90b7a2e925132e8"
+dependencies = [
+ "jiff-tzdb",
 ]
 
 [[package]]
@@ -4195,13 +4307,13 @@ checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
 [[package]]
 name = "libcosmic"
 version = "1.0.0"
+source = "git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support#2cd77c16a3f88cf15bc0385c00ec763268a8b9c3"
 dependencies = [
  "apply",
  "ashpd 0.12.3",
  "auto_enums",
- "chrono",
  "cosmic-client-toolkit 0.1.0",
- "cosmic-config",
+ "cosmic-config 1.0.0 (git+https://github.com/kenz-gelsoft/libcosmic.git?branch=minimal-input-method-support)",
  "cosmic-freedesktop-icons",
  "cosmic-settings-config",
  "cosmic-settings-daemon",
@@ -4214,8 +4326,8 @@ dependencies = [
  "i18n-embed",
  "i18n-embed-fl",
  "iced",
- "iced_core",
- "iced_futures",
+ "iced_core 0.14.0",
+ "iced_futures 0.14.0",
  "iced_renderer",
  "iced_runtime",
  "iced_tiny_skia",
@@ -4223,6 +4335,7 @@ dependencies = [
  "iced_widget",
  "iced_winit",
  "image",
+ "jiff",
  "libc",
  "log",
  "mime 0.3.17",
@@ -5188,12 +5301,37 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "parking_lot"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
+dependencies = [
+ "instant",
+ "lock_api",
+ "parking_lot_core 0.8.6",
+]
+
+[[package]]
+name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
  "lock_api",
- "parking_lot_core",
+ "parking_lot_core 0.9.12",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.8.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
+dependencies = [
+ "cfg-if",
+ "instant",
+ "libc",
+ "redox_syscall 0.2.16",
+ "smallvec",
+ "winapi",
 ]
 
 [[package]]
@@ -5826,7 +5964,8 @@ dependencies = [
 [[package]]
 name = "recently-used-xbel"
 version = "1.2.0"
-source = "git+https://github.com/pop-os/recently-used-xbel.git#5e58e49acc5c0148eac464706a0cac3a2fc5d321"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63ab2febcd4f0245fbadd0b44f7cd35207128a7b210a089e65740625a45399b5"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
@@ -5836,6 +5975,15 @@ dependencies = [
  "serde",
  "thiserror 1.0.69",
  "url",
+]
+
+[[package]]
+name = "redox_syscall"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
+dependencies = [
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -6490,6 +6638,15 @@ dependencies = [
  "raw-window-handle",
  "smithay-client-toolkit 0.19.2",
  "wayland-backend",
+]
+
+[[package]]
+name = "smol_str"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -7374,6 +7531,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-timer"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be0ecb0db480561e9a7642b5d3e4187c128914e58aa84330b9493e3eb68c5e7f"
+dependencies = [
+ "futures",
+ "js-sys",
+ "parking_lot 0.11.2",
+ "pin-utils",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "wasmparser"
 version = "0.244.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7393,7 +7565,7 @@ checksum = "1c598d6b99ea013e35844697fc4670d08339d5cda15588f193c6beedd12f644b"
 dependencies = [
  "futures",
  "js-sys",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pin-utils",
  "slab",
  "wasm-bindgen",
@@ -7590,7 +7762,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot",
+ "parking_lot 0.12.5",
  "portable-atomic",
  "profiling",
  "raw-window-handle",
@@ -7622,7 +7794,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot",
+ "parking_lot 0.12.5",
  "portable-atomic",
  "profiling",
  "raw-window-handle",
@@ -7696,7 +7868,7 @@ dependencies = [
  "objc",
  "once_cell",
  "ordered-float",
- "parking_lot",
+ "parking_lot 0.12.5",
  "portable-atomic",
  "portable-atomic-util",
  "profiling",
@@ -7859,19 +8031,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-core"
-version = "0.62.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8e83a14d34d0623b51dce9581199302a221863196a1dde71a7663a4c2be9deb"
-dependencies = [
- "windows-implement 0.60.2",
- "windows-interface 0.59.3",
- "windows-link 0.2.1",
- "windows-result 0.4.1",
- "windows-strings 0.5.1",
-]
-
-[[package]]
 name = "windows-future"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7998,15 +8157,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-result"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7781fa89eaf60850ac3d2da7af8e5242a5ea78d1a11c49bf2910bb5a73853eb5"
-dependencies = [
- "windows-link 0.2.1",
-]
-
-[[package]]
 name = "windows-strings"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8023,15 +8173,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6c93f3a0c3b36176cb1327a4958a0353d5d166c2a35cb268ace15e91d3b57"
 dependencies = [
  "windows-link 0.1.3",
-]
-
-[[package]]
-name = "windows-strings"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7837d08f69c77cf6b07689544538e017c1bfcf57e34b4c0ff58e6c2cd3b37091"
-dependencies = [
- "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -8352,7 +8493,7 @@ dependencies = [
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-android",
  "winit-appkit",
@@ -8376,7 +8517,7 @@ dependencies = [
  "dpi",
  "ndk",
  "raw-window-handle",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-core",
 ]
@@ -8397,7 +8538,7 @@ dependencies = [
  "objc2-core-video",
  "objc2-foundation 0.3.2",
  "raw-window-handle",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-common",
  "winit-core",
@@ -8411,7 +8552,7 @@ dependencies = [
  "memmap2 0.9.10",
  "objc2 0.6.3",
  "objc2-core-foundation",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-core",
  "x11-dl",
@@ -8428,7 +8569,7 @@ dependencies = [
  "dpi",
  "keyboard-types",
  "raw-window-handle",
- "smol_str",
+ "smol_str 0.3.5",
  "web-time",
 ]
 
@@ -8443,7 +8584,7 @@ dependencies = [
  "orbclient",
  "raw-window-handle",
  "redox_syscall 0.7.1",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-core",
 ]
@@ -8462,7 +8603,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "objc2-ui-kit",
  "raw-window-handle",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-common",
  "winit-core",
@@ -8484,7 +8625,7 @@ dependencies = [
  "rustix 1.1.4",
  "sctk-adwaita",
  "smithay-client-toolkit 0.20.0",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "wayland-backend",
  "wayland-client",
@@ -8507,7 +8648,7 @@ dependencies = [
  "js-sys",
  "pin-project",
  "raw-window-handle",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -8525,7 +8666,7 @@ dependencies = [
  "cursor-icon",
  "dpi",
  "raw-window-handle",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "unicode-segmentation",
  "windows-sys 0.59.0",
@@ -8546,7 +8687,7 @@ dependencies = [
  "percent-encoding",
  "raw-window-handle",
  "rustix 1.1.4",
- "smol_str",
+ "smol_str 0.3.5",
  "tracing",
  "winit-common",
  "winit-core",

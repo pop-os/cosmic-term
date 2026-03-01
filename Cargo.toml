@@ -36,8 +36,9 @@ thiserror = { version = "2.0", optional = true }
 secstr = { version = "0.5", optional = true }
 
 [dependencies.cosmic-files]
-path = "../cosmic-files"
-# git = "https://github.com/pop-os/cosmic-files.git"
+# path = "../cosmic-files"
+git = "https://github.com/pop-os/cosmic-files.git"
+branch = "iced-rebase"
 default-features = false
 
 [dependencies.cosmic-text]
@@ -69,6 +70,6 @@ debug = true
 
 
 [patch.'https://github.com/pop-os/libcosmic']
-libcosmic = { path = "../libcosmic" }
-cosmic-config = { path = "../libcosmic/cosmic-config" }
-cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+libcosmic = { git = "https://github.com/kenz-gelsoft/libcosmic.git", branch = "minimal-input-method-support" }
+#cosmic-config = { path = "../libcosmic/cosmic-config" }
+#cosmic-theme = { path = "../libcosmic/cosmic-theme" }
