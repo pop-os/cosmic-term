@@ -44,12 +44,12 @@ light = Hell
 syntax-dark = Dunkles Farbschema
 syntax-light = Helles Farbschema
 default-zoom-step = Zoomstufen
-opacity = Deckkraft des Hintergrundes
+opacity = Hintergrunddeckkraft
 
 ### Schriftart
 
 font = Schriftart
-advanced-font-settings = Fortgeschrittene Schrifteinstellungen
+advanced-font-settings = Erweiterte Schriftarteneinstellungen
 default-font = Schriftart
 default-font-size = Schriftgröße
 default-font-stretch = Schriftbreite
@@ -99,7 +99,7 @@ clear-scrollback = Scrollverlauf löschen
 
 view = Ansicht
 zoom-in = Größerer Text
-zoom-reset = Standardschriftgröße
+zoom-reset = Standardtextgröße
 zoom-out = Kleinerer Text
 next-tab = Nächster Tab
 previous-tab = Vorheriger Tab
@@ -111,3 +111,4 @@ menu-settings = Einstellungen...
 menu-about = Über COSMIC Terminal...
 repository = Repository
 cancel = Abbrechen
+keyboard-shortcuts = Tastenkombinationen

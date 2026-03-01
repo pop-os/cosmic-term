@@ -67,7 +67,7 @@ focus-follow-mouse = Le focus de la saisie suit la souris
 
 advanced = Avancé
 show-headerbar = Afficher l'en-tête
-show-header-description = Révéler l'en-tête du menu contextuel.
+show-header-description = Révéler l'en-tête du menu contextuel
 # Find
 find-placeholder = Rechercher...
 find-previous = Chercher précédent

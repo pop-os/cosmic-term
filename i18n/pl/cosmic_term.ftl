@@ -71,7 +71,7 @@ focus-follow-mouse = Aktywne okno pisania odpowiada położeniu myszki
 
 advanced = Zaawansowane
 show-headerbar = Pokaż pasek nagłówka
-show-header-description = Ukazuje pasek nagłówka z menu wybieranego prawym przyciskiem myszki.
+show-header-description = Ukazuje pasek nagłówka z menu wybieranego prawym przyciskiem myszki
 # Find
 find-placeholder = Szukaj…
 find-previous = Znajdź poprzedni
@@ -146,3 +146,4 @@ focus-pane-down = Aktywuj panel niżej
 focus-pane-left = Aktywuj lewy panel
 focus-pane-right = Aktywuj prawy panel
 focus-pane-up = Aktywuj panel wyżej
+copy-link = Skopiuj Odnośnik

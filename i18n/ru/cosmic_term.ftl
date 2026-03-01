@@ -1,4 +1,4 @@
-cosmic-terminal = Терминал COSMIC
+cosmic-terminal = Терминал
 comment = Эмулятор терминала для рабочей среды COSMIC
 keywords = Команда;Оболочка;Терминал;Консоль;
 new-terminal = Новый терминал
@@ -38,7 +38,7 @@ settings = Параметры
 
 ### Appearance
 
-appearance = Оформление
+appearance = Внешний вид
 theme = Тема
 match-desktop = Как в системе
 dark = Тёмная
@@ -69,7 +69,7 @@ focus-follow-mouse = Фокус при наборе следует за мышь
 
 advanced = Дополнительно
 show-headerbar = Отображать заголовок
-show-header-description = Раскройте заголовок из меню правой кнопки мыши.
+show-header-description = Показ заголовка можно включить в контекстном меню
 # Find
 find-placeholder = Найти...
 find-previous = Найти ранее
@@ -140,3 +140,4 @@ shortcut-replace-title = Заменить сочетание клавиш?
 tab-activate = Активировать вкладку { $number }
 toggle-fullscreen = Вкл./выкл. полноэкранный режим
 type-to-search = Введите для поиска...
+copy-link = Копировать ссылку
