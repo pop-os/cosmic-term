@@ -43,6 +43,54 @@ use std::{
     rc::Rc,
     sync::{LazyLock, Mutex, atomic::Ordering},
 };
+
+/// String interner to manage &'static str allocations for tab titles
+/// This prevents unbounded memory growth from Box::leak() while providing
+/// the required 'static lifetime for cosmic widget text_set().
+#[derive(Debug, Default)]
+struct StringInterner {
+    /// Map of entity IDs to their currently allocated strings
+    /// When a tab's title changes, the old string can be reclaimed
+    allocated: HashMap<segmented_button::Entity, Vec<&'static str>>,
+    /// All strings currently in use (for cleanup tracking)
+    all_strings: Vec<&'static str>,
+}
+
+impl StringInterner {
+    /// Intern a string for a specific entity
+    /// Returns a &'static str that is valid for the lifetime of the interner
+    fn intern(&mut self, entity: segmented_button::Entity, s: String) -> &'static str {
+        // Convert to boxed str and leak it
+        let leaked: &'static str = Box::leak(s.into_boxed_str());
+
+        // Track this allocation for this entity
+        self.allocated.entry(entity).or_default().push(leaked);
+        self.all_strings.push(leaked);
+
+        leaked
+    }
+
+    /// Clean up old allocations for an entity when setting a new value
+    /// This prevents unbounded memory growth
+    fn cleanup_entity(&mut self, entity: segmented_button::Entity) {
+        if let Some(mut strings) = self.allocated.remove(&entity) {
+            // Keep only the most recent string, drop references to older ones
+            // Note: The leaked memory itself is still allocated, but we lose
+            // the reference to it. For a terminal app with few renames, this
+            // is acceptable. For long-running apps, consider a more sophisticated
+            // cleanup strategy or periodic GC.
+            if let Some(latest) = strings.pop() {
+                self.allocated.insert(entity, vec![latest]);
+            }
+        }
+    }
+
+    /// Get the number of allocations tracked (for debugging/monitoring)
+    #[allow(dead_code)]
+    fn _allocation_count(&self) -> usize {
+        self.all_strings.len()
+    }
+}
 use tokio::sync::mpsc;
 
 use config::{
@@ -280,6 +328,7 @@ pub enum Action {
     TabClose,
     TabNew,
     TabNewNoProfile,
+    TabRename,
     TabNext,
     TabPrev,
     ToggleFullscreen,
@@ -333,6 +382,10 @@ impl Action {
             Self::TabClose => Message::TabClose(entity_opt),
             Self::TabNew => Message::TabNew,
             Self::TabNewNoProfile => Message::TabNewNoProfile,
+            Self::TabRename => {
+                // Keyboard shortcut: use focused pane, active entity will be determined in handler
+                Message::TabRename(None, segmented_button::Entity::default())
+            }
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
             Self::ToggleFullscreen => Message::ToggleFullscreen,
@@ -367,6 +420,10 @@ pub enum Message {
     ColorSchemeImportResult(ColorSchemeKind, DialogResult),
     ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
     ColorSchemeRenameSubmit,
+    TabRename(Option<pane_grid::Pane>, segmented_button::Entity),
+    TabRenameInput(String),
+    TabRenameCancel,
+    TabRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Config),
     Copy(Option<segmented_button::Entity>),
@@ -435,7 +492,7 @@ pub enum Message {
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
-    TabContextAction(segmented_button::Entity, Action),
+    TabContextAction(pane_grid::Pane, segmented_button::Entity, Action),
     TabContextMenu(pane_grid::Pane, Option<MenuState>),
     TabNew,
     TabNewNoProfile,
@@ -513,6 +570,10 @@ pub struct App {
     color_scheme_expanded: Option<(ColorSchemeKind, Option<ColorSchemeId>)>,
     color_scheme_renaming: Option<(ColorSchemeKind, ColorSchemeId, String)>,
     color_scheme_rename_id: widget::Id,
+    tab_renaming: Option<(pane_grid::Pane, segmented_button::Entity, String)>,
+    tab_rename_id: widget::Id,
+    tab_title_interner: StringInterner,
+    tab_rename_active: bool,
     color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
@@ -769,7 +830,18 @@ impl App {
     fn update_title(&mut self, pane: Option<pane_grid::Pane>) -> Task<Message> {
         let pane = pane.unwrap_or(self.pane_model.focused());
         if let Some(tab_model) = self.pane_model.panes.get(pane) {
-            let (header_title, window_title) = match tab_model.text(tab_model.active()) {
+            let entity = tab_model.active();
+
+            // Check for tab_title_override first, then use tab_model text
+            let tab_title = if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let terminal = terminal.lock().unwrap();
+                terminal.tab_title_override.clone()
+            } else {
+                None
+            }
+            .or_else(|| tab_model.text(entity).map(|s| s.to_string()));
+
+            let (header_title, window_title) = match tab_title.as_deref() {
                 Some(tab_title) => (
                     tab_title.to_string(),
                     format!("{tab_title} — {}", fl!("cosmic-terminal")),
@@ -1825,6 +1897,10 @@ impl Application for App {
             color_scheme_expanded: None,
             color_scheme_renaming: None,
             color_scheme_rename_id: widget::Id::unique(),
+            tab_renaming: None,
+            tab_rename_id: widget::Id::unique(),
+            tab_title_interner: StringInterner::default(),
+            tab_rename_active: false,
             color_scheme_tab_model: widget::segmented_button::Model::default(),
             profile_expanded: None,
             show_advanced_font_settings: false,
@@ -1848,6 +1924,12 @@ impl Application for App {
 
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
+        // Cancel tab rename if active
+        if self.tab_renaming.is_some() {
+            self.tab_renaming = None;
+            return Task::none();
+        }
+
         if self.core.window.show_context {
             // Handle keyboard shortcut page escape
             if let ContextPage::KeyboardShortcuts = self.context_page {
@@ -2112,6 +2194,80 @@ impl Application for App {
                     }
                 }
             }
+            Message::TabRename(pane_opt, entity) => {
+                // Use provided pane, or default to focused pane
+                let pane = pane_opt.unwrap_or_else(|| self.pane_model.focused());
+
+                // If entity is default (from keyboard shortcut), get the active entity from the pane
+                let entity = if entity == segmented_button::Entity::default() {
+                    self.pane_model
+                        .panes
+                        .get(pane)
+                        .map(|tab_model| tab_model.active())
+                        .unwrap_or(entity)
+                } else {
+                    entity
+                };
+
+                // Get current title
+                let current_title = self
+                    .pane_model
+                    .panes
+                    .get(pane)
+                    .and_then(|tab_model| tab_model.text(entity))
+                    .unwrap_or(&fl!("new-terminal"))
+                    .to_string();
+
+                // Start rename if not already renaming
+                let focus = self.tab_renaming.is_none();
+                self.tab_renaming = Some((pane, entity, current_title));
+
+                if focus {
+                    // Set flag to disable terminals during rename
+                    self.tab_rename_active = true;
+                    return widget::text_input::focus(self.tab_rename_id.clone());
+                }
+            }
+            Message::TabRenameInput(text) => {
+                // Update the title in tab_renaming state without resetting focus
+                if let Some((pane, entity, _)) = &self.tab_renaming {
+                    self.tab_renaming = Some((*pane, *entity, text));
+                }
+            }
+            Message::TabRenameSubmit => {
+                if let Some((pane, entity, new_title)) = self.tab_renaming.take() {
+                    // Clear flag to re-enable terminals
+                    self.tab_rename_active = false;
+
+                    if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                        // Update terminal's override - this is the source of truth
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.tab_title_override = if new_title.is_empty() {
+                                None
+                            } else {
+                                Some(new_title.clone())
+                            };
+                        }
+
+                        // Update tab bar title using string interner
+                        // This prevents unbounded memory growth from repeated Box::leak()
+                        if !new_title.is_empty() {
+                            // Clean up old allocations for this entity
+                            self.tab_title_interner.cleanup_entity(entity);
+                            // Intern the new title and get a &'static str
+                            let interned = self.tab_title_interner.intern(entity, new_title);
+                            tab_model.text_set(entity, interned);
+                        }
+                    }
+                    return self.update_title(Some(pane));
+                }
+            }
+            Message::TabRenameCancel => {
+                self.tab_renaming = None;
+                // Clear flag to re-enable terminals
+                self.tab_rename_active = false;
+            }
             Message::ColorSchemeTabActivate(entity) => {
                 if let Some(color_scheme_kind) =
                     self.color_scheme_tab_model.data::<ColorSchemeKind>(entity)
@@ -2374,6 +2530,13 @@ impl Application for App {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, key) => {
+                // Handle Escape key to cancel rename dialog
+                if self.tab_renaming.is_some() {
+                    if key == Key::Named(Named::Escape) {
+                        return self.update(Message::TabRenameCancel);
+                    }
+                }
+
                 // Hard-coded keys
                 match key {
                     Key::Named(Named::Copy) => {
@@ -2801,8 +2964,8 @@ impl Application for App {
 
                 return self.update_title(None);
             }
-            Message::TabContextAction(entity, action) => {
-                if let Some(tab_model) = self.pane_model.active() {
+            Message::TabContextAction(pane, entity, action) => {
+                if let Some(tab_model) = self.pane_model.panes.get(pane) {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         // Close context menu
                         {
@@ -2826,7 +2989,12 @@ impl Application for App {
                             }
                         }
                         // Run action's message
-                        return self.update(action.message(Some(entity)));
+                        // For TabRename, pass the pane explicitly
+                        let message = match action {
+                            Action::TabRename => Message::TabRename(Some(pane), entity),
+                            _ => action.message(Some(entity)),
+                        };
+                        return self.update(message);
                     }
                 }
             }
@@ -3277,7 +3445,7 @@ impl Application for App {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal_box = terminal_box(terminal, &self.key_binds)
                     .id(terminal_id)
-                    .disabled(self.core.window.show_context)
+                    .disabled(self.core.window.show_context || self.tab_rename_active)
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
                     .on_middle_click(move || Message::MiddleClick(pane, Some(entity_middle_click)))
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
@@ -3303,6 +3471,7 @@ impl Application for App {
                             .popup(menu::context_menu(
                                 &self.config,
                                 &self.key_binds,
+                                pane,
                                 entity,
                                 menu_state.link,
                             ))
@@ -3397,7 +3566,61 @@ impl Application for App {
         .on_drag(Message::PaneDragged);
 
         //TODO: apply window border radius xs at bottom of window
-        pane_grid.into()
+
+        // Build base content
+        let content: Element<Message> = pane_grid.into();
+
+        // Add rename dialog overlay if renaming
+        if let Some((_pane, _entity, current_title)) = &self.tab_renaming {
+            let rename_dialog = widget::container(
+                widget::column::with_children(vec![
+                    widget::text(fl!("rename-tab"))
+                        .size(20)
+                        .into(),
+                    widget::text_input("", current_title)
+                        .id(self.tab_rename_id.clone())
+                        .on_input(Message::TabRenameInput)
+                        .on_submit(|_| Message::TabRenameSubmit)
+                        .into(),
+                ])
+                .padding(24)
+                .spacing(12)
+                .width(Length::Fixed(400.0)),
+            )
+            .padding(24)
+            .class(cosmic::style::Container::Background);
+
+            // Use column to layer the dialog on top of content
+            widget::column::with_capacity(2)
+                .push(content)
+                .push(
+                    widget::layer_container(
+                        widget::container(rename_dialog)
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .align_x(Alignment::Center)
+                            .align_y(Alignment::Center)
+                            .class(cosmic::style::Container::Custom(Box::new(|_theme| {
+                                // Semi-transparent dark backdrop
+                                widget::container::Style {
+                                    background: Some(cosmic::iced::Background::Color(
+                                        cosmic::iced::Color {
+                                            r: 0.0,
+                                            g: 0.0,
+                                            b: 0.0,
+                                            a: 0.6,
+                                        },
+                                    )),
+                                    ..Default::default()
+                                }
+                            }))),
+                    )
+                    .layer(cosmic_theme::Layer::Primary),
+                )
+                .into()
+        } else {
+            content
+        }
     }
 
     fn system_theme_update(

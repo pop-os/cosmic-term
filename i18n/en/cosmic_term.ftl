@@ -103,6 +103,7 @@ find-next = Find next
 ## File
 file = File
 new-tab = New tab
+rename-tab = Rename tab
 new-window = New window
 profile = Profile
 menu-profiles = Profiles...
