@@ -71,7 +71,7 @@ focus-follow-mouse = تركيز الكتابة يتبع الفأرة
 
 advanced = متقدم
 show-headerbar = أظهِر الترويسة
-show-header-description = اكشف الترويسة من خلال قائمة النقر باليمنى.
+show-header-description = اكشف الترويسة من خلال قائمة النقر باليمنى
 # Find
 find-placeholder = ابحث عن...
 find-previous = ابحث عن السابق
@@ -144,3 +144,4 @@ shortcut-replace-title = استبدل الاختصار؟
 tab-activate = نشّط لسان { $number }
 toggle-fullscreen = بدّل ملء الشاشة
 type-to-search = اكتب للبحث...
+copy-link = انسخ الرابط

@@ -150,3 +150,4 @@ shortcut-group-clipboard = Urklipp
 shortcut-group-other = Andra
 shortcut-group-tabs = Flikar
 shortcut-group-zoom = Zooma
+copy-link = Kopiera länk

@@ -20,14 +20,14 @@ import-errors = Importfouten
 
 profiles = Profielen
 name = Naam
-command-line = Opdrachtregel
+command-line = Commandoregel
 tab-title = Tabbladtitel
 tab-title-description = Overschrijf de standaard tabbladtitel
 add-profile = Profiel toevoegen
 new-profile = Nieuw profiel
 make-default = Stel als standaard in
 working-directory = Werkmap
-hold = Behoud
+hold = Behouden
 remain-open = Houd dit venster open nadat het onderliggende proces eindigt.
 
 ## Settings
@@ -51,23 +51,23 @@ opacity = Achtergronddoorzichtigheid
 font = Lettertype
 advanced-font-settings = Geavanceerde lettertype-instellingen
 default-font = Lettertype
-default-font-size = Lettertypegrootte
+default-font-size = Lettergrootte
 default-font-stretch = Letterbreedte
-default-font-weight = Letterdikte standaard lettertype
-default-dim-font-weight = Letterdikte licht lettertype
-default-bold-font-weight = Letterdikte vet lettertype
-use-bright-bold = Maak vette tekst helderder
+default-font-weight = Normaal lettergewicht
+default-dim-font-weight = Mager lettergewicht
+default-bold-font-weight = Vet lettergewicht
+use-bright-bold = Vette tekst helderder maken
 
 ### Splits
 
-splits = Splits
+splits = Splitsen
 focus-follow-mouse = Invoerfocus volgt de muis
 
 ### Advanced
 
 advanced = Geavanceerd
-show-headerbar = Toon koptekst
-show-header-description = Toon de koptekst via het rechtermuisknopmenu.
+show-headerbar = Koptekst weergeven
+show-header-description = Koptekst weergeven via het rechtermuisklikmenu.
 # Find
 find-placeholder = Zoeken…
 find-previous = Vorige zoeken
@@ -82,7 +82,7 @@ file = Bestand
 new-tab = Nieuw tabblad
 new-window = Nieuw venster
 profile = Profiel
-menu-profiles = Profielen...
+menu-profiles = Profielen…
 close-tab = Tabblad sluiten
 quit = Sluiten
 
@@ -93,21 +93,21 @@ copy = Kopiëren
 paste = Plakken
 select-all = Alles selecteren
 find = Zoeken
-clear-scrollback = Wis scrollgeschiedenis
+clear-scrollback = Scrollgeschiedenis wissen
 
 ## View
 
 view = Beeld
-zoom-in = Vergroot tekst
-zoom-reset = Normale tekstgrootte
-zoom-out = Verklein tekst
+zoom-in = Tekst vergroten
+zoom-reset = Standaardtekstgrootte
+zoom-out = Tekst verkleinen
 next-tab = Volgend tabblad
 previous-tab = Vorig tabblad
-split-horizontal = Splits horizontaal
-split-vertical = Splits verticaal
+split-horizontal = Horizontaal splitsen
+split-vertical = Verticaal splitsen
 pane-toggle-maximize = Gemaximaliseerd
-menu-color-schemes = Kleurenpaletten...
-menu-settings = Instellingen...
+menu-color-schemes = Kleurenpaletten…
+menu-settings = Instellingen…
 menu-about = Over COSMIC Terminal…
 support = Ondersteuning
 repository = Broncode
@@ -118,3 +118,20 @@ shortcut-group-clipboard = Klembord
 close-window = Venster sluiten
 keyboard-shortcuts = Toetsencombinaties
 menu-keyboard-shortcuts = Toetsencombinaties…
+open-link = Koppeling openen
+menu-password-manager = Wachtwoorden…
+passwords-title = Wachtwoorden
+add-password = Wachtwoord toevoegen
+password-input = Wachtwoord
+password-input-description = Beschrijving
+comment = Terminalemulator voor COSMIC
+keywords = Commando;Shell;Terminal;CLI;
+copy-or-sigint = Kopiëren of SIGINT
+disable = Uitschakelen
+no-shortcuts = Geen toetsencombinaties
+reset-to-default = Naar standaardinstellingen terugzetten
+shortcut-group-other = Andere
+shortcut-group-tabs = Tabs
+shortcut-group-window = Venster
+shortcut-group-zoom = Zoomen
+copy-link = Link kopiëren

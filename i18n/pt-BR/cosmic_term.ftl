@@ -1,4 +1,4 @@
-cosmic-terminal = Terminal COSMIC
+cosmic-terminal = Terminal
 comment = Emulador de terminal do ambiente COSMIC
 keywords = Comando;Shell;Terminal;CLI;
 new-terminal = Novo terminal
@@ -71,7 +71,7 @@ focus-follow-mouse = Foco de digitação segue o mouse
 
 advanced = Avançado
 show-headerbar = Mostrar a barra de título
-show-header-description = Mostrar a barra de título da janela no menu de contexto.
+show-header-description = Mostrar o cabeçalho ao clicar no menu com o botão direito do mouse
 # Find
 find-placeholder = Localizar...
 find-previous = Localizar o anterior
@@ -112,7 +112,7 @@ split-vertical = Dividir verticalmente
 pane-toggle-maximize = Alternar maximização
 menu-color-schemes = Esquemas de cores...
 menu-settings = Configurações...
-menu-about = Sobre o Terminal COSMIC...
+menu-about = Sobre o Terminal...
 open-link = Abrir Link
 menu-password-manager = Senhas...
 passwords-title = Senhas
@@ -146,3 +146,4 @@ shortcut-replace-title = Substituir atalho?
 tab-activate = Ativar aba { $number }
 toggle-fullscreen = Alternar para tela cheia
 type-to-search = Digite para pesquisar...
+copy-link = Copiar Link

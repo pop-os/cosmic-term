@@ -36,7 +36,7 @@ settings = Налаштування
 
 ### Appearance
 
-appearance = Зовнішній вигляд
+appearance = Вигляд
 theme = Тема
 match-desktop = Системна
 dark = Темна
@@ -67,7 +67,7 @@ focus-follow-mouse = Фокус введення слідує за мишею
 
 advanced = Додатково
 show-headerbar = Показувати заголовок
-show-header-description = Перемикач приховування заголовка є в контекстному меню правої кнопки миші.
+show-header-description = Показати заголовок через контекстне меню правої кнопки миші
 # Find
 find-placeholder = Знайти...
 find-previous = Знайти попередній
@@ -146,3 +146,4 @@ focus-pane-right = Фокус на праву панель
 focus-pane-up = Фокус на верхню панель
 comment = Емулятор терміналу для середовища COSMIC
 keywords = Команда;Оболонка;Термінал;Інтерфейс;CLI;
+copy-link = Копіювати ланку
