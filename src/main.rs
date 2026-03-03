@@ -1,7 +1,6 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::iced_core::keyboard::key::Named;
@@ -1526,11 +1525,13 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            let (options, tab_title_override) = if let Some(profile) = profile_id_opt
-                                .and_then(|profile_id| self.config.profiles.get(&profile_id))
+                            let (options, tab_title_override) = if let Some(profile) =
+                                profile_id_opt
+                                    .and_then(|profile_id| self.config.profiles.get(&profile_id))
                             {
                                 // Merge profile and startup options, preferring startup options
-                                let startup_options = self.startup_options.take().unwrap_or_default();
+                                let startup_options =
+                                    self.startup_options.take().unwrap_or_default();
                                 let options = tty::Options {
                                     shell: startup_options.shell.or_else(|| {
                                         if let Some(mut args) = shlex::split(&profile.command) {
@@ -1541,11 +1542,14 @@ impl App {
                                         }
                                         return None;
                                     }),
-                                    working_directory: startup_options.working_directory.or_else(|| {
-                                        (!profile.working_directory.is_empty())
-                                            .then(|| profile.working_directory.clone().into())
-                                    }),
-                                    drain_on_exit: startup_options.drain_on_exit || profile.drain_on_exit,
+                                    working_directory: startup_options.working_directory.or_else(
+                                        || {
+                                            (!profile.working_directory.is_empty())
+                                                .then(|| profile.working_directory.clone().into())
+                                        },
+                                    ),
+                                    drain_on_exit: startup_options.drain_on_exit
+                                        || profile.drain_on_exit,
                                     ..startup_options
                                 };
                                 let tab_title_override = if profile.tab_title.is_empty() {
@@ -2428,14 +2432,16 @@ impl Application for App {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         // Update context menu position
-                        let terminal = terminal.lock().unwrap();
+                        let mut terminal = terminal.lock().unwrap();
                         if let Some(url) =
                             terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
                         {
-                            return Task::batch([
-                                clipboard::write(url.to_owned()),
-                                self.update_focus(),
-                            ]);
+                            let url = url.to_owned();
+                            terminal.context_menu = None;
+                            terminal.active_regex_match = None;
+                            terminal.needs_update = true;
+
+                            return Task::batch([clipboard::write(url), self.update_focus()]);
                         }
                     }
                 }
@@ -2454,6 +2460,8 @@ impl Application for App {
                             }
                         }
                         terminal.context_menu = None;
+                        terminal.active_regex_match = None;
+                        terminal.needs_update = true;
                     }
                 }
             }
@@ -2810,12 +2818,7 @@ impl Application for App {
                             //Some actions need the menu_state,
                             //so only clear the position for them.
                             match action {
-                                Action::LaunchUrlByMenu => {
-                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
-                                        context_menu.position = None;
-                                    }
-                                }
-                                Action::CopyUrlByMenu => {
+                                Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {
                                     if let Some(context_menu) = terminal.context_menu.as_mut() {
                                         context_menu.position = None;
                                     }
