@@ -950,7 +950,7 @@ impl App {
 
         sections.push(
             widget::row::with_children(vec![
-                widget::horizontal_space().into(),
+                widget::space::horizontal().into(),
                 widget::button::standard(fl!("import"))
                     .on_press(Message::ColorSchemeImport(color_scheme_kind))
                     .into(),
@@ -1004,7 +1004,7 @@ impl App {
 
         let mut groups = Vec::new();
         //TODO: fix text input focus going outside bounds
-        groups.push(widget::horizontal_space().into());
+        groups.push(widget::space::horizontal().into());
         groups.push(
             widget::text_input::search_input(fl!("type-to-search"), &self.shortcut_search_value)
                 .id(self.shortcut_search_id.clone())
@@ -1270,7 +1270,7 @@ impl App {
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),
-                                widget::horizontal_space().into(),
+                                widget::space::horizontal().into(),
                                 widget::toggler(profile.drain_on_exit)
                                     .on_toggle(move |t| Message::ProfileHold(profile_id, t))
                                     .into(),
@@ -1293,7 +1293,7 @@ impl App {
         }
 
         let add_profile = widget::row::with_children(vec![
-            widget::horizontal_space().into(),
+            widget::space::horizontal().into(),
             widget::button::standard(fl!("add-profile"))
                 .on_press(Message::ProfileNew)
                 .into(),
@@ -3359,7 +3359,7 @@ impl Application for App {
                         widget::tooltip::Position::Top,
                     )
                     .into(),
-                    widget::horizontal_space().into(),
+                    widget::space::horizontal().into(),
                     button::custom(icon_cache_get("window-close-symbolic", 16))
                         .on_press(Message::Find(false))
                         .padding(space_xxs)
@@ -3425,22 +3425,24 @@ impl Application for App {
                 }
                 _ => None,
             }),
-            Subscription::run_with_id(
-                TypeId::of::<TerminalEventSubscription>(),
-                stream::channel(100, |mut output| async move {
-                    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-                    output.send(Message::TermEventTx(event_tx)).await.unwrap();
+            Subscription::run_with(TypeId::of::<TerminalEventSubscription>(), |_| {
+                stream::channel(
+                    100,
+                    |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+                        output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
-                    while let Some((pane, entity, event)) = event_rx.recv().await {
-                        output
-                            .send(Message::TermEvent(pane, entity, event))
-                            .await
-                            .unwrap();
-                    }
+                        while let Some((pane, entity, event)) = event_rx.recv().await {
+                            output
+                                .send(Message::TermEvent(pane, entity, event))
+                                .await
+                                .unwrap();
+                        }
 
-                    panic!("terminal event channel closed");
-                }),
-            ),
+                        panic!("terminal event channel closed");
+                    },
+                )
+            }),
             cosmic_config::config_subscription(
                 TypeId::of::<ConfigSubscription>(),
                 Self::APP_ID.into(),
