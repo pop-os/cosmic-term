@@ -386,7 +386,7 @@ impl PasswordManager {
         sections.push(passwords_section.into());
 
         let add_password = widget::row::with_children(vec![
-            widget::horizontal_space().into(),
+            widget::space::horizontal().into(),
             widget::button::standard(fl!("add-password"))
                 .on_press(Message::PasswordManager(PasswordManagerMessage::New))
                 .into(),
