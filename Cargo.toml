@@ -34,6 +34,11 @@ secret-service = { version = "5.1.0", features = [
 ], optional = true }
 thiserror = { version = "2.0", optional = true }
 secstr = { version = "0.5", optional = true }
+tracing-journald = { version = "0.3.2" }
+tracing-subscriber = { version = "0.3.22", features = [
+    "env-filter",
+    "tracing-log",
+] }
 
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
