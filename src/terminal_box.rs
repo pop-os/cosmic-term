@@ -970,7 +970,11 @@ where
                         status = Status::Captured;
                     }
                     Named::Enter => {
-                        terminal.input_scroll(format!("{}{}", alt_prefix, "\x0D").into_bytes());
+                        if modifiers.shift() {
+                            terminal.input_scroll(format!("\x1b[13;{mod_no}u").into_bytes());
+                        } else {
+                            terminal.input_scroll(format!("{}{}", alt_prefix, "\x0D").into_bytes());
+                        }
                         status = Status::Captured;
                     }
                     Named::Escape => {
