@@ -22,6 +22,7 @@ use cosmic::{
     iced_core::{
         Border, Shell,
         clipboard::Clipboard,
+        input_method::{self, InputMethod},
         keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
@@ -234,6 +235,47 @@ where
         self.disabled = disabled;
         self
     }
+
+    fn input_method<'b>(
+        &self,
+        state: &'b State,
+        layout: Layout<'_>,
+        terminal: &std::sync::MutexGuard<'_, Terminal>,
+    ) -> InputMethod<&'b str> {
+        if state.is_focused && !state.clicked_outside {
+        } else {
+            return InputMethod::Disabled;
+        }
+
+        let view_position = layout.position() + [self.padding.left, self.padding.top].into();
+
+        // Draw cursor
+        let cursor = terminal.term.lock().renderable_content().cursor;
+        let mut col = cursor.point.column.0;
+        let line = cursor.point.line.0;
+        let width = terminal.size().cell_width;
+        let mut cursor_position = Vector::<f32>::ZERO;
+        let mut line_height = 0.0;
+        terminal.with_buffer(|buffer| {
+            let layout = buffer.layout_runs().nth(line as usize).unwrap();
+            for glyph in layout.glyphs {
+                cursor_position.x += glyph.w;
+                let ch_width = if glyph.w > width { 2 } else { 1 };
+                if ch_width > col {
+                    break;
+                }
+                col -= ch_width;
+            }
+            cursor_position.y = layout.line_top;
+            line_height = layout.line_height;
+        });
+
+        InputMethod::Enabled {
+            cursor: Rectangle::new(view_position + cursor_position, Size::new(1.0, line_height)),
+            purpose: input_method::Purpose::Normal,
+            preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
+        }
+    }
 }
 
 pub fn terminal_box<'a, Message>(
@@ -263,7 +305,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         _tree: &mut widget::Tree,
         _renderer: &Renderer,
         limits: &layout::Limits,
@@ -297,15 +339,15 @@ where
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut widget::Tree,
-        _layout: Layout<'_>,
+        layout: Layout<'_>,
         _renderer: &Renderer,
         operation: &mut dyn Operation,
     ) {
         let state = tree.state.downcast_mut::<State>();
 
-        operation.focusable(state, self.id.as_ref());
+        operation.focusable(self.id.as_ref(), layout.bounds(), state);
     }
 
     fn mouse_interaction(
@@ -377,10 +419,10 @@ where
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
         let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
-            - self.padding.horizontal() as i32
+            - self.padding.x() as i32
             - scrollbar_w as i32;
         let view_h = cmp::min(viewport.height as i32, layout.bounds().height as i32)
-            - self.padding.vertical() as i32;
+            - self.padding.y() as i32;
 
         if view_w <= 0 || view_h <= 0 {
             // Zero sized image
@@ -417,7 +459,7 @@ where
                     },
                     ..Default::default()
                 },
-                Color::new(
+                Color::from_rgba(
                     f32::from(background_color.r()) / 255.0,
                     f32::from(background_color.g()) / 255.0,
                     f32::from(background_color.b()) / 255.0,
@@ -468,7 +510,7 @@ where
                         is_focused: bool,
                     ) {
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
-                            Color::new(
+                            Color::from_rgba(
                                 f32::from(color.r()) / 255.0,
                                 f32::from(color.g()) / 255.0,
                                 f32::from(color.b()) / 255.0,
@@ -645,7 +687,7 @@ where
         renderer.fill_raw(Raw {
             buffer: terminal.buffer_weak(),
             position: view_position,
-            color: Color::new(1.0, 1.0, 1.0, 1.0), // TODO
+            color: Color::from_rgba(1.0, 1.0, 1.0, 1.0), // TODO
             clip_bounds: Rectangle::new(view_position, Size::new(view_w as f32, view_h as f32)),
         });
 
@@ -799,19 +841,19 @@ where
         log::trace!("redraw {}, {}: {:?}", view_w, view_h, duration);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut widget::Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor_position: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle<f32>,
-    ) -> Status {
+    ) {
         if self.disabled {
-            return Status::Ignored;
+            return;
         }
         let state = tree.state.downcast_mut::<State>();
         let scrollbar_rect = state.scrollbar_rect.get();
@@ -820,7 +862,6 @@ where
 
         let is_app_cursor = terminal.term.lock().mode().contains(TermMode::APP_CURSOR);
         let is_mouse_mode = terminal.term.lock().mode().intersects(TermMode::MOUSE_MODE);
-        let mut status = Status::Ignored;
         match event {
             Event::Window(event) => match event {
                 cosmic::iced::window::Event::Focused => {
@@ -842,12 +883,15 @@ where
                                 self.padding,
                                 multiplier,
                             ) {
-                                status = Status::Captured;
+                                shell.capture_event();
                             }
                         }
                         if state.autoscroll.is_active() {
-                            shell.request_redraw(RedrawRequest::NextFrame);
+                            shell.request_redraw();
                         }
+                    }
+                    if state.is_focused && !state.clicked_outside {
+                        shell.request_input_method(&self.input_method(state, layout, &terminal));
                     }
                 }
                 cosmic::iced::window::Event::Unfocused => {
@@ -867,8 +911,9 @@ where
                 ..
             }) if state.is_focused && named == modified_named => {
                 for key_bind in self.key_binds.keys() {
-                    if key_bind.matches(modifiers, &Key::Named(named)) {
-                        return Status::Captured;
+                    if key_bind.matches(*modifiers, &Key::Named(*named)) {
+                        shell.capture_event();
+                        return;
                     }
                 }
 
@@ -956,7 +1001,9 @@ where
                 };
                 if let Some(escape_code) = escape_code {
                     terminal.input_scroll(escape_code);
-                    return Status::Captured;
+                    shell.capture_event();
+
+                    return;
                 }
 
                 //Special handle Enter, Escape, Backspace and Tab as described in
@@ -967,11 +1014,11 @@ where
                     Named::Backspace => {
                         let code = if modifiers.control() { "\x08" } else { "\x7f" };
                         terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
                     Named::Enter => {
                         terminal.input_scroll(format!("{}{}", alt_prefix, "\x0D").into_bytes());
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
                     Named::Escape => {
                         //Escape with any modifier will cancel selection
@@ -984,11 +1031,14 @@ where
                         } else {
                             terminal.input_scroll(format!("{}{}", alt_prefix, "\x1B").into_bytes());
                         }
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
                     Named::Space => {
                         // Keep this instead of hardcoding the space to allow for dead keys
-                        let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
+                        let character = text
+                            .as_ref()
+                            .and_then(|c| c.chars().next())
+                            .unwrap_or_default();
 
                         if modifiers.control() {
                             // Send NUL character (\x00) for Ctrl + Space
@@ -997,18 +1047,18 @@ where
                             terminal
                                 .input_scroll(format!("{}{}", alt_prefix, character).into_bytes());
                         }
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
                         terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
                     _ => {}
                 }
             }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
-                state.modifiers = modifiers;
+                state.modifiers = *modifiers;
 
                 if modifiers.contains(Modifiers::CTRL)
                     || terminal.active_regex_match.is_some()
@@ -1039,11 +1089,16 @@ where
                 ..
             }) if state.is_focused => {
                 for key_bind in self.key_binds.keys() {
-                    if key_bind.matches(modifiers, &key) {
-                        return Status::Captured;
+                    if key_bind.matches(*modifiers, key) {
+                        shell.capture_event();
+
+                        return;
                     }
                 }
-                let character = text.and_then(|c| c.chars().next()).unwrap_or_default();
+                let character = text
+                    .as_ref()
+                    .and_then(|c| c.chars().next())
+                    .unwrap_or_default();
                 match (
                     modifiers.logo(),
                     modifiers.control(),
@@ -1064,7 +1119,7 @@ where
                                 str.len() + 1
                             };
                             terminal.input_scroll(buf[..len].to_vec());
-                            status = Status::Captured;
+                            shell.capture_event();
                         }
                     }
                     (false, true, _, false) => {
@@ -1073,7 +1128,7 @@ where
                             let mut buf = [0, 0, 0, 0];
                             let str = character.encode_utf8(&mut buf);
                             terminal.input_scroll(str.as_bytes().to_vec());
-                            status = Status::Captured;
+                            shell.capture_event();
                         }
                     }
                     (false, true, _, true) => {
@@ -1081,9 +1136,9 @@ where
                         //is taken by zoom, we send that code for
                         //Ctrl+Underline instead, like xterm and
                         //gnome-terminal
-                        if key == Key::Character("_".into()) {
+                        if *key == Key::Character("_".into()) {
                             terminal.input_scroll(b"\x1F".as_slice());
-                            status = Status::Captured;
+                            shell.capture_event();
                         }
                     }
                     (false, false, true, _) => {
@@ -1095,7 +1150,7 @@ where
                                 str.len() + 1
                             };
                             terminal.input_scroll(buf[..len].to_vec());
-                            status = Status::Captured;
+                            shell.capture_event();
                         }
                     }
                     (false, false, false, _) => {
@@ -1104,13 +1159,38 @@ where
                             let mut buf = [0, 0, 0, 0];
                             let str = character.encode_utf8(&mut buf);
                             terminal.input_scroll(str.as_bytes().to_vec());
-                            status = Status::Captured;
+                            shell.capture_event();
                         }
                     }
                 }
             }
+            Event::InputMethod(event) => match event {
+                input_method::Event::Opened | input_method::Event::Closed => {
+                    state.preedit = matches!(event, input_method::Event::Opened).then(|| {
+                        let preedit = input_method::Preedit::new();
+                        preedit
+                    });
+                }
+                input_method::Event::Preedit(content, selection) => {
+                    if state.is_focused {
+                        let metrics = terminal.with_buffer(|buffer| buffer.metrics());
+                        state.preedit = Some(input_method::Preedit {
+                            content: content.to_owned(),
+                            selection: selection.clone(),
+                            text_size: Some(metrics.font_size.into()),
+                        })
+                    }
+                }
+                input_method::Event::Commit(text) => {
+                    if state.is_focused {
+                        terminal.paste(text.to_string());
+                        shell.capture_event();
+                    }
+                }
+            },
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    state.clicked_outside = false;
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
                     //TODO: better calculation of position
@@ -1119,7 +1199,12 @@ where
 
                     if is_mouse_mode {
                         state.autoscroll.stop();
-                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        terminal.report_mouse(
+                            event.clone(),
+                            &state.modifiers,
+                            col as u32,
+                            row as u32,
+                        );
                     } else {
                         state.is_focused = true;
 
@@ -1214,7 +1299,7 @@ where
                                     }
                                 }
                             }
-                        } else if button == Button::Middle {
+                        } else if *button == Button::Middle {
                             if let Some(on_middle_click) = &self.on_middle_click {
                                 shell.publish(on_middle_click());
                             }
@@ -1226,7 +1311,7 @@ where
                                     shell.publish(on_context_menu(None));
                                 }
                                 None => {
-                                    if button == Button::Right {
+                                    if *button == Button::Right {
                                         let x = p.x - self.padding.left;
                                         let y = p.y - self.padding.top;
                                         //TODO: better calculation of position
@@ -1251,8 +1336,10 @@ where
                                 }
                             }
                         }
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
+                } else {
+                    state.clicked_outside = true;
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
@@ -1286,18 +1373,23 @@ where
                         if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
                             if let Some(hyperlink) = get_hyperlink(&terminal, location) {
                                 shell.publish(on_open_hyperlink(hyperlink));
-                                status = Status::Captured;
+                                shell.capture_event();
                             }
                         }
                     }
 
                     if is_mouse_mode {
-                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        terminal.report_mouse(
+                            event.clone(),
+                            &state.modifiers,
+                            col as u32,
+                            row as u32,
+                        );
                     } else {
-                        status = Status::Captured;
+                        shell.capture_event();
                     }
                 } else {
-                    status = Status::Captured;
+                    shell.capture_event();
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(_button)) => {
@@ -1309,7 +1401,12 @@ where
                     let col = x / terminal.size().cell_width;
                     let row = y / terminal.size().cell_height;
                     if is_mouse_mode {
-                        terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                        terminal.report_mouse(
+                            event.clone(),
+                            &state.modifiers,
+                            col as u32,
+                            row as u32,
+                        );
                     }
                 }
             }
@@ -1351,7 +1448,12 @@ where
 
                     if is_mouse_mode {
                         if let Some((col, row)) = col_row_opt {
-                            terminal.report_mouse(event, &state.modifiers, col as u32, row as u32);
+                            terminal.report_mouse(
+                                event.clone(),
+                                &state.modifiers,
+                                col as u32,
+                                row as u32,
+                            );
                         }
                     } else {
                         let handled_buffer_drag = update_buffer_drag(
@@ -1364,7 +1466,7 @@ where
                             0.0,
                         );
                         if handled_buffer_drag {
-                            status = Status::Captured;
+                            shell.capture_event();
                         } else if let Some(Dragging::Scrollbar {
                             start_y,
                             start_scroll,
@@ -1377,7 +1479,7 @@ where
                                 (y - start_y) / buffer.size().1.unwrap_or(1.0)
                             });
                             terminal.scroll_to(start_scroll.0 + scroll_offset);
-                            status = Status::Captured;
+                            shell.capture_event();
                         }
 
                         if matches!(state.dragging, Some(Dragging::Buffer { .. })) {
@@ -1389,7 +1491,7 @@ where
                                 } else {
                                     state.autoscroll.start(p_global);
                                 }
-                                shell.request_redraw(RedrawRequest::NextFrame);
+                                shell.request_redraw();
                             }
                         } else {
                             state.autoscroll.stop();
@@ -1405,15 +1507,15 @@ where
                         //TODO: better calculation of position
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
-                        terminal.scroll_mouse(delta, &state.modifiers, col as u32, row as u32);
+                        terminal.scroll_mouse(*delta, &state.modifiers, col as u32, row as u32);
                     } else if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
                         MouseReporter::report_mouse_wheel_as_arrows(
                             &terminal,
                             terminal.size().cell_width,
                             terminal.size().cell_height,
-                            delta,
+                            *delta,
                         );
-                        status = Status::Captured;
+                        shell.capture_event();
                     } else {
                         match delta {
                             ScrollDelta::Lines { x: _, y } => {
@@ -1423,7 +1525,7 @@ where
                                 if lines != 0 {
                                     terminal.scroll(TerminalScroll::Delta(-lines));
                                 }
-                                status = Status::Captured;
+                                shell.capture_event();
                             }
                             ScrollDelta::Pixels { x: _, y } => {
                                 //TODO: this adjustment is just a guess!
@@ -1441,7 +1543,7 @@ where
                                 if lines != 0 {
                                     terminal.scroll(TerminalScroll::Delta(-lines));
                                 }
-                                status = Status::Captured;
+                                shell.capture_event();
                             }
                         }
                     }
@@ -1466,8 +1568,6 @@ where
             }
             _ => (),
         }
-
-        status
     }
 }
 
@@ -1793,9 +1893,11 @@ pub struct State {
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
     is_focused: bool,
+    clicked_outside: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
     autoscroll: DragAutoscroll,
+    preedit: Option<input_method::Preedit>,
 }
 
 impl State {
@@ -1806,9 +1908,11 @@ impl State {
             click: None,
             dragging: None,
             is_focused: false,
+            clicked_outside: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
             autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
+            preedit: None,
         }
     }
 }
