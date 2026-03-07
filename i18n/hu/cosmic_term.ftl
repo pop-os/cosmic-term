@@ -146,3 +146,4 @@ shortcut-replace-title = Gyorsbillentyű cseréje?
 tab-activate = { $number }. lap aktiválása
 toggle-fullscreen = Teljes képernyő váltása
 type-to-search = Gépelj a kereséshez…
+copy-link = Hivatkozás másolása

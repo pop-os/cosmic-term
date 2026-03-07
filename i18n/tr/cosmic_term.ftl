@@ -11,7 +11,7 @@ new-terminal = Yeni uçbirim
 
 color-schemes = Renk şemaları
 rename = Yeniden adlandır
-export = Dışa akar
+export = Dışa aktar
 delete = Sil
 import = İçe aktar
 import-errors = İçe aktarma hataları
@@ -19,7 +19,7 @@ import-errors = İçe aktarma hataları
 ## Profiles
 
 profiles = Profiller
-name = İsim
+name = Ad
 command-line = Komut satırı
 tab-title = Sekme başlığı
 tab-title-description = Varsayılan sekme başlığını geçersiz kılar
@@ -46,7 +46,7 @@ opacity = Arkaplan saydamlığı
 ### Font
 
 font = Yazı tipi
-advanced-font-settings = Gelişmiş Yazı tipi Seçenekleri
+advanced-font-settings = Gelişmiş yazı tipi seçenekleri
 default-font = Yazı tipi
 default-font-size = Yazı tipi boyutu
 default-font-stretch = Yazı tipi esnekliği
@@ -64,7 +64,7 @@ focus-follow-mouse = Yazma odağı fareyi takip etsin
 
 advanced = Gelişmiş
 show-headerbar = Başlığı göster
-show-header-description = Sağ tıklama menüsünden başlığı gösterin.
+show-header-description = Sağ tıklama menüsünden başlığı göster
 # Find
 find-placeholder = Bul...
 find-previous = Öncekini bul
@@ -88,12 +88,12 @@ quit = Çıkış
 edit = Düzenle
 copy = Kopyala
 paste = Yapıştır
-select-all = Hepsini seç
+select-all = Tümünü seç
 find = Bul
 
 ## View
 
-view = Görünüş
+view = Görünüm
 zoom-in = Daha büyük metin
 zoom-reset = Varsayılan metin boyutu
 zoom-out = Daha küçük metin
@@ -110,4 +110,40 @@ support = Destek
 working-directory = Çalışma dizini
 hold = Tut
 remain-open = Alt süreç bittikten sonra açık kal.
-clear-scrollback = Geri kaydırmayı temizle
+clear-scrollback = Kaydırma geçmişini temizle
+comment = COSMIC masaüstü için Uçbirim emülatörü
+keywords = Komut;Kabuk;Uçbirim;Komut satırı arayüzü;
+add-another-keybinding = Başka bir tuş ataması ekle
+cancel = Vazgeç
+close-window = Pencereyi kapat
+copy-or-sigint = Kopyala veya Ctrl+C (SIGINT) ile kes
+disable = Devre dışı
+focus-pane-down = Odağı aşağı bölmeye al
+focus-pane-left = Odağı sol bölmeye al
+focus-pane-right = Odağı sağ bölmeye al
+focus-pane-up = Odağı üst bölmeye al
+keyboard-shortcuts = Klavye kısayolları
+replace = Değiştir
+open-link = Bağlantıyı Aç
+menu-keyboard-shortcuts = Klavye kısayolları...
+no-shortcuts = Kısayol yok
+password-manager = Parola yöneticisi
+reset-to-default = Varsayılana dön
+shortcut-capture-hint = Tuş kombinasyonuna bas
+shortcut-group-clipboard = Pano
+shortcut-group-other = Diğer
+shortcut-group-tabs = Sekmeler
+shortcut-group-window = Pencere
+shortcut-group-zoom = Yakınlaştır
+shortcut-replace-body = { $binding } zaten { $existing }'e atanmış durumda. Bunun yerine { $new_action } kullanılsın mı?
+shortcut-replace-title = Kısayol değiştirilsin mi?
+tab-activate = Sekmeyi etkinleştir { $number }
+toggle-fullscreen = Tam ekranı aç/kapat
+type-to-search = Aramak için yazın...
+copy-link = Bağlantıyı Kopyala
+menu-password-manager = Parolalar...
+passwords-title = Parolalar
+add-password = Parola Ekle
+password-input = Parola
+password-input-description = Açıklama
+paste-primary = Birincil yapıştır

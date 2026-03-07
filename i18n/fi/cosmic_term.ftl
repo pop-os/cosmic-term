@@ -1,5 +1,5 @@
-cosmic-terminal = COSMIC Terminaali
-new-terminal = Uusi terminaali
+cosmic-terminal = COSMICin pääte
+new-terminal = Uusi pääte
 
 # Context Pages
 
@@ -25,7 +25,7 @@ tab-title = Välilehden otsikko
 tab-title-description = Ylikirjoita välilehden oletusotsikko
 add-profile = Lisää profiili
 new-profile = Uusi profiili
-make-default = Tee tästä oletusprofiili
+make-default = Aseta oletukseksi
 working-directory = Työkansio
 hold = Pidä
 remain-open = Pysy auki lapsiprosessin sulkeutumisen jälkeen.
@@ -38,7 +38,7 @@ settings = Asetukset
 
 appearance = Ulkoasu
 theme = Teema
-match-desktop = Sovita yhteen työpöydän kanssa
+match-desktop = Sovita työpöydän kanssa
 dark = Tumma
 light = Vaalea
 syntax-dark = Tumma väriteema
@@ -48,10 +48,10 @@ opacity = Taustan läpinäkyvyys
 
 ### Font
 
-font = Kirjasin
-advanced-font-settings = Tarkemmat kirjasinasetukset
-default-font = Oletuskirjasin
-default-font-size = Oletuskirjasinkoko
+font = Fontti
+advanced-font-settings = Fontin lisäasetukset
+default-font = Fontti
+default-font-size = Fontin koko
 default-font-stretch = Kirjasimen venyvyys
 default-font-weight = Oletuskirjasimen paino
 default-dim-font-weight = Kirjasimen painon himmennys
@@ -61,18 +61,18 @@ use-bright-bold = Näytä paksu kirjasin kirkkaana
 ### Splits
 
 splits = Näkymän halkaiseminen
-focus-follow-mouse = Hiiren paikka määrää aktiivisen näkymän
+focus-follow-mouse = Kirjoituksen kohdistus seuraa hiirtä
 
 ### Advanced
 
-advanced = Tarkat
+advanced = Lisäasetukset
 show-headerbar = Näytä otsake
 show-header-description = Paljasta otsake hiiren oikean painikkeen valikosta.
 
 # Find
 
 find-placeholder = Etsi…
-find-previous = Etsi aikaisempi
+find-previous = Etsi edellinen
 find-next = Etsi seuraava
 
 # Menu
@@ -86,28 +86,51 @@ new-window = Uusi ikkuna
 profile = Profiili
 menu-profiles = Profiilit…
 close-tab = Sulje välilehti
-quit = Sulje
+quit = Lopeta
 
 ## Edit
 
 edit = Muokkaa
 copy = Kopioi
-paste = Maalaa
+paste = Liitä
 select-all = Valitse kaikki
 find = Etsi
-clear-scrollback = Tyhjennä komentohistoria
+clear-scrollback = Tyhjennä takaisinvieritys
 
 ## View
 
-view = Näkymä
+view = Näytä
 zoom-in = Kasvata tekstin kokoa
-zoom-reset = Oletustekstikoko
+zoom-reset = Tekstin oletuskoko
 zoom-out = Pienennä tekstin kokoa
 next-tab = Seuraava välilehti
-previous-tab = Aikaisempi välilehti
+previous-tab = Edellinen välilehti
 split-horizontal = Halkaise näkymä vaakasuunnassa
 split-vertical = Halkaise näkymä pystysuunnassa
 pane-toggle-maximize = Maksimointi päälle tai pois päältä
 menu-color-schemes = Väriteemat…
 menu-settings = Asetukset…
-menu-about = Tietoa COSMIC Terminaalista…
+menu-about = Tietoa COSMICin päätteestä…
+comment = Pääte-emulaattori COSMIC-työpöydälle
+keywords = Command;Shell;Terminal;CLI;Komento;Komentotulkki;Pääte;Terminaali;Komentorivi;
+replace = Korvaa
+disable = Poista käytöstä
+repository = Tietovarasto
+support = Tuki
+open-link = Avaa linkki
+passwords-title = Salasanat
+add-password = Lisää salasana
+password-input = Salasana
+password-input-description = Kuvaus
+close-window = Sulje ikkuna
+keyboard-shortcuts = Pikanäppäimet
+no-shortcuts = Ei pikanäppäimiä
+shortcut-group-clipboard = Leikepöytä
+shortcut-group-tabs = Välilehdet
+shortcut-group-window = Ikkuna
+cancel = Peru
+copy-link = Kopioi linkki
+menu-keyboard-shortcuts = Pikanäppäimet…
+tab-activate = Aktivoi välilehti { $number }
+type-to-search = Etsi kirjoittamalla…
+password-manager = Salasanahallinta
