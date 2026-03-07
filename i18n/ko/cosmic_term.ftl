@@ -77,3 +77,4 @@ new-profile = 새 프로필
 find = 찾기
 profile = 프로필
 new-tab = 새 탭
+comment = COSMIC 데스크톱용 터미널 에뮬레이터
