@@ -44,19 +44,19 @@ light = Hell
 syntax-dark = Dunkles Farbschema
 syntax-light = Helles Farbschema
 default-zoom-step = Zoomstufen
-opacity = Deckkraft des Hintergrundes
+opacity = Hintergrunddeckkraft
 
 ### Schriftart
 
 font = Schriftart
-advanced-font-settings = Fortgeschrittene Schrifteinstellungen
+advanced-font-settings = Erweiterte Schriftarteneinstellungen
 default-font = Schriftart
 default-font-size = Schriftgröße
 default-font-stretch = Schriftbreite
 default-font-weight = Normale Schriftstärke
 default-dim-font-weight = Matte Schriftstärke
 default-bold-font-weight = Fette Schriftstärke
-use-bright-bold = Fetten Text heller darstellen
+use-bright-bold = Fettgedruckten Text heller machen
 
 ### Aufteilungen
 
@@ -65,7 +65,7 @@ focus-follow-mouse = Tippfokus folgt Maus
 
 ### Fortgeschritten
 
-advanced = Fortgeschritten
+advanced = Erweitert
 show-headerbar = Kopfzeile anzeigen
 show-header-description = Kopfzeile über das Rechtsklickmenü einblenden.
 # Suchen
@@ -99,15 +99,45 @@ clear-scrollback = Scrollverlauf löschen
 
 view = Ansicht
 zoom-in = Größerer Text
-zoom-reset = Standardschriftgröße
+zoom-reset = Standardtextgröße
 zoom-out = Kleinerer Text
 next-tab = Nächster Tab
 previous-tab = Vorheriger Tab
-split-horizontal = Horizontal aufteilen
-split-vertical = Vertikal aufteilen
-pane-toggle-maximize = Vollbild umschalten
+split-horizontal = Horizontal teilen
+split-vertical = Vertikal teilen
+pane-toggle-maximize = Maximierung umschalten
 menu-color-schemes = Farbschemen...
 menu-settings = Einstellungen...
 menu-about = Über COSMIC Terminal...
 repository = Repository
 cancel = Abbrechen
+keyboard-shortcuts = Tastenkombinationen
+open-link = Link öffnen
+menu-password-manager = Passwörter...
+passwords-title = Passwörter
+add-password = Passwort hinzufügen
+password-input = Passwort
+password-input-description = Beschreibung
+support = Unterstützung
+disable = Deaktivieren
+focus-pane-down = Bereich unten fokussieren
+focus-pane-left = Bereich links fokussieren
+focus-pane-right = Bereich rechts fokussieren
+focus-pane-up = Bereich oben fokussieren
+menu-keyboard-shortcuts = Tastenkombinationen...
+no-shortcuts = Keine Tastenkombinationen
+password-manager = Passwortmanager
+replace = Ersetzen
+reset-to-default = Auf Standard zurücksetzen
+shortcut-capture-hint = Drücke die Tastenkombination
+shortcut-group-clipboard = Zwischenablage
+shortcut-group-other = Andere
+shortcut-group-tabs = Tabs
+shortcut-group-window = Fenster
+shortcut-replace-title = Tastenkombination ersetzen?
+tab-activate = Tab { $number } aktivieren
+copy-link = Link kopieren
+type-to-search = Zum Suchen tippen...
+close-window = Fenster schließen
+copy-or-sigint = Kopieren oder SIGINT
+toggle-fullscreen = Vollbild umschalten
