@@ -45,6 +45,7 @@ features = ["monospace_fallback", "shape-run-cache"]
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
+branch = "prev-master-0.14.0-dev"
 default-features = false
 #TODO: a11y feature crashes file chooser dialog
 features = ["about", "multi-window", "tokio", "winit", "surface-message"]
