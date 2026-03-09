@@ -1,5 +1,5 @@
 cosmic-terminal = COSMIC Terminal
-comment = Terminalemulator för skribordsmiljön COSMIC
+comment = Terminalemulator för skrivbordsmiljön COSMIC
 keywords = Kommando;Skal;Terminal;CLI;Konsol;
 new-terminal = Ny terminal
 
@@ -69,7 +69,7 @@ focus-follow-mouse = Skrivfokus följer mus
 
 advanced = Avancerat
 show-headerbar = Visa rubrikrad
-show-header-description = Visa rubrikrad från högerklicksmenyn.
+show-header-description = Visa rubrikrad från högerklicksmenyn
 # Sök
 find-placeholder = Sök…
 find-previous = Sök föregående
@@ -150,3 +150,4 @@ shortcut-group-clipboard = Urklipp
 shortcut-group-other = Andra
 shortcut-group-tabs = Flikar
 shortcut-group-zoom = Zooma
+copy-link = Kopiera länk

@@ -67,7 +67,7 @@ focus-follow-mouse = 聚焦窗口跟随鼠标
 
 advanced = 高级
 show-headerbar = 显示标题栏
-show-header-description = 右键菜单提供显示标题栏选项。
+show-header-description = 右键菜单提供显示标题栏选项
 # Find
 find-placeholder = 查找...
 find-previous = 查找上一个
@@ -145,3 +145,5 @@ shortcut-replace-title = 是否替换快捷键？
 tab-activate = 启用标签 { $number }
 toggle-fullscreen = 切换全屏
 comment = COSMIC 桌面的终端模拟器
+keywords = 指令;外壳;终端;命令行界面;
+copy-link = 复制链接
