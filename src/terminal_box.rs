@@ -952,6 +952,9 @@ where
                     Named::F10 => csi("21", "~", mod_no),
                     Named::F11 => csi("23", "~", mod_no),
                     Named::F12 => csi("24", "~", mod_no),
+                    Named::Enter if modifiers.shift() || modifiers.control() => {
+                        csi("13", "u", mod_no)
+                    }
                     _ => None,
                 };
                 if let Some(escape_code) = escape_code {
