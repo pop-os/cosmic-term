@@ -70,6 +70,8 @@ focus-follow-mouse = Enfoque del tecleo sigue el ratón
 advanced = Avanzado
 show-headerbar = Mostrar encabezado
 show-header-description = Mostrar encabezado desde el menú del clic secundario.
+tab-new-inherit-working-directory = Las pestañas nuevas usan el directorio actual
+tab-new-inherit-working-directory-description = Abrir pestañas nuevas en el directorio de trabajo de la pestaña activa
 # Find
 find-placeholder = Buscar...
 find-previous = Buscar previo
