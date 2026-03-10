@@ -36,7 +36,7 @@ settings = Socruithe
 
 ### Appearance
 
-appearance = Cuma
+appearance = Dealramh
 theme = Téama
 match-desktop = Meaitseáil deasc
 dark = Dorcha
@@ -67,7 +67,7 @@ focus-follow-mouse = Leanann fócas clóscríofa an luch
 
 advanced = Casta
 show-headerbar = Taispeáin ceanntásc
-show-header-description = Nocht an ceanntásc ón roghchlár cliceáil deas.
+show-header-description = Nocht an ceanntásc ón roghchlár cliceáil deas
 # Find
 find-placeholder = Aimsigh...
 find-previous = Aimsigh an ceann roimhe seo
@@ -144,3 +144,6 @@ shortcut-replace-title = Aicearra a athsholáthar?
 tab-activate = Gníomhachtaigh an cluaisín { $number }
 toggle-fullscreen = Scoraigh lánscáileán
 type-to-search = Clóscríobh le cuardach a dhéanamh...
+comment = Aithriseoir teirminéal don deasc COSMIC
+keywords = Ordú;Blaosc;Teirminéal;CLI;
+copy-link = Cóipeáil Nasc
