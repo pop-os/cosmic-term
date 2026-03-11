@@ -83,6 +83,7 @@ pub fn context_menu<'a>(
         Element::from(menu_item(fl!("select-all"), Action::SelectAll)),
         Element::from(divider::horizontal::light()),
         Element::from(menu_item(fl!("clear-scrollback"), Action::ClearScrollback)),
+        Element::from(menu_item(fl!("clear-and-reset"), Action::ClearAndReset)),
         Element::from(divider::horizontal::light()),
         Element::from(menu_item(
             fl!("split-horizontal"),
@@ -238,6 +239,7 @@ pub fn menu_bar<'a>(
                         MenuItem::Button(fl!("select-all"), None, Action::SelectAll),
                         MenuItem::Divider,
                         MenuItem::Button(fl!("clear-scrollback"), None, Action::ClearScrollback),
+                        MenuItem::Button(fl!("clear-and-reset"), None, Action::ClearAndReset),
                         MenuItem::Divider,
                         MenuItem::Button(fl!("find"), None, Action::Find),
                     ],
