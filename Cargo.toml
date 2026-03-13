@@ -36,8 +36,7 @@ thiserror = { version = "2.0", optional = true }
 secstr = { version = "0.5", optional = true }
 
 [dependencies.cosmic-files]
-path = "../cosmic-files"
-# git = "https://github.com/pop-os/cosmic-files.git"
+git = "https://github.com/pop-os/cosmic-files.git"
 default-features = false
 
 [dependencies.cosmic-text]
