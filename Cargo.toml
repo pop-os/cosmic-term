@@ -4,7 +4,7 @@ version = "1.0.8"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2024"
 license = "GPL-3.0-only"
-rust-version = "1.85"
+rust-version = "1.90"
 
 [dependencies]
 alacritty_terminal = "0.25.1"
@@ -67,7 +67,8 @@ inherits = "release"
 debug = true
 
 
-# [patch.'https://github.com/pop-os/libcosmic']
-# libcosmic = { path = "../libcosmic" }
-# cosmic-config = { path = "../libcosmic/cosmic-config" }
-# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+[patch.'https://github.com/pop-os/libcosmic']
+#libcosmic = { path = "../libcosmic" }
+#cosmic-config = { path = "../libcosmic/cosmic-config" }
+#cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+libcosmic = { git = "https://github.com/kenz-gelsoft/libcosmic.git", branch = "minimal-input-method-support" }
