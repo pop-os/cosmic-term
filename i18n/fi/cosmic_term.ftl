@@ -26,9 +26,9 @@ tab-title-description = Ylikirjoita välilehden oletusotsikko
 add-profile = Lisää profiili
 new-profile = Uusi profiili
 make-default = Aseta oletukseksi
-working-directory = Työkansio
+working-directory = Työhakemisto
 hold = Pidä
-remain-open = Pysy auki lapsiprosessin sulkeutumisen jälkeen.
+remain-open = Pysy avoinna lapsiprosessin sulkeutumisen jälkeen.
 
 ## Settings
 
@@ -38,13 +38,13 @@ settings = Asetukset
 
 appearance = Ulkoasu
 theme = Teema
-match-desktop = Sovita työpöydän kanssa
+match-desktop = Sovita työpöytään
 dark = Tumma
 light = Vaalea
 syntax-dark = Tumma väriteema
 syntax-light = Vaalea väriteema
-default-zoom-step = Zoomausaskeleet
-opacity = Taustan läpinäkyvyys
+default-zoom-step = Zoomauksen askeleet
+opacity = Taustan peittävyys
 
 ### Font
 
@@ -52,11 +52,11 @@ font = Fontti
 advanced-font-settings = Fontin lisäasetukset
 default-font = Fontti
 default-font-size = Fontin koko
-default-font-stretch = Kirjasimen venyvyys
-default-font-weight = Oletuskirjasimen paino
+default-font-stretch = Fontin venyvyys
+default-font-weight = Fontin normaalipaino
 default-dim-font-weight = Kirjasimen painon himmennys
 default-bold-font-weight = Paksun kirjasimen paino
-use-bright-bold = Näytä paksu kirjasin kirkkaana
+use-bright-bold = Näytä lihavoitu teksti kirkkaampana
 
 ### Splits
 
@@ -67,7 +67,7 @@ focus-follow-mouse = Kirjoituksen kohdistus seuraa hiirtä
 
 advanced = Lisäasetukset
 show-headerbar = Näytä otsake
-show-header-description = Paljasta otsake hiiren oikean painikkeen valikosta.
+show-header-description = Paljasta otsake hiiren oikean painikkeen valikosta
 
 # Find
 
@@ -134,3 +134,14 @@ menu-keyboard-shortcuts = Pikanäppäimet…
 tab-activate = Aktivoi välilehti { $number }
 type-to-search = Etsi kirjoittamalla…
 password-manager = Salasanahallinta
+reset-to-default = Palauta oletukseksi
+menu-password-manager = Salasanat…
+add-another-keybinding = Lisää toinen näppäinsidos
+focus-pane-down = Kohdista alempaan ruutuun
+focus-pane-left = Kohdista vasemmanpuoleiseen ruutuun
+focus-pane-right = Kohdista oikeanpuoleiseen ruutuun
+focus-pane-up = Kohdista ylempään ruutuun
+paste-primary = Liitä ensisijainen
+shortcut-capture-hint = Paina näppäinyhdistelmää
+shortcut-replace-body = { $binding } on jo kytketty toimintoon { $existing }. Korvataanko se toiminnolla { $new_action }?
+shortcut-replace-title = Korvataanko pikanäppäin?

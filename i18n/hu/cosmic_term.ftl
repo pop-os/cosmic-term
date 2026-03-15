@@ -58,7 +58,7 @@ default-font = Betűtípus
 default-font-size = Betűméret
 default-font-stretch = Betűszélesség
 default-font-weight = Normál betűsúly
-default-dim-font-weight = Halvány betűsúly
+default-dim-font-weight = Vékony betűsúly
 default-bold-font-weight = Félkövér betűsúly
 use-bright-bold = Félkövér szöveg világosítása
 
