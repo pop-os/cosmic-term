@@ -7,7 +7,6 @@ use alacritty_terminal::{
     term::{TermMode, cell::Flags},
     vte::ansi::{CursorShape, NamedColor},
 };
-use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::{
     Renderer,
     cosmic_theme::palette::{WithAlpha, blend::Compose},
@@ -34,6 +33,7 @@ use cosmic::{
     },
     theme::Theme,
 };
+use cosmic::{iced_core::SmolStr, widget::menu::key_bind::KeyBind};
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
 use std::{
@@ -316,6 +316,9 @@ where
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
+        if self.disabled {
+            return mouse::Interaction::default();
+        }
         let state = tree.state.downcast_ref::<State>();
 
         if let Some(Dragging::Scrollbar { .. }) = &state.dragging {
@@ -348,7 +351,7 @@ where
             }
         }
 
-        mouse::Interaction::Idle
+        mouse::Interaction::default()
     }
 
     fn draw(
@@ -988,22 +991,7 @@ where
                         }
                         shell.capture_event();
                     }
-                    Named::Space => {
-                        // Keep this instead of hardcoding the space to allow for dead keys
-                        let character = text
-                            .as_ref()
-                            .and_then(|c| c.chars().next())
-                            .unwrap_or_default();
 
-                        if modifiers.control() {
-                            // Send NUL character (\x00) for Ctrl + Space
-                            terminal.input_scroll(b"\x00".to_vec());
-                        } else {
-                            terminal
-                                .input_scroll(format!("{}{}", alt_prefix, character).into_bytes());
-                        }
-                        shell.capture_event();
-                    }
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
                         terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
@@ -1036,6 +1024,31 @@ where
                     };
                     update_active_regex_match(&mut terminal, location, Some(&state.modifiers));
                 }
+            }
+            Event::Keyboard(KeyEvent::KeyPressed {
+                text,
+                modifiers,
+                key,
+                ..
+            }) if *key == Key::Character(SmolStr::new(" ")) => {
+                //Special handle Enter, Escape, Backspace and Tab as described in
+                //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
+                //Also special handle Ctrl-_ to behave like xterm
+                let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
+
+                // Keep this instead of hardcoding the space to allow for dead keys
+                let character = text
+                    .as_ref()
+                    .and_then(|c| c.chars().next())
+                    .unwrap_or_default();
+
+                if modifiers.control() {
+                    // Send NUL character (\x00) for Ctrl + Space
+                    terminal.input_scroll(b"\x00".to_vec());
+                } else {
+                    terminal.input_scroll(format!("{}{}", alt_prefix, character).into_bytes());
+                }
+                shell.capture_event();
             }
             Event::Keyboard(KeyEvent::KeyPressed {
                 text,
