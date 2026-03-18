@@ -453,6 +453,7 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    ContextMenuPopupClosed(window::Id),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -523,6 +524,7 @@ pub struct App {
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
     modifiers: Modifiers,
+    context_menu_popup: Option<(window::Id, pane_grid::Pane, segmented_button::Entity, Option<String>, widget::Id)>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -1840,6 +1842,7 @@ impl Application for App {
             shortcut_search_regex: None,
             shortcut_search_value: String::new(),
             modifiers: Modifiers::empty(),
+            context_menu_popup: None,
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
         };
@@ -2428,40 +2431,18 @@ impl Application for App {
                 }
             }
             Message::CopyUrlByMenu => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    let entity = tab_model.active();
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
-                        let mut terminal = terminal.lock().unwrap();
-                        if let Some(url) =
-                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
-                        {
-                            let url = url.to_owned();
-                            terminal.context_menu = None;
-                            terminal.active_regex_match = None;
-                            terminal.needs_update = true;
-
-                            return Task::batch([clipboard::write(url), self.update_focus()]);
-                        }
+                if let Some((_, _, _, ref link, _)) = self.context_menu_popup {
+                    if let Some(url) = link.clone() {
+                        return Task::batch([clipboard::write(url), self.update_focus()]);
                     }
                 }
             }
             Message::LaunchUrlByMenu => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    let entity = tab_model.active();
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
-                        let mut terminal = terminal.lock().unwrap();
-                        if let Some(url) =
-                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
-                        {
-                            if let Err(err) = open::that_detached(url) {
-                                log::warn!("failed to open {:?}: {}", url, err);
-                            }
+                if let Some((_, _, _, ref link, _)) = self.context_menu_popup {
+                    if let Some(url) = link.as_ref() {
+                        if let Err(err) = open::that_detached(url) {
+                            log::warn!("failed to open {:?}: {}", url, err);
                         }
-                        terminal.context_menu = None;
-                        terminal.active_regex_match = None;
-                        terminal.needs_update = true;
                     }
                 }
             }
@@ -2810,54 +2791,91 @@ impl Application for App {
                 return self.update_title(None);
             }
             Message::TabContextAction(entity, action) => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Close context menu
-                        {
-                            let mut terminal = terminal.lock().unwrap();
-                            //Some actions need the menu_state,
-                            //so only clear the position for them.
-                            match action {
-                                Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {
-                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
-                                        context_menu.position = None;
-                                    }
-                                }
-                                _ => {
-                                    terminal.context_menu = None;
-                                }
-                            }
-                        }
-                        // Run action's message
-                        return self.update(action.message(Some(entity)));
-                    }
+                // Close context menu popup
+                let mut tasks = Vec::new();
+                if let Some((popup_id, _, _, _, _)) = self.context_menu_popup.take() {
+                    tasks.push(cosmic::task::message(Message::Surface(
+                        cosmic::surface::action::destroy_popup(popup_id),
+                    )));
                 }
-            }
-            Message::TabContextMenu(pane, menu_state) => {
-                // Close any existing context menues
-                let panes: Vec<_> = self.pane_model.panes.iter().collect();
-                for (_pane, tab_model) in panes {
-                    let entity = tab_model.active();
+                // Also clear terminal context_menu state
+                if let Some(tab_model) = self.pane_model.active() {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         let mut terminal = terminal.lock().unwrap();
                         terminal.context_menu = None;
                     }
                 }
+                tasks.push(self.update(action.message(Some(entity))));
+                return cosmic::Task::batch(tasks);
+            }
+            Message::TabContextMenu(pane, menu_state) => {
+                let mut tasks = Vec::new();
 
-                // Show the context menu on the correct pane / terminal
-                if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                    let entity = tab_model.active();
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = menu_state;
+                // Close existing context menu popup if any
+                if let Some((popup_id, _, _, _, _)) = self.context_menu_popup.take() {
+                    tasks.push(cosmic::task::message(Message::Surface(
+                        cosmic::surface::action::destroy_popup(popup_id),
+                    )));
+                }
+
+                // Clear all terminal context_menu state
+                for (_, tab_model) in self.pane_model.panes.iter() {
+                    for entity in tab_model.iter() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = None;
+                        }
                     }
                 }
 
-                // Shift focus to the pane / terminal
-                // with the context menu
-                self.pane_model.set_focus(pane);
-                return self.update_title(Some(pane));
+                if let Some(menu_state) = menu_state {
+                    if let Some(position) = menu_state.position {
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            {
+                                let entity = tab_model.active();
+                                let link = menu_state.link.clone();
+                                let popup_id = window::Id::unique();
+                                self.context_menu_popup = Some((popup_id, pane, entity, link, widget::Id::unique()));
+
+                                let main_window = self.core.main_window_id().unwrap();
+                                let pos_x = position.x as i32;
+                                let pos_y = position.y as i32;
+
+                                tasks.push(cosmic::task::message(Message::Surface(
+                                    cosmic::surface::action::app_popup(move |_app: &mut Self| {
+                                        use cosmic::cctk::wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
+                                        use cosmic::iced_runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
+
+                                        SctkPopupSettings {
+                                            parent: main_window,
+                                            id: popup_id,
+                                            positioner: SctkPositioner {
+                                                size: None,
+                                                anchor_rect: cosmic::iced::Rectangle {
+                                                    x: pos_x,
+                                                    y: pos_y,
+                                                    width: 1,
+                                                    height: 1,
+                                                },
+                                                anchor: Anchor::None,
+                                                gravity: Gravity::BottomRight,
+                                                reactive: true,
+                                                ..Default::default()
+                                            },
+                                            parent_size: None,
+                                            grab: true,
+                                            close_with_children: false,
+                                            input_zone: None,
+                                        }
+                                    }, None),
+                                )));
+                            }
+                        }
+                    }
+                    self.pane_model.set_focus(pane);
+                }
+
+                return cosmic::Task::batch(tasks);
             }
             Message::TabNew => {
                 return self.create_and_focus_new_terminal(
@@ -3133,6 +3151,13 @@ impl Application for App {
                 self.reset_terminal_panes_zoom();
                 return self.update_config();
             }
+            Message::ContextMenuPopupClosed(id) => {
+                if let Some((popup_id, _, _, _, _)) = &self.context_menu_popup {
+                    if id == *popup_id {
+                        self.context_menu_popup = None;
+                    }
+                }
+            }
             Message::Surface(a) => {
                 return cosmic::task::message(cosmic::Action::Cosmic(
                     cosmic::app::Action::Surface(a),
@@ -3239,7 +3264,24 @@ impl Application for App {
         ]
     }
 
+    fn on_close_requested(&self, id: window::Id) -> Option<Self::Message> {
+        if let Some((popup_id, _, _, _, _)) = &self.context_menu_popup {
+            if id == *popup_id {
+                return Some(Message::ContextMenuPopupClosed(id));
+            }
+        }
+        None
+    }
+
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
+        if let Some((popup_id, _pane, entity, ref link, ref autosize_id)) = self.context_menu_popup {
+            if window_id == popup_id {
+                return widget::autosize::autosize(
+                    menu::context_menu(&self.config, &self.key_binds, entity, link.clone()),
+                    autosize_id.clone(),
+                ).into();
+            }
+        }
         match &self.dialog_opt {
             Some(dialog) => dialog.view(window_id),
             None => widget::text("Unknown window ID").into(),
@@ -3307,26 +3349,17 @@ impl Application for App {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
 
-                let context_menu = {
-                    let terminal = terminal.lock().unwrap();
-                    terminal.context_menu.clone()
-                };
+                // If a context menu popup is active for this pane, inform the
+                // terminal_box so it will emit on_context_menu(None) on click
+                // to dismiss the popup.
+                if let Some((_, popup_pane, _, _, _)) = &self.context_menu_popup {
+                    if pane == *popup_pane {
+                        terminal_box =
+                            terminal_box.context_menu(cosmic::iced::Point::ORIGIN);
+                    }
+                }
 
-                let tab_element: Element<'_, Message> = match context_menu {
-                    Some(menu_state) => match menu_state.position {
-                        Some(point) => widget::popover(terminal_box.context_menu(point))
-                            .popup(menu::context_menu(
-                                &self.config,
-                                &self.key_binds,
-                                entity,
-                                menu_state.link,
-                            ))
-                            .position(widget::popover::Position::Point(point))
-                            .into(),
-                        None => terminal_box.into(),
-                    },
-                    None => terminal_box.into(),
-                };
+                let tab_element: Element<'_, Message> = terminal_box.into();
                 tab_column = tab_column.push(tab_element);
             }
 
