@@ -1030,7 +1030,7 @@ where
                 modifiers,
                 key,
                 ..
-            }) if *key == Key::Character(SmolStr::new(" ")) => {
+            }) if state.is_focused && *key == Key::Character(SmolStr::new(" ")) => {
                 //Special handle Enter, Escape, Backspace and Tab as described in
                 //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
                 //Also special handle Ctrl-_ to behave like xterm
