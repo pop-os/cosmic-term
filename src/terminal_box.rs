@@ -386,7 +386,34 @@ where
             - self.padding.y() as i32;
 
         if view_w <= 0 || view_h <= 0 {
-            // Zero sized image
+            // Pane too small for content, but still fill background
+            let terminal = self.terminal.lock().unwrap();
+            let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
+            let background_color = shade(meta.bg, state.is_focused && !self.disabled);
+            renderer.fill_quad(
+                Quad {
+                    bounds: layout.bounds(),
+                    border: Border {
+                        radius: if self.show_headerbar {
+                            [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
+                        } else {
+                            corner_radius.into()
+                        },
+                        width: self.border.width,
+                        color: self.border.color,
+                    },
+                    ..Default::default()
+                },
+                Color::from_rgba(
+                    f32::from(background_color.r()) / 255.0,
+                    f32::from(background_color.g()) / 255.0,
+                    f32::from(background_color.b()) / 255.0,
+                    match self.opacity {
+                        Some(opacity) => opacity,
+                        None => f32::from(background_color.a()) / 255.0,
+                    },
+                ),
+            );
             return;
         }
 
