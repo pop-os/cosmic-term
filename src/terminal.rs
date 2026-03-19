@@ -437,8 +437,12 @@ impl Terminal {
         if width != self.size.width || height != self.size.height {
             let instant = Instant::now();
 
-            self.size.width = width;
-            self.size.height = height;
+            // Clamp dimensions to ensure at least 1 row and 1 column,
+            // preventing index-out-of-bounds panics in alacritty_terminal.
+            let min_width = self.size.cell_width.ceil() as u32;
+            let min_height = self.size.cell_height.ceil() as u32;
+            self.size.width = width.max(min_width);
+            self.size.height = height.max(min_height);
 
             self.notifier.on_resize(self.size.into());
             self.term.lock().resize(self.size);
