@@ -3265,7 +3265,19 @@ impl Application for App {
                             .on_activate(Message::TabActivate)
                             .on_close(|entity| Message::TabClose(Some(entity))),
                     )
-                    .class(style::Container::Background)
+                    .class(style::Container::Custom(Box::new(|theme| {
+                        let cosmic = theme.cosmic();
+                        cosmic::iced_widget::container::Style {
+                            icon_color: Some(Color::from(cosmic.background.on)),
+                            text_color: Some(Color::from(cosmic.background.on)),
+                            background: Some(iced::Background::Color(
+                                cosmic.background.base.into(),
+                            )),
+                            border: iced::Border::default(),
+                            shadow: iced::Shadow::default(),
+                            snap: true,
+                        }
+                    })))
                     .width(Length::Fill),
                 );
             }
