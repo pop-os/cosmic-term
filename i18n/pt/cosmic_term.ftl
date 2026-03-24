@@ -29,6 +29,8 @@ make-default = Tornar predefinido
 working-directory = Pasta de trabalho
 hold = Manter
 remain-open = Permanecer aberto após o sub-processo terminar.
+environment-paths = Caminhos de ambiente
+add-path = Adicionar caminho
 
 ## Settings
 

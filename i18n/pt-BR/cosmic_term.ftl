@@ -31,6 +31,8 @@ make-default = Tornar padrão
 working-directory = Diretório de trabalho
 hold = Manter
 remain-open = Continuar aberto depois que o processo secundário terminar.
+environment-paths = Caminhos de ambiente
+add-path = Adicionar caminho
 
 ## Settings
 

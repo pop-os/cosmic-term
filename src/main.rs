@@ -209,6 +209,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
+    // On macOS, disable client-side decorations so the native window controls
+    // (close, minimize, maximize - "traffic lights") are shown by the OS.
+    #[cfg(target_os = "macos")]
+    {
+        settings = settings.client_decorations(false);
+    }
 
     // Flags
     let flags = Flags {
@@ -409,6 +415,9 @@ pub enum Message {
     ProfileCollapse(ProfileId),
     ProfileCommand(ProfileId, String),
     ProfileDirectory(ProfileId, String),
+    ProfileEnvPathAdd(ProfileId, String),
+    ProfileEnvPathRemove(ProfileId, usize),
+    ProfileEnvPathUpdate(ProfileId, usize, String),
     ProfileExpand(ProfileId),
     ProfileHold(ProfileId, bool),
     ProfileName(ProfileId, String),
@@ -1004,6 +1013,48 @@ impl App {
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("environment-paths")).into(),
+                                    widget::column::with_children(
+                                        profile
+                                            .env_path
+                                            .iter()
+                                            .enumerate()
+                                            .map(|(index, path)| {
+                                                widget::row::with_children(vec![
+                                                    widget::text_input("", path)
+                                                        .on_input(move |text| {
+                                                            Message::ProfileEnvPathUpdate(
+                                                                profile_id, index, text,
+                                                            )
+                                                        })
+                                                        .into(),
+                                                    widget::button::custom(icon_cache_get(
+                                                        "edit-delete-symbolic",
+                                                        16,
+                                                    ))
+                                                    .on_press(Message::ProfileEnvPathRemove(
+                                                        profile_id, index,
+                                                    ))
+                                                    .class(style::Button::Icon)
+                                                    .into(),
+                                                ])
+                                                .spacing(space_xxxs)
+                                                .into()
+                                            })
+                                            .collect::<Vec<_>>(),
+                                    )
+                                    .spacing(space_xxxs)
+                                    .into(),
+                                    widget::button::standard(fl!("add-path"))
+                                        .on_press(Message::ProfileEnvPathAdd(
+                                            profile_id,
+                                            String::new(),
+                                        ))
+                                        .into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
                             ])
                             .padding([0, space_s])
                             .spacing(space_xs),
@@ -1333,11 +1384,23 @@ impl App {
                                             (!profile.working_directory.is_empty())
                                                 .then(|| profile.working_directory.clone().into());
 
+                                        let mut env = HashMap::new();
+                                        if !profile.env_path.is_empty() {
+                                            if let Ok(current_path) = std::env::var("PATH") {
+                                                let mut new_path = profile.env_path.join(":");
+                                                if !new_path.is_empty() {
+                                                    new_path.push(':');
+                                                }
+                                                new_path.push_str(&current_path);
+                                                env.insert("PATH".to_string(), new_path);
+                                            }
+                                        }
+
                                         let options = tty::Options {
                                             shell,
                                             working_directory,
                                             drain_on_exit: profile.drain_on_exit,
-                                            env: HashMap::new(),
+                                            env,
                                         };
                                         let tab_title_override = if profile.tab_title.is_empty() {
                                             None
@@ -2289,6 +2352,28 @@ impl Application for App {
                     return self.save_profiles();
                 }
             }
+            Message::ProfileEnvPathAdd(profile_id, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    profile.env_path.push(text);
+                    return self.save_profiles();
+                }
+            }
+            Message::ProfileEnvPathRemove(profile_id, index) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    if index < profile.env_path.len() {
+                        profile.env_path.remove(index);
+                        return self.save_profiles();
+                    }
+                }
+            }
+            Message::ProfileEnvPathUpdate(profile_id, index, text) => {
+                if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                    if let Some(path) = profile.env_path.get_mut(index) {
+                        *path = text;
+                        return self.save_profiles();
+                    }
+                }
+            }
             Message::ProfileExpand(profile_id) => {
                 self.profile_expanded = Some(profile_id);
             }
@@ -2770,6 +2855,33 @@ impl Application for App {
             Message::WindowFocused => {
                 if !self.core.window.show_context {
                     self.pane_model.update_terminal_focus();
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    use objc::{msg_send, sel, sel_impl};
+                    use objc::runtime::{Object, YES};
+                    // kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner = bottom-left + bottom-right
+                    // (on macOS, Y increases downward in AppKit coordinate space, but CALayer uses
+                    // UIKit-like coordinates where MinY=bottom; for AppKit: MinY=top, MaxY=bottom)
+                    // The corners we want to round are the bottom ones: kCALayerMinXMaxYCorner (0x8) | kCALayerMaxXMaxYCorner (0x4)
+                    let bottom_corners: u64 = 0x8 | 0x4; // bottom-left | bottom-right in CACornerMask
+                    unsafe {
+                        let app_class = objc::runtime::Class::get("NSApplication").unwrap();
+                        let app: *mut Object = msg_send![app_class, sharedApplication];
+                        let windows: *mut Object = msg_send![app, windows];
+                        let count: usize = msg_send![windows, count];
+                        for i in 0..count {
+                            let window: *mut Object = msg_send![windows, objectAtIndex: i];
+                            let content_view: *mut Object = msg_send![window, contentView];
+                            // Ensure the view has a backing CALayer
+                            let _: () = msg_send![content_view, setWantsLayer: YES];
+                            let layer: *mut Object = msg_send![content_view, layer];
+                            if !layer.is_null() {
+                                let _: () = msg_send![layer, setMasksToBounds: YES];
+                                let _: () = msg_send![layer, setMaskedCorners: bottom_corners];
+                            }
+                        }
+                    }
                 }
                 return self.update_focus();
             }

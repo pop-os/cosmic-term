@@ -27,6 +27,8 @@ make-default = Make default
 working-directory = Working directory
 hold = Hold
 remain-open = Remain open after child process exits.
+environment-paths = Environment paths
+add-path = Add path
 
 ## Settings
 settings = Settings

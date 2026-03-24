@@ -200,6 +200,8 @@ pub struct Profile {
     pub working_directory: String,
     #[serde(default)]
     pub drain_on_exit: bool,
+    #[serde(default)]
+    pub env_path: Vec<String>,
 }
 
 impl Default for Profile {
@@ -212,6 +214,7 @@ impl Default for Profile {
             tab_title: String::new(),
             working_directory: String::new(),
             drain_on_exit: false,
+            env_path: Vec::new(),
         }
     }
 }
@@ -254,7 +257,7 @@ impl Default for Config {
             font_weight: Weight::NORMAL.0,
             opacity: 100,
             profiles: BTreeMap::new(),
-            show_headerbar: true,
+            show_headerbar: cfg!(not(target_os = "macos")),
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
