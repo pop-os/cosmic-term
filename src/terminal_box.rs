@@ -1300,8 +1300,12 @@ where
                                             None,
                                         );
                                         let link = get_hyperlink(&terminal, location);
+                                        let abs = cosmic::iced::Point::new(
+                                            layout.bounds().x + p.x,
+                                            layout.bounds().y + p.y,
+                                        );
                                         shell.publish(on_context_menu(Some(MenuState {
-                                            position: Some(p),
+                                            position: Some(abs),
                                             link,
                                         })));
                                     }
