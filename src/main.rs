@@ -3352,11 +3352,8 @@ impl Application for App {
                 // If a context menu popup is active for this pane, inform the
                 // terminal_box so it will emit on_context_menu(None) on click
                 // to dismiss the popup.
-                if let Some((_, popup_pane, _, _, _)) = &self.context_menu_popup {
-                    if pane == *popup_pane {
-                        terminal_box =
-                            terminal_box.context_menu(cosmic::iced::Point::ORIGIN);
-                    }
+                if self.context_menu_popup.is_some() {
+                    terminal_box = terminal_box.context_menu(cosmic::iced::Point::ORIGIN);
                 }
 
                 let tab_element: Element<'_, Message> = terminal_box.into();
