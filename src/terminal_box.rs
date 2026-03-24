@@ -402,6 +402,7 @@ where
                         width: self.border.width,
                         color: self.border.color,
                     },
+                    snap: true,
                     ..Default::default()
                 },
                 Color::from_rgba(
@@ -445,6 +446,7 @@ where
                         width: self.border.width,
                         color: self.border.color,
                     },
+                    snap: true,
                     ..Default::default()
                 },
                 Color::from_rgba(
