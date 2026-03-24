@@ -524,7 +524,13 @@ pub struct App {
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
     modifiers: Modifiers,
-    context_menu_popup: Option<(window::Id, pane_grid::Pane, segmented_button::Entity, Option<String>, widget::Id)>,
+    context_menu_popup: Option<(
+        window::Id,
+        pane_grid::Pane,
+        segmented_button::Entity,
+        Option<String>,
+        widget::Id,
+    )>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -2835,7 +2841,8 @@ impl Application for App {
                                 let entity = tab_model.active();
                                 let link = menu_state.link.clone();
                                 let popup_id = window::Id::unique();
-                                self.context_menu_popup = Some((popup_id, pane, entity, link, widget::Id::unique()));
+                                self.context_menu_popup =
+                                    Some((popup_id, pane, entity, link, widget::Id::unique()));
 
                                 let main_window = self.core.main_window_id().unwrap();
                                 let pos_x = position.x as i32;
@@ -3274,12 +3281,14 @@ impl Application for App {
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
-        if let Some((popup_id, _pane, entity, ref link, ref autosize_id)) = self.context_menu_popup {
+        if let Some((popup_id, _pane, entity, ref link, ref autosize_id)) = self.context_menu_popup
+        {
             if window_id == popup_id {
                 return widget::autosize::autosize(
                     menu::context_menu(&self.config, &self.key_binds, entity, link.clone()),
                     autosize_id.clone(),
-                ).into();
+                )
+                .into();
             }
         }
         match &self.dialog_opt {
