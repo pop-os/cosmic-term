@@ -451,6 +451,7 @@ pub enum Message {
     WindowNew,
     WindowFocused,
     WindowUnfocused,
+    WindowResized,
     ZoomIn,
     ZoomOut,
     ZoomReset,
@@ -1509,6 +1510,28 @@ impl Application for App {
         &mut self.core
     }
 
+    #[cfg(target_os = "macos")]
+    fn style(&self) -> Option<cosmic::iced_runtime::Appearance> {
+        // On macOS with native decorations, we need an opaque background
+        // so that the OS-managed window corners look correct and there's
+        // no transparent gap revealing rounded corners from internal widgets.
+        let theme = cosmic::theme::active();
+        let cosmic = theme.cosmic();
+        Some(cosmic::iced_runtime::Appearance {
+            background_color: cosmic.background.base.into(),
+            icon_color: cosmic.on_bg_color().into(),
+            text_color: cosmic.on_bg_color().into(),
+        })
+    }
+
+    #[cfg(target_os = "macos")]
+    fn on_window_resize(&mut self, _id: cosmic::iced::window::Id, _width: f32, _height: f32) {
+        // libcosmic resets sharp_corners = false on every resize via
+        // WindowMaximized(id, false). We counteract that here so internal
+        // widgets never render with border-radius on macOS.
+        self.core.window.sharp_corners = true;
+    }
+
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Task<Self::Message>) {
         #[cfg(target_os = "macos")]
@@ -1526,6 +1549,13 @@ impl Application for App {
         }
         core.window.content_container = false;
         core.window.show_headerbar = flags.config.show_headerbar;
+        // On macOS with native decorations, the OS manages window corner rounding.
+        // Setting sharp_corners disables iced's own border-radius so there's no
+        // visual overlap/gap between the iced-rendered border and the native titlebar.
+        #[cfg(target_os = "macos")]
+        {
+            core.window.sharp_corners = true;
+        }
 
         // Update font name from config
         {
@@ -1758,6 +1788,13 @@ impl Application for App {
             };
         }
         match message {
+            Message::WindowResized => {
+                #[cfg(target_os = "macos")]
+                {
+                    self.core.window.sharp_corners = true;
+                }
+                return Task::none();
+            }
             Message::AppTheme(app_theme) => {
                 config_set!(app_theme, app_theme);
                 return self.update_config();
@@ -2864,7 +2901,8 @@ impl Application for App {
                     // (on macOS, Y increases downward in AppKit coordinate space, but CALayer uses
                     // UIKit-like coordinates where MinY=bottom; for AppKit: MinY=top, MaxY=bottom)
                     // The corners we want to round are the bottom ones: kCALayerMinXMaxYCorner (0x8) | kCALayerMaxXMaxYCorner (0x4)
-                    let bottom_corners: u64 = 0x8 | 0x4; // bottom-left | bottom-right in CACornerMask
+                    // On macOS CALayer: 1=BottomLeft, 2=BottomRight, 4=TopLeft, 8=TopRight
+                    let bottom_corners: u64 = 1 | 2; // bottom-left | bottom-right in CACornerMask (MinXMinY | MaxXMinY)
                     unsafe {
                         let app_class = objc::runtime::Class::get("NSApplication").unwrap();
                         let app: *mut Object = msg_send![app_class, sharedApplication];
@@ -2903,6 +2941,14 @@ impl Application for App {
                     cosmic::app::Action::Surface(a),
                 ));
             }
+        }
+
+        // On macOS, libcosmic's WindowMaximized(_, false) resets sharp_corners
+        // after every resize. Force it back to true so the top corners stay
+        // sharp and align with the native title bar.
+        #[cfg(target_os = "macos")]
+        {
+            self.core.window.sharp_corners = true;
         }
 
         Task::none()
@@ -2980,7 +3026,6 @@ impl Application for App {
                             .on_activate(Message::TabActivate)
                             .on_close(|entity| Message::TabClose(Some(entity))),
                     )
-                    .class(style::Container::Background)
                     .width(Length::Fill),
                 );
             }
@@ -3140,6 +3185,9 @@ impl Application for App {
                 }
                 Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
                     Some(Message::CopyPrimary(None))
+                }
+                Event::Window(window::Event::Resized(..)) => {
+                    Some(Message::WindowResized)
                 }
                 _ => None,
             }),

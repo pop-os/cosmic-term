@@ -404,7 +404,8 @@ where
                 Quad {
                     bounds: layout.bounds(),
                     border: Border {
-                        radius: if self.show_headerbar {
+                        radius: if self.show_headerbar || cfg!(target_os = "macos") {
+                            // On macOS or when headerbar is shown, keep top corners sharp
                             [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
                         } else {
                             corner_radius.into()
