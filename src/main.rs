@@ -1551,7 +1551,7 @@ impl Application for App {
                  let _: () = msg_send![app, setActivationPolicy: policy];
                  let _: () = msg_send![app, activateIgnoringOtherApps: true];
             }
-            Some(mac_menu::init_mac_menu())
+            None
         };
         core.window.content_container = false;
         #[cfg(not(target_os = "macos"))]
@@ -1782,6 +1782,12 @@ impl Application for App {
 
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Task<Self::Message> {
+        #[cfg(target_os = "macos")]
+        {
+            if self.mac_menu.is_none() {
+                self.mac_menu = Some(mac_menu::init_mac_menu());
+            }
+        }
         #[cfg(target_os = "macos")]
         {
             let mut tasks = Vec::new();
