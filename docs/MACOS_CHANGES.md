@@ -34,3 +34,12 @@ This ensures the terminal window receives key events (like typing) instead of th
 
 ## 4. Debugging Artifacts
 -   Temporary `println!` debug logs were injected into `src/main.rs`, `src/terminal.rs`, and `src/terminal_box.rs` to diagnose the event loop flow but have been removed in the final source.
+
+## 5. macOS Native Window Decorations (Traffic Lights) & Border Radius
+-   **Client Server Decorations**: Disabled via `settings = settings.client_decorations(false);` in `src/main.rs`. This shifts responsibility to macOS for drawing the native title bar.
+-   **`CALayer` Bottom Corners**: Updated the `setMaskedCorners` Objective-C call in `Message::WindowFocused` to use the correct bitmask `1 | 2` (`kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner`). This correctly restores bottom rounded corners without affecting the sharp top corners needed for the native title bar.
+-   **LibCosmic `sharp_corners` Race Condition**: To avoid visual gaps where libcosmic draws rounded top corners beneath the macOS native title bar:
+    - Added a `#[cfg(target_os = "macos")]` block to force `self.core.window.sharp_corners = true` at the very end of the main `update()` loop.
+    - This neutralizes libcosmic's internal `WindowMaximized(id, false)` event that continuously attempted to disable sharp corners on non-maximized windows.
+-   **Terminal Inner Padding Radius**: Modified `radius` in `src/terminal_box.rs` inside the `draw` routine to ensure `[0.0, 0.0, corner_radius[2], corner_radius[3]]` is used on macOS.
+-   **Container Limitations**: Removed an invalid `.border()` setting on the `widget::tab_bar::horizontal` container to fix an `[E0599]` compilation error.
