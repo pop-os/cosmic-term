@@ -49,6 +49,7 @@ This ensures the terminal window receives key events (like typing) instead of th
     - **`Cargo.toml`**: Added target-specific crate `muda` (Menu Utilities for Desktop Applications) to handle Cocoa/Objective-C `NSMenu` construction.
     - **`src/main.rs`:**
         - Modified `App` struct to store `Option<muda::Menu>` on macOS so the native menu outlives the initialization stack.
-        - Modified `App::init` to set `settings.show_headerbar = false` by default on macOS, neatly turning off the internal LibCosmic menu logic while still enabling user toggles, rather than stripping `header_start()` out entirely.
-        - `update(&mut self)`: Interrogates `muda::MenuEvent::receiver().try_recv()` natively during the application loop, mapping incoming action IDs (e.g., "TabNew", "WindowNew") to regular cosmic-term `Action::xyz.message()` variants.
+        - Modified `App::update` to lazily construct `mac_menu::init_mac_menu()` on the very first event loop tick, side-stepping edge-triggered macOS window issues where Native OS overrides our menus if initialized beforehand.
+        - `App::init` disables `settings.show_headerbar = false` by default on macOS, neatly turning off the internal LibCosmic menu logic while still enabling user toggles.
+        - **Asynchronous Menu Processing**: Because checking for `muda` events synchronously requires iced to be awake, we injected an independent `App::subscription` using `tokio::sync::mpsc::unbounded_channel`. A detached standard thread blocks on `MenuEvent::receiver().recv()`, instantly pumping values via `Message::MacMenuEvent(id)` back into Iced to force instantaneous GUI updates.
     - **`src/mac_menu.rs`**: Created a macOS-exclusive module to initialize the `muda::Menu`. Added `.ok().flatten()` logic instead of `unwrap()` to prevent `UnsupportedKey` panics during shortcut mappings.
