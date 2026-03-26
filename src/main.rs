@@ -363,8 +363,11 @@ impl MenuAction for Action {
 }
 
 /// Messages that are used specifically by our [`App`].
+/// Messages that are used specifically by our [`App`].
 #[derive(Clone, Debug)]
 pub enum Message {
+    #[cfg(target_os = "macos")]
+    MacMenuEvent(String),
     AppTheme(AppTheme),
     ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
@@ -1788,37 +1791,6 @@ impl Application for App {
                 self.mac_menu = Some(mac_menu::init_mac_menu());
             }
         }
-        #[cfg(target_os = "macos")]
-        {
-            let mut tasks = Vec::new();
-            while let Ok(event) = muda::MenuEvent::receiver().try_recv() {
-                match event.id().0.as_str() {
-                    "TabNew" => tasks.push(self.update(Action::TabNew.message(None))),
-                    "WindowNew" => tasks.push(self.update(Action::WindowNew.message(None))),
-                    "TabClose" => tasks.push(self.update(Action::TabClose.message(None))),
-                    "Copy" => tasks.push(self.update(Action::Copy.message(None))),
-                    "Paste" => tasks.push(self.update(Action::Paste.message(None))),
-                    "SelectAll" => tasks.push(self.update(Action::SelectAll.message(None))),
-                    "ClearScrollback" => tasks.push(self.update(Action::ClearScrollback.message(None))),
-                    "Find" => tasks.push(self.update(Action::Find.message(None))),
-                    "ZoomIn" => tasks.push(self.update(Action::ZoomIn.message(None))),
-                    "ZoomOut" => tasks.push(self.update(Action::ZoomOut.message(None))),
-                    "ZoomReset" => tasks.push(self.update(Action::ZoomReset.message(None))),
-                    "TabNext" => tasks.push(self.update(Action::TabNext.message(None))),
-                    "TabPrev" => tasks.push(self.update(Action::TabPrev.message(None))),
-                    "PaneSplitHorizontal" => tasks.push(self.update(Action::PaneSplitHorizontal.message(None))),
-                    "PaneSplitVertical" => tasks.push(self.update(Action::PaneSplitVertical.message(None))),
-                    "PaneToggleMaximized" => tasks.push(self.update(Action::PaneToggleMaximized.message(None))),
-                    "Settings" => tasks.push(self.update(Action::Settings.message(None))),
-                    "About" => tasks.push(self.update(Action::About.message(None))),
-                    _ => {}
-                }
-            }
-            if !tasks.is_empty() {
-                tasks.push(self.update(message));
-                return Task::batch(tasks);
-            }
-        }
 
         // Helper for updating config values efficiently
         macro_rules! config_set {
@@ -1842,6 +1814,28 @@ impl Application for App {
             };
         }
         match message {
+            #[cfg(target_os = "macos")]
+            Message::MacMenuEvent(id) => match id.as_str() {
+                "TabNew" => return self.update(Action::TabNew.message(None)),
+                "WindowNew" => return self.update(Action::WindowNew.message(None)),
+                "TabClose" => return self.update(Action::TabClose.message(None)),
+                "Copy" => return self.update(Action::Copy.message(None)),
+                "Paste" => return self.update(Action::Paste.message(None)),
+                "SelectAll" => return self.update(Action::SelectAll.message(None)),
+                "ClearScrollback" => return self.update(Action::ClearScrollback.message(None)),
+                "Find" => return self.update(Action::Find.message(None)),
+                "ZoomIn" => return self.update(Action::ZoomIn.message(None)),
+                "ZoomOut" => return self.update(Action::ZoomOut.message(None)),
+                "ZoomReset" => return self.update(Action::ZoomReset.message(None)),
+                "TabNext" => return self.update(Action::TabNext.message(None)),
+                "TabPrev" => return self.update(Action::TabPrev.message(None)),
+                "PaneSplitHorizontal" => return self.update(Action::PaneSplitHorizontal.message(None)),
+                "PaneSplitVertical" => return self.update(Action::PaneSplitVertical.message(None)),
+                "PaneToggleMaximized" => return self.update(Action::PaneToggleMaximized.message(None)),
+                "Settings" => return self.update(Action::Settings.message(None)),
+                "About" => return self.update(Action::About.message(None)),
+                _ => return Task::none(),
+            },
             Message::WindowResized => {
                 #[cfg(target_os = "macos")]
                 {
@@ -3228,6 +3222,8 @@ impl Application for App {
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
+        #[cfg(target_os = "macos")]
+        struct MacMenuSubscription;
 
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
@@ -3261,6 +3257,26 @@ impl Application for App {
                     panic!("terminal event channel closed");
                 }),
             ),
+            #[cfg(target_os = "macos")]
+            Subscription::run_with_id(
+                TypeId::of::<MacMenuSubscription>(),
+                stream::channel(100, |mut output| async move {
+                    let (tx, mut rx) = mpsc::unbounded_channel();
+                    std::thread::spawn(move || {
+                        while let Ok(event) = muda::MenuEvent::receiver().recv() {
+                            let _ = tx.send(event.id().0.clone());
+                        }
+                    });
+
+                    while let Some(id) = rx.recv().await {
+                        output.send(Message::MacMenuEvent(id)).await.unwrap();
+                    }
+
+                    panic!("mac menu channel closed");
+                }),
+            ),
+            #[cfg(not(target_os = "macos"))]
+            Subscription::none(),
             cosmic_config::config_subscription(
                 TypeId::of::<ConfigSubscription>(),
                 Self::APP_ID.into(),
