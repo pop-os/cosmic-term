@@ -70,8 +70,8 @@ focus-follow-mouse = Foco de digitação segue o mouse
 ### Advanced
 
 advanced = Avançado
-show-headerbar = Mostrar a barra de título
-show-header-description = Mostrar a barra de título da janela no menu de contexto.
+show-headerbar = Barra de título
+show-header-description = Barra de título da janela no menu de contexto.
 # Find
 find-placeholder = Localizar...
 find-previous = Localizar anterior
@@ -97,7 +97,7 @@ copy = Copiar
 paste = Colar
 select-all = Selecionar tudo
 find = Localizar
-clear-scrollback = Limpar histórico de rolagem
+clear-scrollback = Limpar histórico
 
 ## View
 
@@ -107,9 +107,9 @@ zoom-reset = Redefinir zoom
 zoom-out = Diminuir texto
 next-tab = Próxima aba
 previous-tab = Aba anterior
-split-horizontal = Dividir horizontalmente
-split-vertical = Dividir verticalmente
-pane-toggle-maximize = Alternar maximização
+split-horizontal = Div horizontal
+split-vertical = Div vertical
+pane-toggle-maximize = Alt maximização
 menu-color-schemes = Esquemas de cores...
 menu-settings = Configurações...
 menu-about = Sobre o Terminal COSMIC-MAC...
