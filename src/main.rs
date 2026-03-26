@@ -171,32 +171,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         };
         Some(options)
     } else {
-        #[cfg(target_os = "macos")]
-        {
-            let fish_paths = ["/opt/homebrew/bin/fish", "/usr/local/bin/fish", "/usr/bin/fish"];
-            let shell_path = fish_paths.iter().find(|p| std::path::Path::new(p).exists())
-                .map(|p| p.to_string())
-                .or_else(|| {
-                     if std::path::Path::new("/bin/bash").exists() {
-                         Some("/bin/bash".to_string())
-                     } else {
-                         None
-                     }
-                });
-
-            if let Some(shell) = shell_path {
-                log::info!("MacOS: Using override shell: {}", shell);
-                let options = tty::Options {
-                    shell: Some(tty::Shell::new(shell, Vec::new())),
-                    ..tty::Options::default()
-                };
-                Some(options)
-            } else {
-                None
-            }
+        if let Some(shell) = get_fallback_shell() {
+            let options = tty::Options {
+                shell: Some(shell),
+                ..tty::Options::default()
+            };
+            Some(options)
+        } else {
+            None
         }
-        #[cfg(not(target_os = "macos"))]
-        None
     };
 
     // Terminal config setup teste
@@ -1389,6 +1372,9 @@ impl App {
                                                 shell = Some(tty::Shell::new(command, args));
                                             }
                                         }
+                                        if shell.is_none() {
+                                            shell = get_fallback_shell();
+                                        }
                                         let working_directory =
                                             (!profile.working_directory.is_empty())
                                                 .then(|| profile.working_directory.clone().into());
@@ -1418,7 +1404,13 @@ impl App {
                                         };
                                         (options, tab_title_override)
                                     }
-                                    None => (Options::default(), None),
+                                    None => {
+                                        let options = tty::Options {
+                                            shell: get_fallback_shell(),
+                                            ..tty::Options::default()
+                                        };
+                                        (options, None)
+                                    }
                                 },
                             };
                             let entity = tab_model
@@ -3298,4 +3290,25 @@ impl Application for App {
             },
         ])
     }
+}
+
+pub fn get_fallback_shell() -> Option<tty::Shell> {
+    #[cfg(target_os = "macos")]
+    {
+        let fish_paths = ["/opt/homebrew/bin/fish", "/usr/local/bin/fish", "/usr/bin/fish"];
+        let shell_path = fish_paths.iter().find(|p| std::path::Path::new(p).exists())
+            .map(|p| p.to_string())
+            .or_else(|| {
+                 if std::path::Path::new("/bin/bash").exists() {
+                     Some("/bin/bash".to_string())
+                 } else {
+                     Option::None
+                 }
+            });
+
+        if let Some(shell) = shell_path {
+            return Some(tty::Shell::new(shell, Vec::new()));
+        }
+    }
+    Option::None
 }
