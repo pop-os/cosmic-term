@@ -11,12 +11,12 @@
   <name>COSMIC Terminal</name>
   <name xml:lang="ar">طرفية COSMIC</name>
   <name xml:lang="cs">Terminál COSMIC</name>
-  <name xml:lang="pl">Terminal COSMIC</name>
+  <name xml:lang="pl">Terminal COSMIC-MAC</name>
   <name xml:lang="hu">COSMIC Terminál</name>
   <name xml:lang="pt_BR">Terminal</name>
   <name xml:lang="pt">Terminal</name>
   <name xml:lang="sk">Terminál COSMIC</name>
-  <name xml:lang="es">Terminal COSMIC</name>
+  <name xml:lang="es">Terminal COSMIC-MAC</name>
   <name xml:lang="it">Terminale di COSMIC</name>
   <name xml:lang="sv">COSMIC Terminal</name>
   <summary>Terminal emulator for the COSMIC desktop</summary>

@@ -1,4 +1,4 @@
-cosmic-terminal = Terminal COSMIC
+cosmic-terminal = Terminal COSMIC-MAC
 new-terminal = Terminal nou
 
 # Context Pages
