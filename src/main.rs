@@ -58,6 +58,9 @@ mod localize;
 use menu::menu_bar;
 mod menu;
 
+#[cfg(target_os = "macos")]
+mod mac_menu;
+
 use terminal::{Terminal, TerminalPaneGrid, TerminalScroll};
 mod terminal;
 
@@ -509,6 +512,8 @@ pub struct App {
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
     modifiers: Modifiers,
+    #[cfg(target_os = "macos")]
+    mac_menu: Option<muda::Menu>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -1535,7 +1540,7 @@ impl Application for App {
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Task<Self::Message>) {
         #[cfg(target_os = "macos")]
-        {
+        let mac_menu = {
             use objc::{msg_send, sel, sel_impl};
             use objc::runtime::{Object, Class};
 
@@ -1546,9 +1551,17 @@ impl Application for App {
                  let _: () = msg_send![app, setActivationPolicy: policy];
                  let _: () = msg_send![app, activateIgnoringOtherApps: true];
             }
-        }
+            Some(mac_menu::init_mac_menu())
+        };
         core.window.content_container = false;
-        core.window.show_headerbar = flags.config.show_headerbar;
+        #[cfg(not(target_os = "macos"))]
+        {
+            core.window.show_headerbar = flags.config.show_headerbar;
+        }
+        #[cfg(target_os = "macos")]
+        {
+            core.window.show_headerbar = false;
+        }
         // On macOS with native decorations, the OS manages window corner rounding.
         // Setting sharp_corners disables iced's own border-radius so there's no
         // visual overlap/gap between the iced-rendered border and the native titlebar.
@@ -1723,6 +1736,8 @@ impl Application for App {
             profile_expanded: None,
             show_advanced_font_settings: false,
             modifiers: Modifiers::empty(),
+            #[cfg(target_os = "macos")]
+            mac_menu,
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
         };
@@ -1732,6 +1747,7 @@ impl Application for App {
 
         (app, command)
     }
+
 
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
@@ -1766,6 +1782,38 @@ impl Application for App {
 
     /// Handle application events here.
     fn update(&mut self, message: Self::Message) -> Task<Self::Message> {
+        #[cfg(target_os = "macos")]
+        {
+            let mut tasks = Vec::new();
+            while let Ok(event) = muda::MenuEvent::receiver().try_recv() {
+                match event.id().0.as_str() {
+                    "TabNew" => tasks.push(self.update(Action::TabNew.message(None))),
+                    "WindowNew" => tasks.push(self.update(Action::WindowNew.message(None))),
+                    "TabClose" => tasks.push(self.update(Action::TabClose.message(None))),
+                    "Copy" => tasks.push(self.update(Action::Copy.message(None))),
+                    "Paste" => tasks.push(self.update(Action::Paste.message(None))),
+                    "SelectAll" => tasks.push(self.update(Action::SelectAll.message(None))),
+                    "ClearScrollback" => tasks.push(self.update(Action::ClearScrollback.message(None))),
+                    "Find" => tasks.push(self.update(Action::Find.message(None))),
+                    "ZoomIn" => tasks.push(self.update(Action::ZoomIn.message(None))),
+                    "ZoomOut" => tasks.push(self.update(Action::ZoomOut.message(None))),
+                    "ZoomReset" => tasks.push(self.update(Action::ZoomReset.message(None))),
+                    "TabNext" => tasks.push(self.update(Action::TabNext.message(None))),
+                    "TabPrev" => tasks.push(self.update(Action::TabPrev.message(None))),
+                    "PaneSplitHorizontal" => tasks.push(self.update(Action::PaneSplitHorizontal.message(None))),
+                    "PaneSplitVertical" => tasks.push(self.update(Action::PaneSplitVertical.message(None))),
+                    "PaneToggleMaximized" => tasks.push(self.update(Action::PaneToggleMaximized.message(None))),
+                    "Settings" => tasks.push(self.update(Action::Settings.message(None))),
+                    "About" => tasks.push(self.update(Action::About.message(None))),
+                    _ => {}
+                }
+            }
+            if !tasks.is_empty() {
+                tasks.push(self.update(message));
+                return Task::batch(tasks);
+            }
+        }
+
         // Helper for updating config values efficiently
         macro_rules! config_set {
             ($name: ident, $value: expr) => {

@@ -43,3 +43,12 @@ This ensures the terminal window receives key events (like typing) instead of th
     - This neutralizes libcosmic's internal `WindowMaximized(id, false)` event that continuously attempted to disable sharp corners on non-maximized windows.
 -   **Terminal Inner Padding Radius**: Modified `radius` in `src/terminal_box.rs` inside the `draw` routine to ensure `[0.0, 0.0, corner_radius[2], corner_radius[3]]` is used on macOS.
 -   **Container Limitations**: Removed an invalid `.border()` setting on the `widget::tab_bar::horizontal` container to fix an `[E0599]` compilation error.
+
+## 6. Native File Menu / Global Menu Bar (AppKit NSMenu)
+- To replace the libcosmic integrated widget menu bar to behave like a native macOS Application, the following changes were applied:
+    - **`Cargo.toml`**: Added target-specific crate `muda` (Menu Utilities for Desktop Applications) to handle Cocoa/Objective-C `NSMenu` construction.
+    - **`src/main.rs`:**
+        - Modified `App` struct to store `Option<muda::Menu>` on macOS so the native menu outlives the initialization stack.
+        - Modified `App::init` to set `settings.show_headerbar = false` by default on macOS, neatly turning off the internal LibCosmic menu logic while still enabling user toggles, rather than stripping `header_start()` out entirely.
+        - `update(&mut self)`: Interrogates `muda::MenuEvent::receiver().try_recv()` natively during the application loop, mapping incoming action IDs (e.g., "TabNew", "WindowNew") to regular cosmic-term `Action::xyz.message()` variants.
+    - **`src/mac_menu.rs`**: Created a macOS-exclusive module to initialize the `muda::Menu`. Added `.ok().flatten()` logic instead of `unwrap()` to prevent `UnsupportedKey` panics during shortcut mappings.

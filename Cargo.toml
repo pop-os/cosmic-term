@@ -55,6 +55,7 @@ features = ["about", "multi-window", "tokio", "winit", "surface-message"]
 fork = "0.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+muda = "0.17.1"
 objc = "0.2"
 
 [features]
