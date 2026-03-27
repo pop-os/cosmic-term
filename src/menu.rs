@@ -13,7 +13,7 @@ use cosmic::{
     widget::{
         self, divider,
         menu::{ItemHeight, ItemWidth},
-        responsive_menu_bar, segmented_button,
+        pane_grid, responsive_menu_bar, segmented_button,
     },
 };
 use std::{collections::HashMap, sync::LazyLock};
@@ -32,6 +32,7 @@ pub struct MenuState {
 pub fn context_menu<'a>(
     config: &Config,
     key_binds: &HashMap<KeyBind, Action>,
+    pane: pane_grid::Pane,
     entity: segmented_button::Entity,
     link: Option<String>,
 ) -> Element<'a, Message> {
@@ -60,7 +61,7 @@ pub fn context_menu<'a>(
                 .class(theme::Text::Custom(key_style))
                 .into(),
         ])
-        .on_press(Message::TabContextAction(entity, action))
+        .on_press(Message::TabContextAction(pane, entity, action))
     };
 
     let menu_checkbox = |label, value, action| {
@@ -68,11 +69,11 @@ pub fn context_menu<'a>(
             widget::text(label).into(),
             widget::space::horizontal().into(),
             widget::toggler(value)
-                .on_toggle(move |_| Message::TabContextAction(entity, action))
+                .on_toggle(move |_| Message::TabContextAction(pane, entity, action))
                 .size(16.0)
                 .into(),
         ])
-        .on_press(Message::TabContextAction(entity, action))
+        .on_press(Message::TabContextAction(pane, entity, action))
     };
 
     let mut rows = vec![
@@ -93,6 +94,7 @@ pub fn context_menu<'a>(
         )),
         Element::from(divider::horizontal::light()),
         Element::from(menu_item(fl!("new-tab"), Action::TabNew)),
+        Element::from(menu_item(fl!("rename-tab"), Action::TabRename)),
         Element::from(menu_item(fl!("menu-settings"), Action::Settings)),
     ];
     #[cfg(feature = "password_manager")]
