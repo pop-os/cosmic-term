@@ -2165,8 +2165,7 @@ impl Application for App {
                             // Clear selection (to allow next Ctrl+C to signal)
                             term.selection = None;
                             drop(term);
-                            // Mark as dirty
-                            terminal.needs_update = true;
+                            terminal.request_full_update();
                             drop(terminal);
                             return Task::batch([clipboard::write(text), self.update_focus()]);
                         } else {
@@ -2439,7 +2438,7 @@ impl Application for App {
                             let url = url.to_owned();
                             terminal.context_menu = None;
                             terminal.active_regex_match = None;
-                            terminal.needs_update = true;
+                            terminal.request_full_update();
 
                             return Task::batch([clipboard::write(url), self.update_focus()]);
                         }
@@ -2461,7 +2460,7 @@ impl Application for App {
                         }
                         terminal.context_menu = None;
                         terminal.active_regex_match = None;
-                        terminal.needs_update = true;
+                        terminal.request_full_update();
                     }
                 }
             }
@@ -2580,7 +2579,7 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.panes.get(pane) {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let terminal = terminal.lock().unwrap();
+                        let mut terminal = terminal.lock().unwrap();
                         terminal.paste(password.into_unsecure());
                         terminal.input_scroll(b"\n".as_slice());
                         self.core.window.show_context = false;
@@ -2604,7 +2603,7 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let terminal = terminal.lock().unwrap();
+                        let mut terminal = terminal.lock().unwrap();
                         terminal.paste(value);
                     }
                 }
@@ -2992,11 +2991,23 @@ impl Application for App {
                         }
                         return self.update_title(Some(pane));
                     }
-                    TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
+                    TermEvent::Wakeup => {
                         if let Some(tab_model) = self.pane_model.panes.get(pane) {
                             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                                 let mut terminal = terminal.lock().unwrap();
-                                terminal.needs_update = true;
+                                terminal.request_content_update();
+                            }
+                        }
+                    }
+                    TermEvent::MouseCursorDirty => {
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let mut terminal = terminal.lock().unwrap();
+                                if terminal.active_regex_match.is_some()
+                                    || terminal.active_hyperlink_id.is_some()
+                                {
+                                    terminal.request_full_update();
+                                }
                             }
                         }
                     }
