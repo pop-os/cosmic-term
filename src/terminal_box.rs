@@ -51,6 +51,16 @@ use crate::{
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
 
+fn push_u8_ascii(buf: &mut Vec<u8>, value: u8) {
+    if value >= 100 {
+        buf.push(b'0' + (value / 100));
+    }
+    if value >= 10 {
+        buf.push(b'0' + ((value / 10) % 10));
+    }
+    buf.push(b'0' + (value % 10));
+}
+
 /// Drives repeated drag updates while the pointer is outside the widget.
 struct DragAutoscroll {
     active: bool,
@@ -117,6 +127,23 @@ fn prefixed_bytes(alt: bool, bytes: &[u8]) -> Vec<u8> {
 fn prefixed_char(alt: bool, character: char) -> Vec<u8> {
     let mut encoded = [0; 4];
     prefixed_bytes(alt, character.encode_utf8(&mut encoded).as_bytes())
+}
+
+fn update_hover_highlight(
+    state: &mut State,
+    terminal: &mut std::sync::MutexGuard<'_, Terminal>,
+    location: Option<TermPoint>,
+    modifiers: Option<&Modifiers>,
+    force: bool,
+) {
+    let ctrl = modifiers.is_some_and(|mods| mods.contains(Modifiers::CTRL));
+    if !force && state.hover_location == location && state.hover_ctrl == ctrl {
+        return;
+    }
+
+    state.hover_location = location;
+    state.hover_ctrl = ctrl;
+    update_active_regex_match(terminal, location, modifiers);
 }
 
 pub struct TerminalBox<'a, Message> {
@@ -1038,12 +1065,16 @@ where
                 }
             }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
+                let ctrl_changed = state.modifiers.contains(Modifiers::CTRL)
+                    != modifiers.contains(Modifiers::CTRL);
                 state.modifiers = *modifiers;
 
-                if modifiers.contains(Modifiers::CTRL)
+                if ctrl_changed
+                    || modifiers.contains(Modifiers::CTRL)
                     || terminal.active_regex_match.is_some()
                     || terminal.active_hyperlink_id.is_some()
                 {
+                    let hover_modifiers = state.modifiers;
                     //Might need to update the url regex highlight,
                     //so we need to calculate the mouse position
                     let location = if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -1059,7 +1090,13 @@ where
                     } else {
                         None
                     };
-                    update_active_regex_match(&mut terminal, location, Some(&state.modifiers));
+                    update_hover_highlight(
+                        state,
+                        &mut terminal,
+                        location,
+                        Some(&hover_modifiers),
+                        true,
+                    );
                 }
             }
             Event::Keyboard(KeyEvent::KeyPressed {
@@ -1300,10 +1337,12 @@ where
                                             row as usize,
                                             TermColumn(col as usize),
                                         ));
-                                        update_active_regex_match(
+                                        update_hover_highlight(
+                                            state,
                                             &mut terminal,
                                             Some(location),
                                             None,
+                                            true,
                                         );
                                         let link = get_hyperlink(&terminal, location);
                                         shell.publish(on_context_menu(Some(MenuState {
@@ -1402,6 +1441,7 @@ where
                 }
                 if let Some(p_global) = cursor_position.position() {
                     let bounds = layout.bounds();
+                    let hover_modifiers = state.modifiers;
                     let col_row_opt = if let Some(p) = cursor_position.position_in(bounds) {
                         let x = p.x - self.padding.left;
                         let y = p.y - self.padding.top;
@@ -1412,13 +1452,22 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(
+                        update_hover_highlight(
+                            state,
                             &mut terminal,
                             Some(location),
-                            Some(&state.modifiers),
+                            Some(&hover_modifiers),
+                            false,
                         );
                         Some((col, row))
                     } else {
+                        update_hover_highlight(
+                            state,
+                            &mut terminal,
+                            None,
+                            Some(&hover_modifiers),
+                            false,
+                        );
                         None
                     };
 
@@ -1524,6 +1573,7 @@ where
                         }
                     }
                     {
+                        let hover_modifiers = state.modifiers;
                         let x = p.x - self.padding.left;
                         let y = p.y - self.padding.top;
                         //TODO: better calculation of position
@@ -1534,10 +1584,12 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(
+                        update_hover_highlight(
+                            state,
                             &mut terminal,
                             Some(location),
-                            Some(&state.modifiers),
+                            Some(&hover_modifiers),
+                            true,
                         );
                     }
                 }
@@ -1872,6 +1924,8 @@ pub struct State {
     modifiers: Modifiers,
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
+    hover_ctrl: bool,
+    hover_location: Option<TermPoint>,
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
@@ -1885,6 +1939,8 @@ impl State {
             modifiers: Modifiers::empty(),
             click: None,
             dragging: None,
+            hover_ctrl: false,
+            hover_location: None,
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
@@ -1936,31 +1992,46 @@ fn calculate_modifier_number(state: &State) -> u8 {
 
 #[inline(always)]
 fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
-    if modifiers == 1 {
-        Some(format!("\x1B[{code}{suffix}").into_bytes())
-    } else {
-        Some(format!("\x1B[{code};{modifiers}{suffix}").into_bytes())
+    let mut buf = Vec::with_capacity(code.len() + suffix.len() + 8);
+    buf.extend_from_slice(b"\x1B[");
+    buf.extend_from_slice(code.as_bytes());
+    if modifiers != 1 {
+        buf.push(b';');
+        push_u8_ascii(&mut buf, modifiers);
     }
+    buf.extend_from_slice(suffix.as_bytes());
+    Some(buf)
 }
 // https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-functional-keys
 // CSI 1 ; modifier {ABCDEFHPQS}
 // code is ABCDEFHPQS
 #[inline(always)]
 fn csi2(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    let mut buf = Vec::with_capacity(code.len() + 8);
+    buf.extend_from_slice(b"\x1B[");
     if modifiers == 1 {
-        Some(format!("\x1B[{code}").into_bytes())
+        buf.extend_from_slice(code.as_bytes());
     } else {
-        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
+        buf.push(b'1');
+        buf.push(b';');
+        push_u8_ascii(&mut buf, modifiers);
+        buf.extend_from_slice(code.as_bytes());
     }
+    Some(buf)
 }
 
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    let mut buf = Vec::with_capacity(code.len() + 8);
     if modifiers == 1 {
-        Some(format!("\x1B\x4F{code}").into_bytes())
+        buf.extend_from_slice(b"\x1B\x4F");
+        buf.extend_from_slice(code.as_bytes());
     } else {
-        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
+        buf.extend_from_slice(b"\x1B[1;");
+        push_u8_ascii(&mut buf, modifiers);
+        buf.extend_from_slice(code.as_bytes());
     }
+    Some(buf)
 }
 
 #[cfg(test)]
