@@ -303,13 +303,13 @@ impl Terminal {
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
             let font_system = font_system.raw();
-            buffer.set_wrap(font_system, Wrap::None);
+            buffer.set_wrap(Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced, None);
+            buffer.set_text(" ", &default_attrs, Shaping::Advanced, None);
             let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
-            buffer.set_monospace_width(font_system, Some(w));
+            buffer.set_monospace_width(Some(w));
             (w, metrics.line_height)
         };
 
@@ -448,8 +448,7 @@ impl Terminal {
             self.term.lock().resize(self.size);
 
             self.with_buffer_mut(|buffer| {
-                let mut font_system = font_system().write().unwrap();
-                buffer.set_size(font_system.raw(), Some(width as f32), Some(height as f32));
+                buffer.set_size(Some(width as f32), Some(height as f32));
             });
 
             self.needs_update = true;
@@ -632,10 +631,7 @@ impl Terminal {
 
         let metrics = config.metrics(zoom_adj);
         if metrics != self.buffer.metrics() {
-            {
-                let mut font_system = font_system().write().unwrap();
-                self.with_buffer_mut(|buffer| buffer.set_metrics(font_system.raw(), metrics));
-            }
+            self.with_buffer_mut(|buffer| buffer.set_metrics(metrics));
             update_cell_size = true;
         }
 
@@ -692,11 +688,10 @@ impl Terminal {
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
             self.with_buffer_mut(|buffer| {
-                buffer.set_wrap(font_system.raw(), Wrap::None);
+                buffer.set_wrap(Wrap::None);
 
                 // Use size of space to determine cell size
                 buffer.set_text(
-                    font_system.raw(),
                     " ",
                     &default_attrs,
                     Shaping::Advanced,
@@ -704,7 +699,7 @@ impl Terminal {
                 );
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
-                buffer.set_monospace_width(font_system.raw(), Some(w));
+                buffer.set_monospace_width(Some(w));
                 (w, buffer.metrics().line_height)
             })
         };
