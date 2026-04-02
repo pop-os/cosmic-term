@@ -691,12 +691,7 @@ impl Terminal {
                 buffer.set_wrap(Wrap::None);
 
                 // Use size of space to determine cell size
-                buffer.set_text(
-                    " ",
-                    &default_attrs,
-                    Shaping::Advanced,
-                    None,
-                );
+                buffer.set_text(" ", &default_attrs, Shaping::Advanced, None);
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
                 buffer.set_monospace_width(Some(w));
