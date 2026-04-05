@@ -10,6 +10,7 @@ rust-version = "1.90"
 alacritty_terminal = "0.25.1"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
+libc = "0.2"
 log = "0.4"
 open = "5.3.2"
 paste = "1.0"
@@ -61,6 +62,11 @@ dbus-config = ["libcosmic/dbus-config"]
 wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
 wayland = ["libcosmic/wayland", "cosmic-files/wayland"]
 password_manager = ["secret-service", "thiserror", "secstr"]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"
 
 [profile.release-with-debug]
 inherits = "release"

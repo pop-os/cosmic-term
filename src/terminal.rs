@@ -4,7 +4,7 @@ use alacritty_terminal::{
     event_loop::{EventLoop, Msg, Notifier},
     grid::Dimensions,
     index::{Boundary, Column, Direction, Line, Point, Side},
-    selection::{Selection, SelectionType},
+    selection::{Selection, SelectionRange, SelectionType},
     sync::FairMutex,
     term::{
         Config, TermDamage, TermMode,
@@ -25,6 +25,10 @@ use cosmic_text::{
     Weight, Wrap,
 };
 use indexmap::IndexSet;
+#[cfg(unix)]
+use std::fs::File;
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -53,6 +57,12 @@ pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 /// Duplicated from you guessed it.
 /// A regex expression can start or end outside the visible screen. Therefore, without this constant, some regular expressions would not match at the top and bottom.
 pub const MAX_SEARCH_LINES: usize = 100;
+
+/// Bound metadata growth during incremental updates.
+///
+/// Layout glyphs keep metadata indices, so we can only compact this table when all visible lines
+/// are rebuilt in the same update pass.
+const MAX_METADATA_SET_SIZE: usize = 4096;
 
 /// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/config/ui_config.rs#L36-L39
 fn url_regex_search() -> RegexSearch {
@@ -191,7 +201,7 @@ impl TerminalPaneGrid {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
                 terminal.is_focused = self.focus == *pane;
-                terminal.update();
+                terminal.request_full_update();
             }
         }
     }
@@ -201,7 +211,7 @@ impl TerminalPaneGrid {
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
                 terminal.is_focused = false;
-                terminal.update();
+                terminal.request_full_update();
             }
         }
     }
@@ -236,6 +246,203 @@ impl Metadata {
     }
 }
 
+fn blank_buffer_line(default_attrs: &Attrs<'static>) -> BufferLine {
+    BufferLine::new(
+        "",
+        LineEnding::default(),
+        AttrsList::new(default_attrs),
+        Shaping::Advanced,
+    )
+}
+
+fn collect_visible_regex_matches<T>(
+    term: &Term<T>,
+    regex: &mut RegexSearch,
+) -> Vec<alacritty_terminal::term::search::Match> {
+    let regex_matches: Vec<_> = visible_regex_match_iter(term, regex).collect();
+    let mut processed_matches = Vec::new();
+    for regex_match in regex_matches {
+        processed_matches.extend(HintPostProcessor::new(term, regex, regex_match));
+    }
+    processed_matches
+}
+
+fn visible_point_for_line(display_offset: usize, line_index: usize, column: usize) -> Point {
+    Point::new(
+        Line(line_index as i32 - display_offset as i32),
+        Column(column),
+    )
+}
+
+#[cfg(unix)]
+#[derive(Debug)]
+struct ProcessMonitor {
+    child_pid: u32,
+    pty_master: File,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update_visible_buffer_line<T: EventListener>(
+    term: &Term<T>,
+    buffer: &mut Buffer,
+    metadata_set: &mut IndexSet<Metadata>,
+    default_attrs: &Attrs<'static>,
+    colors: &Colors,
+    bold_font_weight: Weight,
+    dim_font_weight: Weight,
+    use_bright_bold: bool,
+    is_focused: bool,
+    active_regex_match: Option<&alacritty_terminal::term::search::Match>,
+    active_hyperlink_id: Option<&str>,
+    selection_range: Option<SelectionRange>,
+    display_offset: usize,
+    line_index: usize,
+) {
+    // LEFT-TO-RIGHT ISOLATE character. This keeps mixed-script lines aligned correctly.
+    const LRI: char = '\u{2066}';
+
+    while buffer.lines.len() <= line_index {
+        buffer.lines.push(blank_buffer_line(default_attrs));
+        buffer.set_redraw(true);
+    }
+
+    let grid = term.grid();
+    let cursor = term.renderable_content().cursor;
+    let cursor_point = grid.cursor.point;
+    let mut text = String::from(LRI);
+    let mut attrs_list = AttrsList::new(default_attrs);
+
+    for column in 0..term.columns() {
+        let point = visible_point_for_line(display_offset, line_index, column);
+        let cell = &grid[point];
+
+        if cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
+            continue;
+        }
+
+        let start = text.len();
+        text.push(match cell.c {
+            '\t' => ' ',
+            c => c,
+        });
+        if let Some(zerowidth) = cell.zerowidth() {
+            for &c in zerowidth {
+                text.push(c);
+            }
+        }
+        let end = text.len();
+
+        let mut attrs = default_attrs.clone();
+
+        let cell_fg = if cell.flags.contains(Flags::DIM) {
+            as_dim(cell.fg)
+        } else if use_bright_bold && cell.flags.contains(Flags::BOLD) {
+            as_bright(cell.fg)
+        } else {
+            cell.fg
+        };
+
+        let (mut fg, mut bg) = if cell.flags.contains(Flags::INVERSE) {
+            (
+                convert_color(colors, cell.bg),
+                convert_color(colors, cell_fg),
+            )
+        } else {
+            (
+                convert_color(colors, cell_fg),
+                convert_color(colors, cell.bg),
+            )
+        };
+
+        if cell.flags.contains(Flags::HIDDEN) {
+            fg = bg;
+        }
+
+        if point == cursor_point && cursor.shape == CursorShape::Block && is_focused {
+            if term.colors()[NamedColor::Cursor].is_some() {
+                fg = bg;
+                bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
+            } else if colors[NamedColor::Cursor].is_some() {
+                fg = bg;
+                bg = convert_color(colors, Color::Named(NamedColor::Cursor));
+            } else {
+                mem::swap(&mut fg, &mut bg);
+            }
+            let fg_rgb = Rgb {
+                r: fg.r(),
+                g: fg.g(),
+                b: fg.b(),
+            };
+            let bg_rgb = Rgb {
+                r: bg.r(),
+                g: bg.g(),
+                b: bg.b(),
+            };
+            let contrast = fg_rgb.contrast(bg_rgb);
+            if contrast < MIN_CURSOR_CONTRAST {
+                fg = convert_color(colors, Color::Named(NamedColor::Background));
+                bg = convert_color(colors, Color::Named(NamedColor::Foreground));
+            }
+        }
+
+        if selection_range.is_some_and(|range| range.contains(point)) {
+            mem::swap(&mut fg, &mut bg);
+        }
+
+        attrs = attrs.color(fg);
+
+        let underline_color = cell
+            .underline_color()
+            .map(|color| convert_color(colors, color))
+            .unwrap_or(fg);
+
+        let mut flags = cell.flags;
+
+        if active_regex_match.is_some_and(|active_match| active_match.contains(&point)) {
+            flags |= Flags::UNDERLINE;
+        }
+
+        if let Some(active_id) = active_hyperlink_id {
+            let mut matches_active = cell.hyperlink().is_some_and(|link| link.id() == active_id);
+            if !matches_active
+                && cell
+                    .flags
+                    .intersects(Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER)
+                && point.column.0 > 0
+            {
+                matches_active = grid[Point::new(point.line, Column(point.column.0 - 1))]
+                    .hyperlink()
+                    .is_some_and(|link| link.id() == active_id);
+            }
+            if matches_active {
+                flags |= Flags::UNDERLINE;
+            }
+        }
+
+        let metadata = Metadata::new(bg, fg)
+            .with_flags(flags)
+            .with_underline_color(underline_color);
+        let (meta_idx, _) = metadata_set.insert_full(metadata);
+        attrs = attrs.metadata(meta_idx);
+
+        if cell.flags.contains(Flags::BOLD) {
+            attrs = attrs.weight(bold_font_weight);
+        } else if cell.flags.contains(Flags::DIM) {
+            attrs = attrs.weight(dim_font_weight);
+        }
+        if cell.flags.contains(Flags::ITALIC) {
+            attrs = attrs.cache_key_flags(CacheKeyFlags::FAKE_ITALIC);
+        }
+        if attrs != attrs_list.defaults() {
+            attrs_list.add_span(start..end, &attrs);
+        }
+    }
+
+    if buffer.lines[line_index].set_text(text, LineEnding::default(), attrs_list) {
+        buffer.set_redraw(true);
+    }
+}
+
 pub struct Terminal {
     pub context_menu: Option<MenuState>,
     pub metadata_set: IndexSet<Metadata>,
@@ -249,15 +456,20 @@ pub struct Terminal {
     pub active_hyperlink_id: Option<String>,
     bold_font_weight: Weight,
     buffer: Arc<Buffer>,
+    force_full_update: bool,
     is_focused: bool,
     colors: Colors,
     default_attrs: Attrs<'static>,
     dim_font_weight: Weight,
     mouse_reporter: MouseReporter,
     notifier: Notifier,
+    child_running: bool,
+    #[cfg(unix)]
+    process_monitor: Option<ProcessMonitor>,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
     size: Size,
+    regex_matches_dirty: bool,
     use_bright_bold: bool,
     zoom_adj: i8,
 }
@@ -328,6 +540,11 @@ impl Terminal {
 
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
+        #[cfg(unix)]
+        let process_monitor = Some(ProcessMonitor {
+            child_pid: pty.child().id(),
+            pty_master: pty.file().try_clone()?,
+        });
 
         let pty_event_loop =
             EventLoop::new(term.clone(), event_proxy, pty, options.drain_on_exit, false)?;
@@ -343,13 +560,18 @@ impl Terminal {
             buffer: Arc::new(buffer),
             colors,
             context_menu: None,
+            child_running: true,
             default_attrs,
             dim_font_weight: Weight(dim_font_weight),
+            force_full_update: true,
             metadata_set,
             mouse_reporter: Default::default(),
             needs_update: true,
             notifier,
+            #[cfg(unix)]
+            process_monitor,
             profile_id_opt,
+            regex_matches_dirty: true,
             search_regex_opt: None,
             search_value: String::new(),
             size,
@@ -403,16 +625,60 @@ impl Terminal {
         self.with_buffer_mut(|buffer| buffer.set_redraw(redraw));
     }
 
+    pub fn request_update(&mut self) {
+        self.needs_update = true;
+    }
+
+    pub fn request_content_update(&mut self) {
+        self.needs_update = true;
+        self.regex_matches_dirty = true;
+    }
+
+    pub fn request_full_update(&mut self) {
+        self.needs_update = true;
+        self.force_full_update = true;
+    }
+
+    pub fn set_child_running(&mut self, child_running: bool) {
+        self.child_running = child_running;
+    }
+
+    pub fn has_running_process(&self) -> bool {
+        if !self.child_running {
+            return false;
+        }
+
+        #[cfg(unix)]
+        {
+            let Some(process_monitor) = &self.process_monitor else {
+                return false;
+            };
+
+            let foreground_pgid =
+                unsafe { libc::tcgetpgrp(process_monitor.pty_master.as_raw_fd()) };
+            if foreground_pgid <= 0 {
+                return false;
+            }
+
+            return foreground_pgid as u32 != process_monitor.child_pid;
+        }
+
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    }
+
     pub fn input_no_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
         self.notifier.notify(input);
     }
 
-    pub fn input_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
+    pub fn input_scroll<I: Into<Cow<'static, [u8]>>>(&mut self, input: I) {
         self.input_no_scroll(input);
         self.scroll(TerminalScroll::Bottom);
     }
 
-    pub fn paste(&self, value: String) {
+    pub fn paste(&mut self, value: String) {
         // This code is ported from alacritty
         let bracketed_paste = {
             let term = self.term.lock();
@@ -452,17 +718,19 @@ impl Terminal {
                 buffer.set_size(font_system.raw(), Some(width as f32), Some(height as f32));
             });
 
-            self.needs_update = true;
+            self.request_content_update();
+            self.force_full_update = true;
 
             log::debug!("resize {:?}", instant.elapsed());
         }
     }
 
-    pub fn scroll(&self, scroll: TerminalScroll) {
+    pub fn scroll(&mut self, scroll: TerminalScroll) {
         self.term.lock().scroll_display(scroll);
+        self.request_content_update();
     }
 
-    pub fn scroll_to(&self, ratio: f32) {
+    pub fn scroll_to(&mut self, ratio: f32) {
         let mut term = self.term.lock();
         let grid = term.grid();
         let total = grid.history_size() + grid.screen_lines();
@@ -472,6 +740,8 @@ impl Terminal {
         term.scroll_display(TerminalScroll::Delta(
             new_display_offset - old_display_offset,
         ));
+        drop(term);
+        self.request_content_update();
     }
 
     pub fn scrollbar(&self) -> Option<(f32, f32)> {
@@ -722,251 +992,94 @@ impl Terminal {
     }
 
     pub fn update(&mut self) -> bool {
-        // LEFT‑TO‑RIGHT ISOLATE character.
-        // This will be added to the beginning of lines to force the shaper to treat detected RTL
-        // lines as LTR. RTL text would still be rendered correctly. But this fixes the wrong
-        // behavior of it being aligned to the right.
-        const LRI: char = '\u{2066}';
-
         let instant = Instant::now();
 
-        // Only keep default
-        self.metadata_set.truncate(1);
-
-        //TODO: is redraw needed after all events?
-        //TODO: use LineDamageBounds
         {
             let buffer = Arc::make_mut(&mut self.buffer);
+            let mut term = self.term.lock();
+            let screen_lines = term.screen_lines();
+            let display_offset = term.grid().display_offset();
+            let mut rebuild_all_lines =
+                self.force_full_update || buffer.lines.len() != screen_lines;
+            let mut dirty_lines = vec![false; screen_lines];
 
-            let mut line_i = 0;
-            let mut last_point = None;
-            let mut text = String::from(LRI);
-            let mut attrs_list = AttrsList::new(&self.default_attrs);
-            {
-                let mut term = self.term.lock();
-                //TODO: use damage?
-                match term.damage() {
-                    TermDamage::Full => {}
-                    TermDamage::Partial(_damage_lines) => {}
-                }
-                term.reset_damage();
-
-                self.regex_matches.clear();
-                {
-                    let mut regex_matches: Vec<_> =
-                        visible_regex_match_iter(&term, &mut self.url_regex_search).collect();
-                    self.regex_matches
-                        .extend(regex_matches.drain(..).flat_map(|rm| -> Vec<_> {
-                            HintPostProcessor::new(&term, &mut self.url_regex_search, rm).collect()
-                        }));
-                }
-
-                let grid = term.grid();
-                for indexed in grid.display_iter() {
-                    if indexed.point.line != last_point.unwrap_or(indexed.point).line {
-                        while line_i >= buffer.lines.len() {
-                            buffer.lines.push(BufferLine::new(
-                                "",
-                                LineEnding::default(),
-                                AttrsList::new(&self.default_attrs),
-                                Shaping::Advanced,
-                            ));
-                            buffer.set_redraw(true);
-                        }
-
-                        if buffer.lines[line_i].set_text(
-                            text.clone(),
-                            LineEnding::default(),
-                            attrs_list.clone(),
-                        ) {
-                            buffer.set_redraw(true);
-                        }
-                        line_i += 1;
-
-                        text.clear();
-                        text.push(LRI);
-                        attrs_list.clear_spans();
-                    }
-                    //TODO: use indexed.point.column?
-
-                    //TODO: skip leading spacer?
-                    if indexed.cell.flags.contains(Flags::WIDE_CHAR_SPACER) {
-                        // Skip wide spacers (cells after wide characters)
-                        continue;
-                    }
-
-                    let start = text.len();
-                    // Tab skip/stop is handled by alacritty_terminal
-                    text.push(match indexed.cell.c {
-                        '\t' => ' ',
-                        c => c,
-                    });
-                    if let Some(zerowidth) = indexed.cell.zerowidth() {
-                        for &c in zerowidth {
-                            text.push(c);
-                        }
-                    }
-                    let end = text.len();
-
-                    let mut attrs = self.default_attrs.clone();
-
-                    let cell_fg = if indexed.cell.flags.contains(Flags::DIM) {
-                        as_dim(indexed.cell.fg)
-                    } else if self.use_bright_bold && indexed.cell.flags.contains(Flags::BOLD) {
-                        as_bright(indexed.cell.fg)
-                    } else {
-                        indexed.cell.fg
-                    };
-
-                    let (mut fg, mut bg) = if indexed.cell.flags.contains(Flags::INVERSE) {
-                        (
-                            convert_color(&self.colors, indexed.cell.bg),
-                            convert_color(&self.colors, cell_fg),
-                        )
-                    } else {
-                        (
-                            convert_color(&self.colors, cell_fg),
-                            convert_color(&self.colors, indexed.cell.bg),
-                        )
-                    };
-
-                    if indexed.cell.flags.contains(Flags::HIDDEN) {
-                        fg = bg;
-                    }
-
-                    // Change color if cursor
-                    if indexed.point == grid.cursor.point
-                        && term.renderable_content().cursor.shape == CursorShape::Block
-                        && self.is_focused
-                    {
-                        //Use specific cursor color if requested
-                        if term.colors()[NamedColor::Cursor].is_some() {
-                            fg = bg;
-                            bg = convert_color(term.colors(), Color::Named(NamedColor::Cursor));
-                        } else if self.colors[NamedColor::Cursor].is_some() {
-                            //Use specific theme cursor color if exists
-                            fg = bg;
-                            bg = convert_color(&self.colors, Color::Named(NamedColor::Cursor));
+            match term.damage() {
+                TermDamage::Full => rebuild_all_lines = true,
+                TermDamage::Partial(damage_lines) => {
+                    for damage_line in damage_lines {
+                        let Some(line_index) = damage_line.line.checked_sub(display_offset) else {
+                            rebuild_all_lines = true;
+                            break;
+                        };
+                        if let Some(dirty_line) = dirty_lines.get_mut(line_index) {
+                            *dirty_line = true;
                         } else {
-                            mem::swap(&mut fg, &mut bg);
-                        }
-                        let fg_rgb = Rgb {
-                            r: fg.r(),
-                            g: fg.g(),
-                            b: fg.b(),
-                        };
-                        let bg_rgb = Rgb {
-                            r: bg.r(),
-                            g: bg.g(),
-                            b: bg.b(),
-                        };
-                        let contrast = fg_rgb.contrast(bg_rgb);
-                        if contrast < MIN_CURSOR_CONTRAST {
-                            fg = convert_color(&self.colors, Color::Named(NamedColor::Background));
-                            bg = convert_color(&self.colors, Color::Named(NamedColor::Foreground));
+                            rebuild_all_lines = true;
+                            break;
                         }
                     }
-
-                    // Change color if selected
-                    if let Some(selection) = &term.selection {
-                        if let Some(range) = selection.to_range(&term) {
-                            if range.contains(indexed.point) {
-                                //TODO: better handling of selection
-                                mem::swap(&mut fg, &mut bg);
-                            }
-                        }
-                    }
-
-                    // Convert foreground to linear
-                    attrs = attrs.color(fg);
-
-                    let underline_color = indexed
-                        .cell
-                        .underline_color()
-                        .map(|c| convert_color(&self.colors, c))
-                        .unwrap_or(fg);
-
-                    let mut flags = indexed.cell.flags;
-
-                    if let Some(active_match) = &self.active_regex_match {
-                        if active_match.contains(&indexed.point) {
-                            flags |= Flags::UNDERLINE;
-                        }
-                    }
-                    if let Some(active_id) = &self.active_hyperlink_id {
-                        let mut matches_active = indexed
-                            .cell
-                            .hyperlink()
-                            .is_some_and(|link| link.id() == active_id);
-                        if !matches_active
-                            && indexed.cell.flags.intersects(
-                                Flags::WIDE_CHAR_SPACER | Flags::LEADING_WIDE_CHAR_SPACER,
-                            )
-                            && indexed.point.column.0 > 0
-                        {
-                            matches_active = grid[Point::new(
-                                indexed.point.line,
-                                Column(indexed.point.column.0 - 1),
-                            )]
-                            .hyperlink()
-                            .is_some_and(|link| link.id() == active_id);
-                        }
-                        if matches_active {
-                            flags |= Flags::UNDERLINE;
-                        }
-                    }
-
-                    let metadata = Metadata::new(bg, fg)
-                        .with_flags(flags)
-                        .with_underline_color(underline_color);
-                    let (meta_idx, _) = self.metadata_set.insert_full(metadata);
-                    attrs = attrs.metadata(meta_idx);
-
-                    //TODO: more flags
-                    if indexed.cell.flags.contains(Flags::BOLD) {
-                        attrs = attrs.weight(self.bold_font_weight);
-                    } else if indexed.cell.flags.contains(Flags::DIM) {
-                        // if DIM and !BOLD
-                        attrs = attrs.weight(self.dim_font_weight);
-                    }
-                    if indexed.cell.flags.contains(Flags::ITALIC) {
-                        //TODO: automatically use fake italic
-                        attrs = attrs.cache_key_flags(CacheKeyFlags::FAKE_ITALIC);
-                    }
-                    if attrs != attrs_list.defaults() {
-                        attrs_list.add_span(start..end, &attrs);
-                    }
-
-                    last_point = Some(indexed.point);
                 }
             }
+            term.reset_damage();
 
-            //TODO: do not repeat!
-            while line_i >= buffer.lines.len() {
-                buffer.lines.push(BufferLine::new(
-                    "",
-                    LineEnding::default(),
-                    AttrsList::new(&self.default_attrs),
-                    Shaping::Advanced,
-                ));
+            if !rebuild_all_lines && self.metadata_set.len() > MAX_METADATA_SET_SIZE {
+                rebuild_all_lines = true;
+            }
+
+            if rebuild_all_lines {
+                // Glyphs on unchanged lines still reference metadata indices from previous frames,
+                // so only compact the metadata table when every visible line is refreshed.
+                self.metadata_set.truncate(1);
+            }
+
+            if self.regex_matches_dirty || rebuild_all_lines {
+                self.regex_matches =
+                    collect_visible_regex_matches(&term, &mut self.url_regex_search);
+                self.regex_matches_dirty = false;
+            }
+
+            if rebuild_all_lines {
+                dirty_lines.fill(true);
+            }
+
+            let selection_range = term
+                .selection
+                .as_ref()
+                .and_then(|selection| selection.to_range(&term));
+
+            for (line_index, dirty) in dirty_lines.into_iter().enumerate() {
+                if !dirty {
+                    continue;
+                }
+
+                update_visible_buffer_line(
+                    &term,
+                    buffer,
+                    &mut self.metadata_set,
+                    &self.default_attrs,
+                    &self.colors,
+                    self.bold_font_weight,
+                    self.dim_font_weight,
+                    self.use_bright_bold,
+                    self.is_focused,
+                    self.active_regex_match.as_ref(),
+                    self.active_hyperlink_id.as_deref(),
+                    selection_range,
+                    display_offset,
+                    line_index,
+                );
+            }
+
+            if buffer.lines.len() > screen_lines {
+                buffer.lines.truncate(screen_lines);
                 buffer.set_redraw(true);
             }
 
-            if buffer.lines[line_i].set_text(text, LineEnding::default(), attrs_list) {
-                buffer.set_redraw(true);
-            }
-            line_i += 1;
+            self.force_full_update = false;
 
-            if buffer.lines.len() != line_i {
-                buffer.lines.truncate(line_i);
-                buffer.set_redraw(true);
-            }
-
-            // Shape and trim shape run cache
             {
                 let mut font_system = font_system().write().unwrap();
-                buffer.shape_until_scroll(font_system.raw(), true);
-                font_system.raw().shape_run_cache.trim(1024);
+                buffer.shape_until_scroll(font_system.raw(), false);
             }
         }
 

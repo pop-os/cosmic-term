@@ -16,6 +16,36 @@ pub struct MouseReporter {
     button: Option<Button>,
 }
 
+fn push_u32_ascii(buf: &mut Vec<u8>, mut value: u32) {
+    let mut digits = [0; 10];
+    let mut len = 0;
+
+    loop {
+        digits[len] = b'0' + (value % 10) as u8;
+        len += 1;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+
+    for digit in digits[..len].iter().rev() {
+        buf.push(*digit);
+    }
+}
+
+fn sgr_mouse_sequence(button_no: u8, x: u32, y: u32, event_code: u8) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(24);
+    buf.extend_from_slice(b"\x1b[<");
+    push_u32_ascii(&mut buf, u32::from(button_no));
+    buf.push(b';');
+    push_u32_ascii(&mut buf, x + 1);
+    buf.push(b';');
+    push_u32_ascii(&mut buf, y + 1);
+    buf.push(event_code);
+    buf
+}
+
 impl MouseReporter {
     fn button_number(button: Button) -> Option<u8> {
         match button {
@@ -161,8 +191,12 @@ impl MouseReporter {
             if modifiers.control() {
                 button_no += 16;
             }
-            let term_code = format!("\x1b[<{};{};{}{}", button_no, x + 1, y + 1, event_code);
-            Some(term_code.as_bytes().to_vec())
+            Some(sgr_mouse_sequence(
+                button_no,
+                x,
+                y,
+                event_code.as_bytes()[0],
+            ))
         } else {
             None
         }
@@ -230,10 +264,7 @@ impl MouseReporter {
         x_iter
             .chain(y_iter)
             .map(move |button_no| button_no + modifier_flags)
-            .map(move |button_no| {
-                let term_code = format!("\x1b[<{};{};{}M", button_no, x + 1, y + 1);
-                term_code.as_bytes().to_vec()
-            })
+            .map(move |button_no| sgr_mouse_sequence(button_no, x, y, b'M'))
     }
 
     //Emulate mouse wheel scroll with up/down arrows. Using mouse spec uses

@@ -221,6 +221,10 @@ pub struct Config {
     pub app_theme: AppTheme,
     pub color_schemes_dark: BTreeMap<ColorSchemeId, ColorScheme>,
     pub color_schemes_light: BTreeMap<ColorSchemeId, ColorScheme>,
+    #[serde(default)]
+    pub confirm_close_multiple_terminals: bool,
+    #[serde(default)]
+    pub confirm_close_running_process: bool,
     pub font_name: String,
     pub font_size: u16,
     pub font_weight: u16,
@@ -247,6 +251,8 @@ impl Default for Config {
             bold_font_weight: Weight::BOLD.0,
             color_schemes_dark: BTreeMap::new(),
             color_schemes_light: BTreeMap::new(),
+            confirm_close_multiple_terminals: false,
+            confirm_close_running_process: false,
             dim_font_weight: Weight::NORMAL.0,
             focus_follow_mouse: false,
             font_name: "Noto Sans Mono".to_string(),

@@ -68,6 +68,10 @@ focus-follow-mouse = Typing focus follows mouse
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu.
+confirm-close-running-process = Confirm close when a process is running
+confirm-close-running-process-description = Ask before closing a terminal with a foreground process other than the shell
+confirm-close-multiple-terminals = Confirm close when multiple terminals are open
+confirm-close-multiple-terminals-description = Ask before closing the window when more than one terminal is open
 # Find
 find-placeholder = Find...
 find-previous = Find previous
@@ -84,6 +88,14 @@ new-window = New window
 profile = Profile
 menu-profiles = Profiles...
 close-tab = Close tab
+close-window = Close window
+cancel = Cancel
+confirm-close-terminal-title = Close terminal?
+confirm-close-window-title = Close window?
+confirm-close-terminal-running-body = A process is still running in this terminal. Close it anyway?
+confirm-close-window-running-body = { $count } terminals still have running processes. Close them anyway?
+confirm-close-window-multiple-body = This will close { $count } open terminals. Continue?
+confirm-close-window-running-multiple-body = This will close { $terminal_count } open terminals, including { $running_count } with running processes. Continue?
 quit = Quit
 
 ## Edit

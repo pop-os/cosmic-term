@@ -13,10 +13,9 @@ use cosmic::{
     iced::{
         Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
         advanced::graphics::text::Raw,
-        event::{Event, Status},
+        event::Event,
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{self, Button, Event as MouseEvent, ScrollDelta},
-        window::RedrawRequest,
     },
     iced_core::{
         Border, Shell,
@@ -51,6 +50,16 @@ use crate::{
 };
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
+
+fn push_u8_ascii(buf: &mut Vec<u8>, value: u8) {
+    if value >= 100 {
+        buf.push(b'0' + (value / 100));
+    }
+    if value >= 10 {
+        buf.push(b'0' + ((value / 10) % 10));
+    }
+    buf.push(b'0' + (value % 10));
+}
 
 /// Drives repeated drag updates while the pointer is outside the widget.
 struct DragAutoscroll {
@@ -104,6 +113,37 @@ impl DragAutoscroll {
             None
         }
     }
+}
+
+fn prefixed_bytes(alt: bool, bytes: &[u8]) -> Vec<u8> {
+    let mut prefixed = Vec::with_capacity(bytes.len() + usize::from(alt));
+    if alt {
+        prefixed.push(0x1B);
+    }
+    prefixed.extend_from_slice(bytes);
+    prefixed
+}
+
+fn prefixed_char(alt: bool, character: char) -> Vec<u8> {
+    let mut encoded = [0; 4];
+    prefixed_bytes(alt, character.encode_utf8(&mut encoded).as_bytes())
+}
+
+fn update_hover_highlight(
+    state: &mut State,
+    terminal: &mut std::sync::MutexGuard<'_, Terminal>,
+    location: Option<TermPoint>,
+    modifiers: Option<&Modifiers>,
+    force: bool,
+) {
+    let ctrl = modifiers.is_some_and(|mods| mods.contains(Modifiers::CTRL));
+    if !force && state.hover_location == location && state.hover_ctrl == ctrl {
+        return;
+    }
+
+    state.hover_location = location;
+    state.hover_ctrl = ctrl;
+    update_active_regex_match(terminal, location, modifiers);
 }
 
 pub struct TerminalBox<'a, Message> {
@@ -270,15 +310,9 @@ where
     ) -> layout::Node {
         let limits = limits.width(Length::Fill).height(Length::Fill);
 
-        let mut terminal = self.terminal.lock().unwrap();
+        let terminal = self.terminal.lock().unwrap();
 
         //TODO: set size?
-
-        // Update if needed
-        if terminal.needs_update {
-            terminal.update();
-            terminal.needs_update = false;
-        }
 
         // Calculate layout lines
         terminal.with_buffer(|buffer| {
@@ -421,7 +455,9 @@ where
         let mut terminal = self.terminal.lock().unwrap();
 
         // Ensure terminal is the right size
-        terminal.resize(view_w as u32, view_h as u32);
+        if terminal.size().width != view_w as u32 || terminal.size().height != view_h as u32 {
+            terminal.resize(view_w as u32, view_h as u32);
+        }
 
         // Update if needed
         if terminal.needs_update {
@@ -996,15 +1032,14 @@ where
                 //Special handle Enter, Escape, Backspace and Tab as described in
                 //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
                 //Also special handle Ctrl-_ to behave like xterm
-                let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
                 match named {
                     Named::Backspace => {
                         let code = if modifiers.control() { "\x08" } else { "\x7f" };
-                        terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
+                        terminal.input_scroll(prefixed_bytes(modifiers.alt(), code.as_bytes()));
                         shell.capture_event();
                     }
                     Named::Enter => {
-                        terminal.input_scroll(format!("{}{}", alt_prefix, "\x0D").into_bytes());
+                        terminal.input_scroll(prefixed_bytes(modifiers.alt(), b"\x0D"));
                         shell.capture_event();
                     }
                     Named::Escape => {
@@ -1014,28 +1049,32 @@ where
                             term.selection.take().is_some()
                         };
                         if had_selection {
-                            terminal.update();
+                            terminal.request_full_update();
                         } else {
-                            terminal.input_scroll(format!("{}{}", alt_prefix, "\x1B").into_bytes());
+                            terminal.input_scroll(prefixed_bytes(modifiers.alt(), b"\x1B"));
                         }
                         shell.capture_event();
                     }
 
                     Named::Tab => {
                         let code = if modifiers.shift() { "\x1b[Z" } else { "\x09" };
-                        terminal.input_scroll(format!("{alt_prefix}{code}").into_bytes());
+                        terminal.input_scroll(prefixed_bytes(modifiers.alt(), code.as_bytes()));
                         shell.capture_event();
                     }
                     _ => {}
                 }
             }
             Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
+                let ctrl_changed = state.modifiers.contains(Modifiers::CTRL)
+                    != modifiers.contains(Modifiers::CTRL);
                 state.modifiers = *modifiers;
 
-                if modifiers.contains(Modifiers::CTRL)
+                if ctrl_changed
+                    || modifiers.contains(Modifiers::CTRL)
                     || terminal.active_regex_match.is_some()
                     || terminal.active_hyperlink_id.is_some()
                 {
+                    let hover_modifiers = state.modifiers;
                     //Might need to update the url regex highlight,
                     //so we need to calculate the mouse position
                     let location = if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -1051,7 +1090,13 @@ where
                     } else {
                         None
                     };
-                    update_active_regex_match(&mut terminal, location, Some(&state.modifiers));
+                    update_hover_highlight(
+                        state,
+                        &mut terminal,
+                        location,
+                        Some(&hover_modifiers),
+                        true,
+                    );
                 }
             }
             Event::Keyboard(KeyEvent::KeyPressed {
@@ -1063,8 +1108,6 @@ where
                 //Special handle Enter, Escape, Backspace and Tab as described in
                 //https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-key-event-encoding
                 //Also special handle Ctrl-_ to behave like xterm
-                let alt_prefix = if modifiers.alt() { "\x1B" } else { "" };
-
                 // Keep this instead of hardcoding the space to allow for dead keys
                 let character = text
                     .as_ref()
@@ -1075,7 +1118,7 @@ where
                     // Send NUL character (\x00) for Ctrl + Space
                     terminal.input_scroll(b"\x00".to_vec());
                 } else {
-                    terminal.input_scroll(format!("{}{}", alt_prefix, character).into_bytes());
+                    terminal.input_scroll(prefixed_char(modifiers.alt(), character));
                 }
                 shell.capture_event();
             }
@@ -1240,7 +1283,7 @@ where
                                     let mut term = terminal.term.lock();
                                     term.selection = Some(selection);
                                 }
-                                terminal.needs_update = true;
+                                terminal.request_full_update();
                                 state.click = Some((click_kind, Instant::now()));
                                 state.dragging = Some(Dragging::Buffer {
                                     edge_scroll_remainder: 0.0,
@@ -1294,10 +1337,12 @@ where
                                             row as usize,
                                             TermColumn(col as usize),
                                         ));
-                                        update_active_regex_match(
+                                        update_hover_highlight(
+                                            state,
                                             &mut terminal,
                                             Some(location),
                                             None,
+                                            true,
                                         );
                                         let link = get_hyperlink(&terminal, location);
                                         shell.publish(on_context_menu(Some(MenuState {
@@ -1327,7 +1372,7 @@ where
                                 selection.update(last_point, last_side);
                             }
                         }
-                        terminal.needs_update = true;
+                        terminal.request_full_update();
                     }
                 }
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
@@ -1396,6 +1441,7 @@ where
                 }
                 if let Some(p_global) = cursor_position.position() {
                     let bounds = layout.bounds();
+                    let hover_modifiers = state.modifiers;
                     let col_row_opt = if let Some(p) = cursor_position.position_in(bounds) {
                         let x = p.x - self.padding.left;
                         let y = p.y - self.padding.top;
@@ -1406,13 +1452,22 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(
+                        update_hover_highlight(
+                            state,
                             &mut terminal,
                             Some(location),
-                            Some(&state.modifiers),
+                            Some(&hover_modifiers),
+                            false,
                         );
                         Some((col, row))
                     } else {
+                        update_hover_highlight(
+                            state,
+                            &mut terminal,
+                            None,
+                            Some(&hover_modifiers),
+                            false,
+                        );
                         None
                     };
 
@@ -1518,6 +1573,7 @@ where
                         }
                     }
                     {
+                        let hover_modifiers = state.modifiers;
                         let x = p.x - self.padding.left;
                         let y = p.y - self.padding.top;
                         //TODO: better calculation of position
@@ -1528,10 +1584,12 @@ where
                             row as usize,
                             TermColumn(col as usize),
                         ));
-                        update_active_regex_match(
+                        update_hover_highlight(
+                            state,
                             &mut terminal,
                             Some(location),
-                            Some(&state.modifiers),
+                            Some(&hover_modifiers),
+                            true,
                         );
                     }
                 }
@@ -1611,26 +1669,26 @@ fn update_active_regex_match(
         if !modifiers.contains(Modifiers::CTRL) {
             if terminal.active_regex_match.is_some() {
                 terminal.active_regex_match = None;
-                terminal.needs_update = true;
+                terminal.request_full_update();
             }
             if terminal.active_hyperlink_id.is_some() {
                 terminal.active_hyperlink_id = None;
-                terminal.needs_update = true;
+                terminal.request_full_update();
             }
             return;
         }
     } else if terminal.active_hyperlink_id.is_some() {
         terminal.active_hyperlink_id = None;
-        terminal.needs_update = true;
+        terminal.request_full_update();
     }
     let Some(location) = location else {
         if terminal.active_regex_match.is_some() {
             terminal.active_regex_match = None;
-            terminal.needs_update = true;
+            terminal.request_full_update();
         }
         if terminal.active_hyperlink_id.is_some() {
             terminal.active_hyperlink_id = None;
-            terminal.needs_update = true;
+            terminal.request_full_update();
         }
         return;
     };
@@ -1638,29 +1696,30 @@ fn update_active_regex_match(
         let next_hyperlink_id = get_hyperlink_id(terminal, location);
         if terminal.active_hyperlink_id != next_hyperlink_id {
             terminal.active_hyperlink_id = next_hyperlink_id;
-            terminal.needs_update = true;
+            terminal.request_full_update();
         }
     } else if terminal.active_hyperlink_id.is_some() {
         terminal.active_hyperlink_id = None;
-        terminal.needs_update = true;
+        terminal.request_full_update();
     }
-    if let Some(match_) = terminal
+    let hovered_match = terminal
         .regex_matches
         .iter()
         .find(|bounds| bounds.contains(&location))
-    {
+        .cloned();
+    if let Some(match_) = hovered_match {
         'update: {
             if let Some(active_match) = &terminal.active_regex_match {
-                if active_match == match_ {
+                if active_match == &match_ {
                     break 'update;
                 }
             }
-            terminal.active_regex_match = Some(match_.clone());
-            terminal.needs_update = true;
+            terminal.active_regex_match = Some(match_);
+            terminal.request_full_update();
         }
     } else if terminal.active_regex_match.is_some() {
         terminal.active_regex_match = None;
-        terminal.needs_update = true;
+        terminal.request_full_update();
     }
 }
 
@@ -1845,7 +1904,8 @@ fn update_buffer_drag(
     } else {
         TermSide::Right
     };
-    {
+    let selection_changed = *last_point != location || *last_side != side;
+    if selection_changed {
         let mut term = terminal.term.lock();
         if let Some(selection) = &mut term.selection {
             selection.update(location, side);
@@ -1853,15 +1913,19 @@ fn update_buffer_drag(
     }
     *last_point = location;
     *last_side = side;
-    terminal.needs_update = true;
+    if selection_changed {
+        terminal.request_full_update();
+    }
 
-    true
+    selection_changed || scroll_delta != 0
 }
 
 pub struct State {
     modifiers: Modifiers,
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
+    hover_ctrl: bool,
+    hover_location: Option<TermPoint>,
     is_focused: bool,
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
@@ -1875,6 +1939,8 @@ impl State {
             modifiers: Modifiers::empty(),
             click: None,
             dragging: None,
+            hover_ctrl: false,
+            hover_location: None,
             is_focused: false,
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
@@ -1926,31 +1992,46 @@ fn calculate_modifier_number(state: &State) -> u8 {
 
 #[inline(always)]
 fn csi(code: &str, suffix: &str, modifiers: u8) -> Option<Vec<u8>> {
-    if modifiers == 1 {
-        Some(format!("\x1B[{code}{suffix}").into_bytes())
-    } else {
-        Some(format!("\x1B[{code};{modifiers}{suffix}").into_bytes())
+    let mut buf = Vec::with_capacity(code.len() + suffix.len() + 8);
+    buf.extend_from_slice(b"\x1B[");
+    buf.extend_from_slice(code.as_bytes());
+    if modifiers != 1 {
+        buf.push(b';');
+        push_u8_ascii(&mut buf, modifiers);
     }
+    buf.extend_from_slice(suffix.as_bytes());
+    Some(buf)
 }
 // https://sw.kovidgoyal.net/kitty/keyboard-protocol/#legacy-functional-keys
 // CSI 1 ; modifier {ABCDEFHPQS}
 // code is ABCDEFHPQS
 #[inline(always)]
 fn csi2(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    let mut buf = Vec::with_capacity(code.len() + 8);
+    buf.extend_from_slice(b"\x1B[");
     if modifiers == 1 {
-        Some(format!("\x1B[{code}").into_bytes())
+        buf.extend_from_slice(code.as_bytes());
     } else {
-        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
+        buf.push(b'1');
+        buf.push(b';');
+        push_u8_ascii(&mut buf, modifiers);
+        buf.extend_from_slice(code.as_bytes());
     }
+    Some(buf)
 }
 
 #[inline(always)]
 fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
+    let mut buf = Vec::with_capacity(code.len() + 8);
     if modifiers == 1 {
-        Some(format!("\x1B\x4F{code}").into_bytes())
+        buf.extend_from_slice(b"\x1B\x4F");
+        buf.extend_from_slice(code.as_bytes());
     } else {
-        Some(format!("\x1B[1;{modifiers}{code}").into_bytes())
+        buf.extend_from_slice(b"\x1B[1;");
+        push_u8_ascii(&mut buf, modifiers);
+        buf.extend_from_slice(code.as_bytes());
     }
+    Some(buf)
 }
 
 #[cfg(test)]
