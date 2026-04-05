@@ -25,6 +25,10 @@ use cosmic_text::{
     Weight, Wrap,
 };
 use indexmap::IndexSet;
+#[cfg(unix)]
+use std::fs::File;
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -270,6 +274,13 @@ fn visible_point_for_line(display_offset: usize, line_index: usize, column: usiz
     )
 }
 
+#[cfg(unix)]
+#[derive(Debug)]
+struct ProcessMonitor {
+    child_pid: u32,
+    pty_master: File,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn update_visible_buffer_line<T: EventListener>(
     term: &Term<T>,
@@ -452,6 +463,9 @@ pub struct Terminal {
     dim_font_weight: Weight,
     mouse_reporter: MouseReporter,
     notifier: Notifier,
+    child_running: bool,
+    #[cfg(unix)]
+    process_monitor: Option<ProcessMonitor>,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
     size: Size,
@@ -526,6 +540,11 @@ impl Terminal {
 
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
+        #[cfg(unix)]
+        let process_monitor = Some(ProcessMonitor {
+            child_pid: pty.child().id(),
+            pty_master: pty.file().try_clone()?,
+        });
 
         let pty_event_loop =
             EventLoop::new(term.clone(), event_proxy, pty, options.drain_on_exit, false)?;
@@ -541,6 +560,7 @@ impl Terminal {
             buffer: Arc::new(buffer),
             colors,
             context_menu: None,
+            child_running: true,
             default_attrs,
             dim_font_weight: Weight(dim_font_weight),
             force_full_update: true,
@@ -548,6 +568,8 @@ impl Terminal {
             mouse_reporter: Default::default(),
             needs_update: true,
             notifier,
+            #[cfg(unix)]
+            process_monitor,
             profile_id_opt,
             regex_matches_dirty: true,
             search_regex_opt: None,
@@ -615,6 +637,36 @@ impl Terminal {
     pub fn request_full_update(&mut self) {
         self.needs_update = true;
         self.force_full_update = true;
+    }
+
+    pub fn set_child_running(&mut self, child_running: bool) {
+        self.child_running = child_running;
+    }
+
+    pub fn has_running_process(&self) -> bool {
+        if !self.child_running {
+            return false;
+        }
+
+        #[cfg(unix)]
+        {
+            let Some(process_monitor) = &self.process_monitor else {
+                return false;
+            };
+
+            let foreground_pgid =
+                unsafe { libc::tcgetpgrp(process_monitor.pty_master.as_raw_fd()) };
+            if foreground_pgid <= 0 {
+                return false;
+            }
+
+            return foreground_pgid as u32 != process_monitor.child_pid;
+        }
+
+        #[cfg(not(unix))]
+        {
+            false
+        }
     }
 
     pub fn input_no_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {

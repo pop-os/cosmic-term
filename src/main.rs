@@ -372,6 +372,8 @@ pub enum Message {
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
     CopyUrlByMenu,
+    ConfirmCloseMultipleTerminals(bool),
+    ConfirmCloseRunningProcess(bool),
     DefaultBoldFontWeight(usize),
     DefaultDimFontWeight(usize),
     DefaultFont(usize),
@@ -391,6 +393,8 @@ pub enum Message {
     LaunchUrl(String),
     LaunchUrlByMenu,
     Modifiers(Modifiers),
+    CloseConfirmationAccept,
+    CloseConfirmationCancel,
     ShortcutCaptureCancel,
     ShortcutCaptureStart(shortcuts::KeyBindAction),
     ShortcutConflictCancel,
@@ -473,6 +477,19 @@ struct ShortcutConflict {
     new_action: shortcuts::KeyBindAction,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum PendingCloseAction {
+    Tab(Option<segmented_button::Entity>),
+    Window,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CloseConfirmation {
+    action: PendingCloseAction,
+    terminal_count: usize,
+    running_process_count: usize,
+}
+
 /// The [`App`] stores application-specific state.
 pub struct App {
     core: Core,
@@ -499,6 +516,7 @@ pub struct App {
     theme_names_light: Vec<String>,
     themes: HashMap<(String, ColorSchemeKind), TermColors>,
     context_page: ContextPage,
+    close_confirmation: Option<CloseConfirmation>,
     dialog_opt: Option<Dialog<Message>>,
     terminal_ids: HashMap<pane_grid::Pane, widget::Id>,
     find: bool,
@@ -639,6 +657,110 @@ impl App {
         if let Some(overlay) = self.shortcut_conflict_overlay_restore.take() {
             self.set_context_overlay(overlay);
         }
+    }
+
+    fn open_terminal_count(&self) -> usize {
+        self.pane_model
+            .panes
+            .iter()
+            .map(|(_pane, tab_model)| tab_model.iter().count())
+            .sum()
+    }
+
+    fn running_process_terminal_count(&self) -> usize {
+        let mut count = 0;
+        for (_pane, tab_model) in self.pane_model.panes.iter() {
+            for entity in tab_model.iter() {
+                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                    && terminal.lock().unwrap().has_running_process()
+                {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    fn tab_has_running_process(&self, entity_opt: Option<segmented_button::Entity>) -> bool {
+        let Some(tab_model) = self.pane_model.active() else {
+            return false;
+        };
+        let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+        tab_model
+            .data::<Mutex<Terminal>>(entity)
+            .is_some_and(|terminal| terminal.lock().unwrap().has_running_process())
+    }
+
+    fn maybe_request_close_confirmation(&mut self, action: PendingCloseAction) -> bool {
+        let (terminal_count, running_process_count, multiple_terminal_close) = match action {
+            PendingCloseAction::Tab(entity_opt) => (
+                1,
+                usize::from(self.tab_has_running_process(entity_opt)),
+                false,
+            ),
+            PendingCloseAction::Window => (
+                self.open_terminal_count(),
+                self.running_process_terminal_count(),
+                true,
+            ),
+        };
+
+        let needs_running_process_confirmation =
+            self.config.confirm_close_running_process && running_process_count > 0;
+        let needs_multiple_terminal_confirmation = multiple_terminal_close
+            && self.config.confirm_close_multiple_terminals
+            && terminal_count > 1;
+
+        if !(needs_running_process_confirmation || needs_multiple_terminal_confirmation) {
+            return false;
+        }
+
+        self.close_confirmation = Some(CloseConfirmation {
+            action,
+            terminal_count,
+            running_process_count,
+        });
+
+        true
+    }
+
+    fn perform_tab_close(&mut self, entity_opt: Option<segmented_button::Entity>) -> Task<Message> {
+        if let Some(tab_model) = self.pane_model.active_mut() {
+            let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+
+            if entity == tab_model.active()
+                && let Some(position) = tab_model.position(entity)
+            {
+                if position > 0 {
+                    tab_model.activate_position(position - 1);
+                } else {
+                    tab_model.activate_position(position + 1);
+                }
+            }
+
+            tab_model.remove(entity);
+
+            if tab_model.iter().next().is_none() {
+                if let Some((_state, sibling)) =
+                    self.pane_model.panes.close(self.pane_model.focused())
+                {
+                    self.terminal_ids.remove(&self.pane_model.focused());
+                    self.pane_model.set_focus(sibling);
+                } else if let Some(window_id) = self.core.main_window_id() {
+                    return window::close(window_id);
+                }
+            }
+        }
+
+        self.update_title(None)
+    }
+
+    fn perform_window_close(&mut self) -> Task<Message> {
+        if let Some(window_id) = self.core.main_window_id() {
+            return window::close(window_id);
+        }
+
+        Task::none()
     }
 
     fn shortcut_page_toggle(&mut self) {
@@ -1483,11 +1605,29 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
-            widget::settings::item::builder(fl!("show-headerbar"))
-                .description(fl!("show-header-description"))
-                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-        );
+        let advanced_section = widget::settings::section()
+            .title(fl!("advanced"))
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .description(fl!("show-header-description"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
+            .add(
+                widget::settings::item::builder(fl!("confirm-close-running-process"))
+                    .description(fl!("confirm-close-running-process-description"))
+                    .toggler(
+                        self.config.confirm_close_running_process,
+                        Message::ConfirmCloseRunningProcess,
+                    ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("confirm-close-multiple-terminals"))
+                    .description(fl!("confirm-close-multiple-terminals-description"))
+                    .toggler(
+                        self.config.confirm_close_multiple_terminals,
+                        Message::ConfirmCloseMultipleTerminals,
+                    ),
+            );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -1659,6 +1799,14 @@ impl Application for App {
         &mut self.core
     }
 
+    fn on_app_exit(&mut self) -> Option<Self::Message> {
+        Some(Message::WindowClose)
+    }
+
+    fn on_close_requested(&self, _id: window::Id) -> Option<Self::Message> {
+        Some(Message::WindowClose)
+    }
+
     /// Creates the application, and optionally emits command on initialize.
     fn init(mut core: Core, flags: Self::Flags) -> (Self, Task<Self::Message>) {
         core.window.content_container = false;
@@ -1817,6 +1965,7 @@ impl Application for App {
             theme_names_light: Vec::new(),
             themes: HashMap::new(),
             context_page: ContextPage::Settings,
+            close_confirmation: None,
             dialog_opt: None,
             terminal_ids,
             find: false,
@@ -2373,6 +2522,20 @@ impl Application for App {
                     }),
                 ]);
             }
+            Message::ConfirmCloseMultipleTerminals(confirm_close_multiple_terminals) => {
+                if confirm_close_multiple_terminals != self.config.confirm_close_multiple_terminals
+                {
+                    config_set!(
+                        confirm_close_multiple_terminals,
+                        confirm_close_multiple_terminals
+                    );
+                }
+            }
+            Message::ConfirmCloseRunningProcess(confirm_close_running_process) => {
+                if confirm_close_running_process != self.config.confirm_close_running_process {
+                    config_set!(confirm_close_running_process, confirm_close_running_process);
+                }
+            }
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
@@ -2470,6 +2633,17 @@ impl Application for App {
             Message::MouseEnter(pane) => {
                 self.pane_model.set_focus(pane);
                 return self.update_focus();
+            }
+            Message::CloseConfirmationAccept => {
+                if let Some(close_confirmation) = self.close_confirmation.take() {
+                    return match close_confirmation.action {
+                        PendingCloseAction::Tab(entity_opt) => self.perform_tab_close(entity_opt),
+                        PendingCloseAction::Window => self.perform_window_close(),
+                    };
+                }
+            }
+            Message::CloseConfirmationCancel => {
+                self.close_confirmation = None;
             }
             Message::ShortcutCaptureCancel => {
                 self.shortcut_capture = None;
@@ -2773,40 +2947,10 @@ impl Application for App {
                 }
             }
             Message::TabClose(entity_opt) => {
-                if let Some(tab_model) = self.pane_model.active_mut() {
-                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
-
-                    // Activate closest item if closing active tab
-                    if entity == tab_model.active()
-                        && let Some(position) = tab_model.position(entity)
-                    {
-                        if position > 0 {
-                            tab_model.activate_position(position - 1);
-                        } else {
-                            tab_model.activate_position(position + 1);
-                        }
-                    }
-
-                    // Remove item
-                    tab_model.remove(entity);
-
-                    // If that was the last tab, close current pane
-                    if tab_model.iter().next().is_none() {
-                        if let Some((_state, sibling)) =
-                            self.pane_model.panes.close(self.pane_model.focused())
-                        {
-                            self.terminal_ids.remove(&self.pane_model.focused());
-                            self.pane_model.set_focus(sibling);
-                        } else {
-                            //Last pane, closing window
-                            if let Some(window_id) = self.core.main_window_id() {
-                                return window::close(window_id);
-                            }
-                        }
-                    }
+                if self.maybe_request_close_confirmation(PendingCloseAction::Tab(entity_opt)) {
+                    return Task::none();
                 }
-
-                return self.update_title(None);
+                return self.perform_tab_close(entity_opt);
             }
             Message::TabContextAction(entity, action) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -3012,7 +3156,11 @@ impl Application for App {
                         }
                     }
                     TermEvent::ChildExit(_error_code) => {
-                        //Ignore this for now
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            terminal.lock().unwrap().set_child_running(false);
+                        }
                     }
                 }
             }
@@ -3110,9 +3258,10 @@ impl Application for App {
                 config_set!(default_profile, default.then_some(profile_id));
             }
             Message::WindowClose => {
-                if let Some(window_id) = self.core.main_window_id() {
-                    return window::close(window_id);
+                if self.maybe_request_close_confirmation(PendingCloseAction::Window) {
+                    return Task::none();
                 }
+                return self.perform_window_close();
             }
             Message::WindowNew => match env::current_exe() {
                 Ok(exe) => match process::Command::new(&exe).spawn() {
@@ -3209,6 +3358,52 @@ impl Application for App {
     }
 
     fn dialog(&self) -> Option<Element<'_, Message>> {
+        if let Some(close_confirmation) = self.close_confirmation {
+            let (title, body, confirm_message) = match close_confirmation.action {
+                PendingCloseAction::Tab(_) => (
+                    fl!("confirm-close-terminal-title"),
+                    fl!("confirm-close-terminal-running-body"),
+                    fl!("close-tab"),
+                ),
+                PendingCloseAction::Window => {
+                    let has_multiple = close_confirmation.terminal_count > 1;
+                    let has_running_processes = close_confirmation.running_process_count > 0;
+                    let body = match (has_multiple, has_running_processes) {
+                        (true, true) => fl!(
+                            "confirm-close-window-running-multiple-body",
+                            terminal_count = close_confirmation.terminal_count,
+                            running_count = close_confirmation.running_process_count
+                        ),
+                        (true, false) => fl!(
+                            "confirm-close-window-multiple-body",
+                            count = close_confirmation.terminal_count
+                        ),
+                        (false, true) => fl!(
+                            "confirm-close-window-running-body",
+                            count = close_confirmation.running_process_count
+                        ),
+                        (false, false) => fl!("confirm-close-window-title"),
+                    };
+                    (fl!("confirm-close-window-title"), body, fl!("close-window"))
+                }
+            };
+
+            return Some(
+                widget::dialog()
+                    .title(title)
+                    .body(body)
+                    .primary_action(
+                        widget::button::destructive(confirm_message)
+                            .on_press(Message::CloseConfirmationAccept),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel"))
+                            .on_press(Message::CloseConfirmationCancel),
+                    )
+                    .into(),
+            );
+        }
+
         let conflict = self.shortcut_conflict.as_ref()?;
         let binding = shortcuts::binding_display(&conflict.binding);
         let existing = shortcuts::action_label(conflict.existing_action);
