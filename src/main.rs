@@ -530,6 +530,7 @@ pub struct App {
         segmented_button::Entity,
         Option<String>,
         widget::Id,
+        cosmic::iced::Point,
     )>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
@@ -2437,14 +2438,14 @@ impl Application for App {
                 }
             }
             Message::CopyUrlByMenu => {
-                if let Some((_, _, _, ref link, _)) = self.context_menu_popup {
+                if let Some((_, _, _, ref link, _, _)) = self.context_menu_popup {
                     if let Some(url) = link.clone() {
                         return Task::batch([clipboard::write(url), self.update_focus()]);
                     }
                 }
             }
             Message::LaunchUrlByMenu => {
-                if let Some((_, _, _, ref link, _)) = self.context_menu_popup {
+                if let Some((_, _, _, ref link, _, _)) = self.context_menu_popup {
                     if let Some(url) = link.as_ref() {
                         if let Err(err) = open::that_detached(url) {
                             log::warn!("failed to open {:?}: {}", url, err);
@@ -2799,10 +2800,13 @@ impl Application for App {
             Message::TabContextAction(entity, action) => {
                 // Close context menu popup
                 let mut tasks = Vec::new();
-                if let Some((popup_id, _, _, _, _)) = self.context_menu_popup.take() {
-                    tasks.push(cosmic::task::message(Message::Surface(
-                        cosmic::surface::action::destroy_popup(popup_id),
-                    )));
+                if let Some((_popup_id, _, _, _, _, _)) = self.context_menu_popup.take() {
+                    #[cfg(feature = "wayland")]
+                    if is_wayland() {
+                        tasks.push(cosmic::task::message(Message::Surface(
+                            cosmic::surface::action::destroy_popup(_popup_id),
+                        )));
+                    }
                 }
                 // Also clear terminal context_menu state
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2815,13 +2819,17 @@ impl Application for App {
                 return cosmic::Task::batch(tasks);
             }
             Message::TabContextMenu(pane, menu_state) => {
+                #[allow(unused_mut)]
                 let mut tasks = Vec::new();
 
                 // Close existing context menu popup if any
-                if let Some((popup_id, _, _, _, _)) = self.context_menu_popup.take() {
-                    tasks.push(cosmic::task::message(Message::Surface(
-                        cosmic::surface::action::destroy_popup(popup_id),
-                    )));
+                if let Some((_popup_id, _, _, _, _, _)) = self.context_menu_popup.take() {
+                    #[cfg(feature = "wayland")]
+                    if is_wayland() {
+                        tasks.push(cosmic::task::message(Message::Surface(
+                            cosmic::surface::action::destroy_popup(_popup_id),
+                        )));
+                    }
                 }
 
                 // Clear all terminal context_menu state
@@ -2835,18 +2843,26 @@ impl Application for App {
                 }
 
                 if let Some(menu_state) = menu_state {
-                    if let Some(position) = menu_state.position {
+                    if let Some(_position) = menu_state.position {
+                        let local_position = menu_state.local_position.unwrap_or(_position);
                         if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            {
-                                let entity = tab_model.active();
-                                let link = menu_state.link.clone();
-                                let popup_id = window::Id::unique();
-                                self.context_menu_popup =
-                                    Some((popup_id, pane, entity, link, widget::Id::unique()));
+                            let entity = tab_model.active();
+                            let link = menu_state.link.clone();
+                            let popup_id = window::Id::unique();
+                            self.context_menu_popup = Some((
+                                popup_id,
+                                pane,
+                                entity,
+                                link,
+                                widget::Id::unique(),
+                                local_position,
+                            ));
 
+                            #[cfg(feature = "wayland")]
+                            if is_wayland() {
                                 let main_window = self.core.main_window_id().unwrap();
-                                let pos_x = position.x as i32;
-                                let pos_y = position.y as i32;
+                                let pos_x = _position.x as i32;
+                                let pos_y = _position.y as i32;
 
                                 tasks.push(cosmic::task::message(Message::Surface(
                                     cosmic::surface::action::app_popup(move |_app: &mut Self| {
@@ -3159,7 +3175,7 @@ impl Application for App {
                 return self.update_config();
             }
             Message::ContextMenuPopupClosed(id) => {
-                if let Some((popup_id, _, _, _, _)) = &self.context_menu_popup {
+                if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup {
                     if id == *popup_id {
                         self.context_menu_popup = None;
                     }
@@ -3272,7 +3288,7 @@ impl Application for App {
     }
 
     fn on_close_requested(&self, id: window::Id) -> Option<Self::Message> {
-        if let Some((popup_id, _, _, _, _)) = &self.context_menu_popup {
+        if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup {
             if id == *popup_id {
                 return Some(Message::ContextMenuPopupClosed(id));
             }
@@ -3281,7 +3297,8 @@ impl Application for App {
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
-        if let Some((popup_id, _pane, entity, ref link, ref autosize_id)) = self.context_menu_popup
+        if let Some((popup_id, _pane, entity, ref link, ref autosize_id, _)) =
+            self.context_menu_popup
         {
             if window_id == popup_id {
                 return widget::autosize::autosize(
@@ -3365,7 +3382,42 @@ impl Application for App {
                     terminal_box = terminal_box.context_menu(cosmic::iced::Point::ORIGIN);
                 }
 
-                let tab_element: Element<'_, Message> = terminal_box.into();
+                let use_wayland_popup = {
+                    #[cfg(feature = "wayland")]
+                    {
+                        is_wayland()
+                    }
+                    #[cfg(not(feature = "wayland"))]
+                    {
+                        false
+                    }
+                };
+
+                let tab_element: Element<'_, Message> = if !use_wayland_popup {
+                    // Fallback: render context menu as an inline popover
+                    if let Some((_, popup_pane, popup_entity, ref link, _, point)) =
+                        self.context_menu_popup
+                    {
+                        if pane == popup_pane {
+                            let mut popover = widget::popover(terminal_box.context_menu(point));
+                            popover = popover
+                                .popup(menu::context_menu(
+                                    &self.config,
+                                    &self.key_binds,
+                                    popup_entity,
+                                    link.clone(),
+                                ))
+                                .position(widget::popover::Position::Point(point));
+                            popover.into()
+                        } else {
+                            terminal_box.into()
+                        }
+                    } else {
+                        terminal_box.into()
+                    }
+                } else {
+                    terminal_box.into()
+                };
                 tab_column = tab_column.push(tab_element);
             }
 
@@ -3518,4 +3570,12 @@ impl Application for App {
             },
         ])
     }
+}
+
+#[cfg(feature = "wayland")]
+fn is_wayland() -> bool {
+    matches!(
+        cosmic::app::cosmic::windowing_system(),
+        Some(cosmic::app::cosmic::WindowingSystem::Wayland)
+    )
 }

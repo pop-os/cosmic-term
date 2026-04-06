@@ -26,6 +26,7 @@ static MENU_ID: LazyLock<cosmic::widget::Id> =
 #[derive(Debug, Clone)]
 pub struct MenuState {
     pub position: Option<Point>,
+    pub local_position: Option<Point>,
     pub link: Option<String>,
 }
 

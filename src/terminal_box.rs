@@ -1306,6 +1306,7 @@ where
                                         );
                                         shell.publish(on_context_menu(Some(MenuState {
                                             position: Some(abs),
+                                            local_position: Some(p),
                                             link,
                                         })));
                                     }
