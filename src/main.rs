@@ -425,6 +425,7 @@ pub enum Message {
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
+    ShowPaneBorders(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabActivate(segmented_button::Entity),
@@ -1481,10 +1482,16 @@ impl App {
             font_section = font_section.add(advanced_font_settings());
         }
 
-        let splits_section = widget::settings::section().title(fl!("splits")).add(
-            widget::settings::item::builder(fl!("focus-follow-mouse"))
-                .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
-        );
+        let splits_section = widget::settings::section()
+            .title(fl!("splits"))
+            .add(
+                widget::settings::item::builder(fl!("focus-follow-mouse"))
+                    .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
+            )
+            .add(
+                widget::settings::item::builder(fl!("show-pane-borders"))
+                    .toggler(self.config.show_pane_borders, Message::ShowPaneBorders),
+            );
 
         let advanced_section = widget::settings::section().title(fl!("advanced")).add(
             widget::settings::item::builder(fl!("show-headerbar"))
@@ -2719,6 +2726,11 @@ impl Application for App {
                     return self.update_config();
                 }
             }
+            Message::ShowPaneBorders(show_pane_borders) => {
+                if show_pane_borders != self.config.show_pane_borders {
+                    config_set!(show_pane_borders, show_pane_borders);
+                }
+            }
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
                     config_set!(use_bright_bold, use_bright_bold);
@@ -3350,8 +3362,22 @@ impl Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<'_, Self::Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let cosmic = self.core().system_theme().cosmic();
+        let cosmic_theme::Spacing {
+            space_xxxs,
+            space_xxs,
+            ..
+        } = cosmic.spacing;
 
+        let show_pane_borders =
+            self.config.show_pane_borders && self.pane_model.panes.panes.len() > 1;
+        let pane_corner_radius: iced::border::Radius = {
+            let pad = f32::from(space_xxxs) / 2.0;
+            cosmic
+                .radius_s()
+                .map(|r| if r > 0.0 { r + pad } else { 0.0 })
+                .into()
+        };
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
@@ -3403,7 +3429,8 @@ impl Application for App {
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs)
                     .sharp_corners(self.core.window.sharp_corners)
-                    .show_headerbar(self.config.show_headerbar);
+                    .show_headerbar(self.config.show_headerbar)
+                    .pane_border_radius(show_pane_borders.then_some(pane_corner_radius));
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
@@ -3537,7 +3564,21 @@ impl Application for App {
         .on_drag(Message::PaneDragged);
 
         //TODO: apply window border radius xs at bottom of window
-        pane_grid.into()
+        if show_pane_borders {
+            let bg_divider = Color::from(cosmic.bg_divider());
+            let pane_grid = pane_grid.spacing(space_xxxs);
+            widget::container(pane_grid)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(space_xxxs)
+                .style(move |_theme| widget::container::Style {
+                    background: Some(bg_divider.into()),
+                    ..Default::default()
+                })
+                .into()
+        } else {
+            pane_grid.into()
+        }
     }
 
     fn system_theme_update(
