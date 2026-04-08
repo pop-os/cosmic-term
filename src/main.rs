@@ -2438,18 +2438,38 @@ impl Application for App {
                 }
             }
             Message::CopyUrlByMenu => {
-                if let Some((_, _, _, ref link, _, _)) = self.context_menu_popup {
-                    if let Some(url) = link.clone() {
-                        return Task::batch([clipboard::write(url), self.update_focus()]);
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        if let Some(url) =
+                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                        {
+                            let url = url.to_owned();
+                            terminal.context_menu = None;
+                            terminal.active_regex_match = None;
+                            terminal.needs_update = true;
+
+                            return Task::batch([clipboard::write(url), self.update_focus()]);
+                        }
                     }
                 }
             }
             Message::LaunchUrlByMenu => {
-                if let Some((_, _, _, ref link, _, _)) = self.context_menu_popup {
-                    if let Some(url) = link.as_ref() {
-                        if let Err(err) = open::that_detached(url) {
-                            log::warn!("failed to open {:?}: {}", url, err);
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        if let Some(url) =
+                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                        {
+                            if let Err(err) = open::that_detached(url) {
+                                log::warn!("failed to open {:?}: {}", url, err);
+                            }
                         }
+                        terminal.context_menu = None;
+                        terminal.active_regex_match = None;
+                        terminal.needs_update = true;
                     }
                 }
             }
@@ -2808,11 +2828,22 @@ impl Application for App {
                         )));
                     }
                 }
-                // Also clear terminal context_menu state
+                // Close terminal context menu state
                 if let Some(tab_model) = self.pane_model.active() {
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                         let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = None;
+                        //Some actions need the menu_state,
+                        //so only clear the position for them.
+                        match action {
+                            Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {
+                                if let Some(context_menu) = terminal.context_menu.as_mut() {
+                                    context_menu.position = None;
+                                }
+                            }
+                            _ => {
+                                terminal.context_menu = None;
+                            }
+                        }
                     }
                 }
                 tasks.push(self.update(action.message(Some(entity))));
@@ -2849,6 +2880,12 @@ impl Application for App {
                             let entity = tab_model.active();
                             let link = menu_state.link.clone();
                             let popup_id = window::Id::unique();
+
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let mut terminal = terminal.lock().unwrap();
+                                terminal.context_menu = Some(menu_state);
+                            }
+
                             self.context_menu_popup = Some((
                                 popup_id,
                                 pane,
@@ -3175,8 +3212,17 @@ impl Application for App {
                 return self.update_config();
             }
             Message::ContextMenuPopupClosed(id) => {
-                if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup {
+                if let Some((popup_id, pane, entity, _, _, _)) = &self.context_menu_popup {
                     if id == *popup_id {
+                        // Clear link underline on the terminal
+                        if let Some(tab_model) = self.pane_model.panes.get(*pane) {
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(*entity) {
+                                let mut terminal = terminal.lock().unwrap();
+                                terminal.context_menu = None;
+                                terminal.active_regex_match = None;
+                                terminal.needs_update = true;
+                            }
+                        }
                         self.context_menu_popup = None;
                     }
                 }
