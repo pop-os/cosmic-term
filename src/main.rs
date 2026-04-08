@@ -3,7 +3,7 @@
 
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
-use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced::core::keyboard::key::Named;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::pane_grid::Pane;
@@ -2904,7 +2904,7 @@ impl Application for App {
                                 tasks.push(cosmic::task::message(Message::Surface(
                                     cosmic::surface::action::app_popup(move |_app: &mut Self| {
                                         use cosmic::cctk::wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
-                                        use cosmic::iced_runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
+                                        use cosmic::iced::runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
 
                                         SctkPopupSettings {
                                             parent: main_window,
@@ -3381,7 +3381,7 @@ impl Application for App {
                     )
                     .class(style::Container::Custom(Box::new(|theme| {
                         let cosmic = theme.cosmic();
-                        cosmic::iced_widget::container::Style {
+                        cosmic::iced::widget::container::Style {
                             icon_color: Some(Color::from(cosmic.background.on)),
                             text_color: Some(Color::from(cosmic.background.on)),
                             background: Some(iced::Background::Color(

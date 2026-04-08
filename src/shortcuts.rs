@@ -2,8 +2,8 @@
 
 use cosmic::widget::menu::key_bind::{KeyBind, Modifier};
 use cosmic::{
+    iced::core::keyboard::key::Named,
     iced::keyboard::{Key, Modifiers},
-    iced_core::keyboard::key::Named,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};

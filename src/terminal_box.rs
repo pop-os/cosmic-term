@@ -10,15 +10,7 @@ use alacritty_terminal::{
 use cosmic::{
     Renderer,
     cosmic_theme::palette::{WithAlpha, blend::Compose},
-    iced::{
-        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
-        advanced::graphics::text::Raw,
-        event::{Event, Status},
-        keyboard::{Event as KeyEvent, Key, Modifiers},
-        mouse::{self, Button, Event as MouseEvent, ScrollDelta},
-        window::RedrawRequest,
-    },
-    iced_core::{
+    iced::core::{
         Border, Shell,
         clipboard::Clipboard,
         keyboard::key::Named,
@@ -31,9 +23,17 @@ use cosmic::{
             tree,
         },
     },
+    iced::{
+        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
+        advanced::graphics::text::Raw,
+        event::{Event, Status},
+        keyboard::{Event as KeyEvent, Key, Modifiers},
+        mouse::{self, Button, Event as MouseEvent, ScrollDelta},
+        window::RedrawRequest,
+    },
     theme::Theme,
 };
-use cosmic::{iced_core::SmolStr, widget::menu::key_bind::KeyBind};
+use cosmic::{iced::core::SmolStr, widget::menu::key_bind::KeyBind};
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
 use std::{
