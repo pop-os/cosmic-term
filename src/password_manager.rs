@@ -234,11 +234,10 @@ impl PasswordManager {
             }
 
             // Don't do anything if nothing have changed
-            if let Some(original) = &original {
-                if original == &input_state.input {
+            if let Some(original) = &original
+                && original == &input_state.input {
                     return Task::none();
                 }
-            }
 
             cosmic::task::future(async move {
                 if let Err(err) = store::add_password(identifier.clone(), password.clone()).await {
@@ -246,9 +245,9 @@ impl PasswordManager {
                         "Failed to add password {identifier}: {err}"
                     )))
                 } else {
-                    if let Some(original) = original {
-                        if original.identifier != identifier {
-                            if let Err(err) =
+                    if let Some(original) = original
+                        && original.identifier != identifier
+                            && let Err(err) =
                                 store::delete_password(original.identifier.clone()).await
                             {
                                 return Message::PasswordManager(PasswordManagerMessage::Error(
@@ -258,8 +257,6 @@ impl PasswordManager {
                                     ),
                                 ));
                             }
-                        }
-                    }
                     Message::PasswordManager(PasswordManagerMessage::None)
                 }
             })
@@ -315,8 +312,8 @@ impl PasswordManager {
                 .spacing(space_xxs),
             );
 
-            if expanded {
-                if let Some(input_state) = &self.input_state {
+            if expanded
+                && let Some(input_state) = &self.input_state {
                     let expanded_section: Section<'_, Message> = widget::settings::section().add(
                         widget::column::with_children(vec![
                             widget::column::with_children(vec![
@@ -381,7 +378,6 @@ impl PasswordManager {
                     passwords_section =
                         passwords_section.add(widget::container(expanded_section).padding(padding))
                 }
-            }
         }
         sections.push(passwords_section.into());
 
