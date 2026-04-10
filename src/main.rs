@@ -363,7 +363,7 @@ pub enum Message {
     ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
-    Config(Config),
+    Config(Box<Config>),
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
@@ -2128,11 +2128,11 @@ impl Application for App {
                 }
             }
             Message::Config(config) => {
-                if config != self.config {
+                if *config != self.config {
                     let shortcuts_changed = config.shortcuts_custom != self.config.shortcuts_custom;
                     log::info!("update config");
                     //TODO: update syntax theme by clearing tabs, only if needed
-                    self.config = config;
+                    self.config = *config;
                     if shortcuts_changed {
                         self.shortcuts_config =
                             shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
@@ -3596,7 +3596,7 @@ impl Application for App {
                         update.errors
                     );
                 }
-                Message::Config(update.config)
+                Message::Config(Box::new(update.config))
             }),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
