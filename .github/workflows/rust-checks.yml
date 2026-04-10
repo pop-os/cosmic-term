@@ -32,6 +32,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libxkbcommon-dev libfontconfig1-dev libfreetype6-dev libglvnd-dev libinput-dev libvulkan-dev libwayland-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev libasound2-dev libdbus-1-dev
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
