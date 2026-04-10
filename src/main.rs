@@ -748,16 +748,16 @@ impl App {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if self.core.window.show_context {
-            match self.context_page {
-                ContextPage::KeyboardShortcuts => {
-                    if self.shortcut_search_focus.get() {
-                        self.shortcut_search_focus.set(false);
-                        return widget::text_input::focus(self.shortcut_search_id.clone());
-                    }
-                }
-                // TODO focus for other context pages?
-                _ => {}
+            // Right now we only care about the KeyboardShortcuts context page, so we use a simple if.
+            // In the future if we are to care about other conext pages, we could switch this to a match
+            // statement instead to be cleaner.
+            if self.context_page == ContextPage::KeyboardShortcuts
+                && self.shortcut_search_focus.get()
+            {
+                self.shortcut_search_focus.set(false);
+                return widget::text_input::focus(self.shortcut_search_id.clone());
             }
+
             Task::none()
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
