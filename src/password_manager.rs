@@ -235,9 +235,10 @@ impl PasswordManager {
 
             // Don't do anything if nothing have changed
             if let Some(original) = &original
-                && original == &input_state.input {
-                    return Task::none();
-                }
+                && original == &input_state.input
+            {
+                return Task::none();
+            }
 
             cosmic::task::future(async move {
                 if let Err(err) = store::add_password(identifier.clone(), password.clone()).await {
@@ -247,16 +248,13 @@ impl PasswordManager {
                 } else {
                     if let Some(original) = original
                         && original.identifier != identifier
-                            && let Err(err) =
-                                store::delete_password(original.identifier.clone()).await
-                            {
-                                return Message::PasswordManager(PasswordManagerMessage::Error(
-                                    format!(
-                                        "Failed to delete password {}: {err}",
-                                        original.identifier
-                                    ),
-                                ));
-                            }
+                        && let Err(err) = store::delete_password(original.identifier.clone()).await
+                    {
+                        return Message::PasswordManager(PasswordManagerMessage::Error(format!(
+                            "Failed to delete password {}: {err}",
+                            original.identifier
+                        )));
+                    }
                     Message::PasswordManager(PasswordManagerMessage::None)
                 }
             })
@@ -312,72 +310,69 @@ impl PasswordManager {
                 .spacing(space_xxs),
             );
 
-            if expanded
-                && let Some(input_state) = &self.input_state {
-                    let expanded_section: Section<'_, Message> = widget::settings::section().add(
+            if expanded && let Some(input_state) = &self.input_state {
+                let expanded_section: Section<'_, Message> = widget::settings::section().add(
+                    widget::column::with_children(vec![
                         widget::column::with_children(vec![
-                            widget::column::with_children(vec![
-                                widget::text(fl!("password-input-description")).into(),
-                                widget::text_input("", input_state.input.identifier.clone())
-                                    .on_input(move |text| {
-                                        Message::PasswordManager(
-                                            PasswordManagerMessage::DescriptionInput(text),
-                                        )
-                                    })
-                                    .on_submit(move |text| {
-                                        Message::PasswordManager(
-                                            PasswordManagerMessage::DescriptionInputAndUpdate(text),
-                                        )
-                                    })
-                                    .on_unfocus(Message::PasswordManager(
-                                        PasswordManagerMessage::Update,
-                                    ))
-                                    .into(),
-                            ])
-                            .spacing(space_xxxs)
-                            .into(),
-                            widget::column::with_children(vec![
-                                widget::text(fl!("password-input")).into(),
-                                widget::secure_input(
-                                    "",
-                                    input_state.input.password.clone(),
-                                    Some(Message::PasswordManager(
-                                        PasswordManagerMessage::ToggleShowPassword,
-                                    )),
-                                    !input_state.show_password,
-                                )
+                            widget::text(fl!("password-input-description")).into(),
+                            widget::text_input("", input_state.input.identifier.clone())
                                 .on_input(move |text| {
-                                    Message::PasswordManager(PasswordManagerMessage::PasswordInput(
-                                        text,
-                                    ))
+                                    Message::PasswordManager(
+                                        PasswordManagerMessage::DescriptionInput(text),
+                                    )
                                 })
                                 .on_submit(move |text| {
                                     Message::PasswordManager(
-                                        PasswordManagerMessage::PasswordInputAndUpdate(text),
+                                        PasswordManagerMessage::DescriptionInputAndUpdate(text),
                                     )
                                 })
                                 .on_unfocus(Message::PasswordManager(
                                     PasswordManagerMessage::Update,
                                 ))
                                 .into(),
-                            ])
-                            .spacing(space_xxxs)
+                        ])
+                        .spacing(space_xxxs)
+                        .into(),
+                        widget::column::with_children(vec![
+                            widget::text(fl!("password-input")).into(),
+                            widget::secure_input(
+                                "",
+                                input_state.input.password.clone(),
+                                Some(Message::PasswordManager(
+                                    PasswordManagerMessage::ToggleShowPassword,
+                                )),
+                                !input_state.show_password,
+                            )
+                            .on_input(move |text| {
+                                Message::PasswordManager(PasswordManagerMessage::PasswordInput(
+                                    text,
+                                ))
+                            })
+                            .on_submit(move |text| {
+                                Message::PasswordManager(
+                                    PasswordManagerMessage::PasswordInputAndUpdate(text),
+                                )
+                            })
+                            .on_unfocus(Message::PasswordManager(PasswordManagerMessage::Update))
                             .into(),
                         ])
-                        .padding([0, space_s])
-                        .spacing(space_xs),
-                    );
+                        .spacing(space_xxxs)
+                        .into(),
+                    ])
+                    .padding([0, space_s])
+                    .spacing(space_xs),
+                );
 
-                    let padding = Padding {
-                        top: 0.0,
-                        bottom: 0.0,
-                        left: space_s.into(),
-                        right: space_s.into(),
-                    };
+                let padding = Padding {
+                    top: 0.0,
+                    bottom: 0.0,
+                    left: space_s.into(),
+                    right: space_s.into(),
+                };
 
-                    passwords_section =
-                        passwords_section.add(widget::container(expanded_section).padding(padding))
-                }
+                passwords_section =
+                    passwords_section.add(widget::container(expanded_section).padding(padding))
+            }
         }
         sections.push(passwords_section.into());
 

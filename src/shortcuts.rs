@@ -246,10 +246,11 @@ impl ShortcutsConfig {
                 return false;
             }
             if let Some(default_action) = self.defaults.0.get(binding)
-                && *default_action == reset_action {
-                    // Remove binding that overrode a default
-                    return false;
-                }
+                && *default_action == reset_action
+            {
+                // Remove binding that overrode a default
+                return false;
+            }
             true
         });
     }
