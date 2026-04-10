@@ -871,9 +871,10 @@ where
                                 layout.bounds(),
                                 self.padding,
                                 multiplier,
-                            ) {
-                                shell.capture_event();
-                            }
+                            )
+                        {
+                            shell.capture_event();
+                        }
                         if state.autoscroll.is_active() {
                             shell.request_redraw();
                         }
@@ -1323,15 +1324,15 @@ where
                         last_side,
                         ..
                     } = dragging
+                {
                     {
-                        {
-                            let mut term = terminal.term.lock();
-                            if let Some(selection) = &mut term.selection {
-                                selection.update(last_point, last_side);
-                            }
+                        let mut term = terminal.term.lock();
+                        if let Some(selection) = &mut term.selection {
+                            selection.update(last_point, last_side);
                         }
-                        terminal.needs_update = true;
                     }
+                    terminal.needs_update = true;
+                }
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
@@ -1343,10 +1344,11 @@ where
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
                     if state.modifiers.control()
                         && let Some(on_open_hyperlink) = &self.on_open_hyperlink
-                            && let Some(hyperlink) = get_hyperlink(&terminal, location) {
-                                shell.publish(on_open_hyperlink(hyperlink));
-                                shell.capture_event();
-                            }
+                        && let Some(hyperlink) = get_hyperlink(&terminal, location)
+                    {
+                        shell.publish(on_open_hyperlink(hyperlink));
+                        shell.capture_event();
+                    }
 
                     if is_mouse_mode {
                         terminal.report_mouse(
@@ -1651,9 +1653,10 @@ fn update_active_regex_match(
     {
         'update: {
             if let Some(active_match) = &terminal.active_regex_match
-                && active_match == match_ {
-                    break 'update;
-                }
+                && active_match == match_
+            {
+                break 'update;
+            }
             terminal.active_regex_match = Some(match_.clone());
             terminal.needs_update = true;
         }
@@ -1713,6 +1716,7 @@ enum EdgeScrollDirection {
     Bottom,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn edge_scroll_adjustment(
     y: f32,
     buffer_height: f32,
