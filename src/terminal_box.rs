@@ -244,6 +244,9 @@ where
         if !state.is_focused {
             return InputMethod::Disabled;
         }
+        if let Some(_) = self.context_menu {
+            return InputMethod::Disabled;
+        }
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
 
