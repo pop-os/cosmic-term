@@ -71,3 +71,4 @@ syntax-light = Fargeskjema lyst
 default-zoom-step = Zoom steg
 focus-follow-mouse = Skrivefokus følger musen
 hold = Hold
+cancel = Avbryt

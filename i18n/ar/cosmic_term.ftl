@@ -30,7 +30,7 @@ tab-title-description = تجاوز عنوان اللسان المبدئي
 add-profile = أضف ملف تعريف
 new-profile = ملف تعريف جديد
 make-default = اجعله المبدئي
-working-directory = مجلد العمل
+working-directory = المجلَّد الحالي
 hold = التعليق
 remain-open = البقاء مفتوحًا بعد خروج العملية الفرعية.
 
@@ -138,7 +138,7 @@ shortcut-group-clipboard = الحافظة
 shortcut-group-other = أخرى
 shortcut-group-tabs = ألسنة
 shortcut-group-window = نافذة
-shortcut-group-zoom = كبِّر
+shortcut-group-zoom = تكبير
 shortcut-replace-body = عُيِّن { $binding } بالفعل لـ { $existing }. أتريد استبداله بـ { $new_action }؟
 shortcut-replace-title = استبدل الاختصار؟
 tab-activate = نشّط لسان { $number }
