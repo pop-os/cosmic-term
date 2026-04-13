@@ -264,6 +264,7 @@ pub struct Terminal {
 
 impl Terminal {
     //TODO: error handling
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pane: pane_grid::Pane,
         entity: segmented_button::Entity,
@@ -858,13 +859,12 @@ impl Terminal {
                     }
 
                     // Change color if selected
-                    if let Some(selection) = &term.selection {
-                        if let Some(range) = selection.to_range(&term) {
-                            if range.contains(indexed.point) {
-                                //TODO: better handling of selection
-                                mem::swap(&mut fg, &mut bg);
-                            }
-                        }
+                    if let Some(selection) = &term.selection
+                        && let Some(range) = selection.to_range(&term)
+                        && range.contains(indexed.point)
+                    {
+                        //TODO: better handling of selection
+                        mem::swap(&mut fg, &mut bg);
                     }
 
                     // Convert foreground to linear
@@ -878,10 +878,10 @@ impl Terminal {
 
                     let mut flags = indexed.cell.flags;
 
-                    if let Some(active_match) = &self.active_regex_match {
-                        if active_match.contains(&indexed.point) {
-                            flags |= Flags::UNDERLINE;
-                        }
+                    if let Some(active_match) = &self.active_regex_match
+                        && active_match.contains(&indexed.point)
+                    {
+                        flags |= Flags::UNDERLINE;
                     }
                     if let Some(active_id) = &self.active_hyperlink_id {
                         let mut matches_active = indexed
@@ -1190,13 +1190,12 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let next_match = self.next_match.take()?;
 
-        if self.start <= self.end {
-            if let Some(rm) = self
+        if self.start <= self.end
+            && let Some(rm) = self
                 .term
                 .regex_search_right(self.regex, self.start, self.end)
-            {
-                self.next_processed_match(rm);
-            }
+        {
+            self.next_processed_match(rm);
         }
 
         Some(next_match)
