@@ -678,7 +678,7 @@ impl App {
 
         // Update terminal window background color
         {
-            let color = Color::from(theme.cosmic().background.base);
+            let color = Color::from(theme.cosmic().background(theme.transparent).base);
             let bytes = color.into_rgba8();
             let data = u32::from(bytes[2])
                 | (u32::from(bytes[1]) << 8)
@@ -1326,6 +1326,7 @@ impl App {
     }
 
     fn settings(&self) -> Element<'_, Message> {
+        let t = self.core().system_theme();
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1409,13 +1410,13 @@ impl App {
                     }),
                 ),
             )
-            .add(
+            .add_maybe((!t.transparent).then(|| {
                 widget::settings::item::builder(fl!("opacity"))
                     .description(format!("{}%", self.config.opacity))
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
-                    })),
-            );
+                    }))
+            }));
 
         let mut font_section = widget::settings::section()
             .title(fl!("font"))
@@ -2954,7 +2955,9 @@ impl Application for App {
                                 let pos_y = _position.y as i32;
 
                                 tasks.push(cosmic::task::message(Message::Surface(
-                                    cosmic::surface::action::app_popup(move |_app: &mut Self| {
+                                    cosmic::surface::action::app_popup(
+                                           |_| Default::default(),
+                                        move |_app: &mut Self| {
                                         use cosmic::cctk::wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
                                         use cosmic::iced::runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
 
@@ -3425,7 +3428,9 @@ impl Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<'_, Self::Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let t = self.core().system_theme();
+        let cosmic = t.cosmic();
+        let cosmic_theme::Spacing { space_xxs, .. } = cosmic.spacing;
 
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
@@ -3445,10 +3450,10 @@ impl Application for App {
                     .class(style::Container::Custom(Box::new(|theme| {
                         let cosmic = theme.cosmic();
                         cosmic::iced::widget::container::Style {
-                            icon_color: Some(Color::from(cosmic.background.on)),
-                            text_color: Some(Color::from(cosmic.background.on)),
+                            icon_color: Some(Color::from(cosmic.background(theme.transparent).on)),
+                            text_color: Some(Color::from(cosmic.background(theme.transparent).on)),
                             background: Some(iced::Background::Color(
-                                cosmic.background.base.into(),
+                                cosmic.background(theme.transparent).base.into(),
                             )),
                             border: iced::Border::default(),
                             shadow: iced::Shadow::default(),
@@ -3475,7 +3480,11 @@ impl Application for App {
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
-                    .opacity(self.config.opacity_ratio())
+                    .opacity(if t.transparent {
+                        t.cosmic().frosted.alpha()
+                    } else {
+                        self.config.opacity_ratio()
+                    })
                     .padding(space_xxs)
                     .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar);
