@@ -1360,8 +1360,6 @@ where
                     } else {
                         shell.capture_event();
                     }
-                } else {
-                    shell.capture_event();
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(_button)) => {
