@@ -47,7 +47,14 @@ features = ["monospace_fallback", "shape-run-cache"]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
 #TODO: a11y feature crashes file chooser dialog
-features = ["about", "autosize", "multi-window", "tokio", "winit", "surface-message"]
+features = [
+    "about",
+    "autosize",
+    "multi-window",
+    "tokio",
+    "winit",
+    "surface-message",
+]
 
 [target.'cfg(unix)'.dependencies]
 fork = "0.4"
@@ -66,8 +73,14 @@ password_manager = ["secret-service", "thiserror", "secstr"]
 inherits = "release"
 debug = true
 
-
-#[patch.'https://github.com/pop-os/libcosmic']
-#libcosmic = { path = "../libcosmic" }
-#cosmic-config = { path = "../libcosmic/cosmic-config" }
-#cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+[patch.'https://github.com/pop-os/libcosmic']
+# libcosmic = { path = "../libcosmic" }
+# cosmic-config = { path = "../libcosmic/cosmic-config" }
+# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+# iced_futures = { path = "../libcosmic/iced/futures" }
+# iced_winit = { path = "../libcosmic/iced/winit" }
+libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+iced_futures = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+iced_winit = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
