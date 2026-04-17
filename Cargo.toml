@@ -37,6 +37,7 @@ secstr = { version = "0.5", optional = true }
 
 [dependencies.cosmic-files]
 git = "https://github.com/pop-os/cosmic-files.git"
+branch = "theme-v2"
 default-features = false
 
 [dependencies.cosmic-text]

@@ -667,7 +667,7 @@ impl App {
 
         // Update terminal window background color
         {
-            let color = Color::from(theme.cosmic().background.base);
+            let color = Color::from(theme.cosmic().background(theme.transparent).base);
             let bytes = color.into_rgba8();
             let data = u32::from(bytes[2])
                 | (u32::from(bytes[1]) << 8)
@@ -3382,10 +3382,10 @@ impl Application for App {
                     .class(style::Container::Custom(Box::new(|theme| {
                         let cosmic = theme.cosmic();
                         cosmic::iced::widget::container::Style {
-                            icon_color: Some(Color::from(cosmic.background.on)),
-                            text_color: Some(Color::from(cosmic.background.on)),
+                            icon_color: Some(Color::from(cosmic.background(theme.transparent).on)),
+                            text_color: Some(Color::from(cosmic.background(theme.transparent).on)),
                             background: Some(iced::Background::Color(
-                                cosmic.background.base.into(),
+                                cosmic.background(theme.transparent).base.into(),
                             )),
                             border: iced::Border::default(),
                             shadow: iced::Shadow::default(),
