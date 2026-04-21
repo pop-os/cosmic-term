@@ -244,7 +244,7 @@ where
         if !state.is_focused {
             return InputMethod::Disabled;
         }
-        if let Some(_) = self.context_menu {
+        if self.context_menu.is_some() {
             return InputMethod::Disabled;
         }
 
@@ -1207,10 +1207,8 @@ where
             }
             Event::InputMethod(event) => match event {
                 input_method::Event::Opened | input_method::Event::Closed => {
-                    state.preedit = matches!(event, input_method::Event::Opened).then(|| {
-                        let preedit = input_method::Preedit::new();
-                        preedit
-                    });
+                    state.preedit = matches!(event, input_method::Event::Opened)
+                        .then(input_method::Preedit::new);
                 }
                 input_method::Event::Preedit(content, selection) => {
                     if state.is_focused {
