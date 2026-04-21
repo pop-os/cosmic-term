@@ -45,8 +45,8 @@ use std::{
 use tokio::sync::mpsc;
 
 use config::{
-    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile,
-    ProfileId,
+    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config,
+    DEFAULT_SCROLLBACK_HISTORY, Profile, ProfileId,
 };
 mod config;
 mod mouse_reporter;
@@ -82,6 +82,9 @@ mod dnd;
 use clap_lex::RawArgs;
 
 static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
+
+static SCROLLBACK_HISTORY_VALUES: [u32; 6] = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000];
+static SCROLLBACK_HISTORY_NAMES: [&str; 6] = ["1000", "5000", "10000", "25000", "50000", "100000"];
 
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();
@@ -418,6 +421,7 @@ pub enum Message {
     ProfileNew,
     ProfileOpen(ProfileId),
     ProfileRemove(ProfileId),
+    ProfileScrollbackHistory(ProfileId, usize),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
     ReorderTab(Pane, ReorderEvent),
@@ -1160,6 +1164,9 @@ impl App {
                         .theme_names_light
                         .iter()
                         .position(|theme_name| theme_name == &profile.syntax_theme_light);
+                    let scrollback_selected = SCROLLBACK_HISTORY_VALUES
+                        .iter()
+                        .position(|v| v == &profile.scrollback_history);
 
                     let expanded_section = widget::settings::section()
                         .add(
@@ -1214,6 +1221,20 @@ impl App {
                                         })
                                         .into(),
                                     widget::text::caption(fl!("tab-title-description")).into(),
+                                ])
+                                .spacing(space_xxxs)
+                                .into(),
+                                widget::column::with_children(vec![
+                                    widget::text(fl!("scrollback-history")).into(),
+                                    widget::dropdown(
+                                        &SCROLLBACK_HISTORY_NAMES,
+                                        scrollback_selected,
+                                        move |index| {
+                                            Message::ProfileScrollbackHistory(profile_id, index)
+                                        },
+                                    )
+                                    .into(),
+                                    widget::text::caption(fl!("scrollback-history-description")).into(),
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),
@@ -1575,11 +1596,17 @@ impl App {
                                 .closable()
                                 .activate()
                                 .id();
+                            // Clone base config and override scrollback from profile
+                            let mut term_config = self.term_config.clone();
+                            term_config.scrolling_history = profile_id_opt
+                                .and_then(|id| self.config.profiles.get(&id))
+                                .map(|p| p.scrollback_history as usize)
+                                .unwrap_or(DEFAULT_SCROLLBACK_HISTORY as usize);
                             match Terminal::new(
                                 current_pane,
                                 entity,
                                 term_event_tx.clone(),
-                                self.term_config.clone(),
+                                term_config,
                                 options,
                                 &self.config,
                                 *colors,
@@ -2637,6 +2664,14 @@ impl Application for App {
                 if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
                     profile.name = text;
                     return self.save_profiles();
+                }
+            }
+            Message::ProfileScrollbackHistory(profile_id, index) => {
+                if let Some(value) = SCROLLBACK_HISTORY_VALUES.get(index) {
+                    if let Some(profile) = self.config.profiles.get_mut(&profile_id) {
+                        profile.scrollback_history = *value;
+                        return self.save_profiles();
+                    }
                 }
             }
             Message::ProfileNew => {
