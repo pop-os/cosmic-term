@@ -239,6 +239,7 @@ pub struct Flags {
 pub enum Action {
     About,
     ClearScrollback,
+    ClearAndReset,
     ColorSchemes(ColorSchemeKind),
     Copy,
     CopyUrlByMenu,
@@ -290,6 +291,7 @@ impl Action {
         match self {
             Self::About => Message::ToggleContextPage(ContextPage::About),
             Self::ClearScrollback => Message::ClearScrollback(entity_opt),
+            Self::ClearAndReset => Message::ClearAndReset(entity_opt),
             Self::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
@@ -353,6 +355,7 @@ impl MenuAction for Action {
 pub enum Message {
     AppTheme(AppTheme),
     ClearScrollback(Option<segmented_button::Entity>),
+    ClearAndReset(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
     ColorSchemeExpand(ColorSchemeKind, Option<ColorSchemeId>),
@@ -1928,6 +1931,19 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let mut term = terminal.term.lock();
                         term.grid_mut().clear_history();
+                    }
+                }
+            }
+            Message::ClearAndReset(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+
+                        // Reset the terminal by executing the reset command
+                        // This fully reinitializes the terminal state (more thorough than clear)
+                        // It clears the screen AND resets terminal settings, escape sequences, etc.
+                        terminal.input_scroll(b"reset\n");
                     }
                 }
             }
