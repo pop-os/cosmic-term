@@ -415,12 +415,13 @@ impl Terminal {
     }
 
     pub fn working_directory(&self) -> Option<PathBuf> {
-        #[cfg(not(windows))]
+        #[cfg(target_os = "linux")]
         {
             let shell_pid = self.shell_pid?;
             fs::read_link(format!("/proc/{shell_pid}/cwd")).ok()
         }
-        #[cfg(windows)]
+
+        #[cfg(not(target_os = "linux"))]
         {
             None
         }
