@@ -597,6 +597,18 @@ impl App {
         }
     }
 
+    fn reset_active_pane_zoom(&mut self) {
+        if let Some(tab_model) = self.pane_model.active() {
+            for entity in tab_model.iter() {
+                if tab_model.is_active(entity)
+                    && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                {
+                    terminal.lock().unwrap().set_zoom_adj(0);
+                }
+            }
+        }
+    }
+
     fn save_shortcuts_custom(&mut self) {
         self.config.shortcuts_custom = self.shortcuts_config.custom.clone();
         match &self.config_handler {
@@ -3239,7 +3251,7 @@ impl Application for App {
                 return self.update_render_active_pane_zoom(message);
             }
             Message::ZoomReset => {
-                self.reset_terminal_panes_zoom();
+                self.reset_active_pane_zoom();
                 return self.update_config();
             }
             Message::ContextMenuPopupClosed(id) => {
