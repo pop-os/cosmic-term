@@ -3,7 +3,7 @@
 
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
-use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced::core::keyboard::key::Named;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::pane_grid::Pane;
@@ -177,11 +177,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let shortcuts_config = shortcuts::ShortcutsConfig::new(config.shortcuts_custom.clone());
 
-    let shell = if let Some(shell_program) = shell_program_opt {
-        Some(tty::Shell::new(shell_program, shell_args))
-    } else {
-        None
-    };
+    let shell = shell_program_opt.map(|shell_program| tty::Shell::new(shell_program, shell_args));
     let startup_options = Some(tty::Options {
         shell,
         working_directory,
@@ -367,7 +363,7 @@ pub enum Message {
     ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
-    Config(Config),
+    Config(Box<Config>),
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
@@ -379,7 +375,7 @@ pub enum Message {
     DefaultFontStretch(usize),
     DefaultFontWeight(usize),
     DefaultZoomStep(usize),
-    DialogMessage(DialogMessage),
+    DialogMessage(Box<DialogMessage>), // DialogMessage is huge, so we use a box to make the size of this enum smaller on the stack
     Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
     Find(bool),
     FindNext,
@@ -454,6 +450,7 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    ContextMenuPopupClosed(window::Id),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -524,6 +521,14 @@ pub struct App {
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
     modifiers: Modifiers,
+    context_menu_popup: Option<(
+        window::Id,
+        pane_grid::Pane,
+        segmented_button::Entity,
+        Option<String>,
+        widget::Id,
+        cosmic::iced::Point,
+    )>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -546,21 +551,19 @@ impl App {
                     .config
                     .color_schemes(color_scheme_kind)
                     .get(&color_scheme_id)
-                {
-                    if self
+                    && self
                         .themes
                         .insert(
                             (color_scheme_name.clone(), color_scheme_kind),
                             color_scheme.into(),
                         )
                         .is_some()
-                    {
-                        log::warn!(
-                            "custom {:?} color scheme {:?} replaces builtin one",
-                            color_scheme_kind,
-                            color_scheme_name
-                        );
-                    }
+                {
+                    log::warn!(
+                        "custom {:?} color scheme {:?} replaces builtin one",
+                        color_scheme_kind,
+                        color_scheme_name
+                    );
                 }
             }
         }
@@ -691,21 +694,21 @@ impl App {
         // but only for the active pane/tab
         if let Some(tab_model) = self.pane_model.active() {
             for entity in tab_model.iter() {
-                if tab_model.is_active(entity) {
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        let current_zoom_adj = terminal.zoom_adj();
-                        match zoom_message {
-                            Message::ZoomIn => {
-                                terminal.set_zoom_adj(current_zoom_adj.saturating_add(1))
-                            }
-                            Message::ZoomOut => {
-                                terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1))
-                            }
-                            _ => {}
+                if tab_model.is_active(entity)
+                    && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                {
+                    let mut terminal = terminal.lock().unwrap();
+                    let current_zoom_adj = terminal.zoom_adj();
+                    match zoom_message {
+                        Message::ZoomIn => {
+                            terminal.set_zoom_adj(current_zoom_adj.saturating_add(1))
                         }
-                        terminal.set_config(&self.config, &self.themes);
+                        Message::ZoomOut => {
+                            terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1))
+                        }
+                        _ => {}
                     }
+                    terminal.set_config(&self.config, &self.themes);
                 }
             }
         }
@@ -714,16 +717,16 @@ impl App {
 
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Task<Message> {
         // Optimized for just saving color_schemes
-        if let Some(ref config_handler) = self.config_handler {
-            if let Err(err) = config_handler.set(
+        if let Some(ref config_handler) = self.config_handler
+            && let Err(err) = config_handler.set(
                 match color_scheme_kind {
                     ColorSchemeKind::Dark => "color_schemes_dark",
                     ColorSchemeKind::Light => "color_schemes_light",
                 },
                 self.config.color_schemes(color_scheme_kind),
-            ) {
-                log::error!("failed to save config: {}", err);
-            }
+            )
+        {
+            log::error!("failed to save config: {}", err);
         }
         self.update_color_schemes();
         Task::none()
@@ -746,16 +749,16 @@ impl App {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if self.core.window.show_context {
-            match self.context_page {
-                ContextPage::KeyboardShortcuts => {
-                    if self.shortcut_search_focus.get() {
-                        self.shortcut_search_focus.set(false);
-                        return widget::text_input::focus(self.shortcut_search_id.clone());
-                    }
-                }
-                // TODO focus for other context pages?
-                _ => {}
+            // Right now we only care about the KeyboardShortcuts context page, so we use a simple if.
+            // In the future if we are to care about other conext pages, we could switch this to a match
+            // statement instead to be cleaner.
+            if self.context_page == ContextPage::KeyboardShortcuts
+                && self.shortcut_search_focus.get()
+            {
+                self.shortcut_search_focus.set(false);
+                return widget::text_input::focus(self.shortcut_search_id.clone());
             }
+
             Task::none()
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
@@ -950,7 +953,7 @@ impl App {
 
         sections.push(
             widget::row::with_children(vec![
-                widget::horizontal_space().into(),
+                widget::space::horizontal().into(),
                 widget::button::standard(fl!("import"))
                     .on_press(Message::ColorSchemeImport(color_scheme_kind))
                     .into(),
@@ -1004,7 +1007,7 @@ impl App {
 
         let mut groups = Vec::new();
         //TODO: fix text input focus going outside bounds
-        groups.push(widget::horizontal_space().into());
+        groups.push(widget::space::horizontal().into());
         groups.push(
             widget::text_input::search_input(fl!("type-to-search"), &self.shortcut_search_value)
                 .id(self.shortcut_search_id.clone())
@@ -1018,10 +1021,10 @@ impl App {
             let mut found_actions = false;
             for action in group.actions {
                 let action_label = shortcuts::action_label(action);
-                if let Some(regex) = &self.shortcut_search_regex {
-                    if regex.find(&action_label).is_none() {
-                        continue;
-                    }
+                if let Some(regex) = &self.shortcut_search_regex
+                    && regex.find(&action_label).is_none()
+                {
+                    continue;
                 }
                 found_actions = true;
 
@@ -1270,7 +1273,7 @@ impl App {
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),
-                                widget::horizontal_space().into(),
+                                widget::space::horizontal().into(),
                                 widget::toggler(profile.drain_on_exit)
                                     .on_toggle(move |t| Message::ProfileHold(profile_id, t))
                                     .into(),
@@ -1293,7 +1296,7 @@ impl App {
         }
 
         let add_profile = widget::row::with_children(vec![
-            widget::horizontal_space().into(),
+            widget::space::horizontal().into(),
             widget::button::standard(fl!("add-profile"))
                 .on_press(Message::ProfileNew)
                 .into(),
@@ -1557,13 +1560,13 @@ impl App {
                                     self.startup_options.take().unwrap_or_default();
                                 let options = tty::Options {
                                     shell: startup_options.shell.or_else(|| {
-                                        if let Some(mut args) = shlex::split(&profile.command) {
-                                            if !args.is_empty() {
-                                                let command = args.remove(0);
-                                                return Some(tty::Shell::new(command, args));
-                                            }
+                                        if let Some(mut args) = shlex::split(&profile.command)
+                                            && !args.is_empty()
+                                        {
+                                            let command = args.remove(0);
+                                            return Some(tty::Shell::new(command, args));
                                         }
-                                        return None;
+                                        None
                                     }),
                                     working_directory: startup_options
                                         .working_directory
@@ -1868,6 +1871,7 @@ impl Application for App {
             shortcut_search_regex: None,
             shortcut_search_value: String::new(),
             modifiers: Modifiers::empty(),
+            context_menu_popup: None,
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
         };
@@ -1974,24 +1978,23 @@ impl Application for App {
                         .get(&color_scheme_id)
                         .map(|color_scheme| color_scheme.name.clone()),
                     None => Some(format!("COSMIC {:?}", color_scheme_kind)),
-                } {
-                    if self.dialog_opt.is_none() {
-                        let (dialog, command) = Dialog::new(
-                            DialogSettings::new().kind(DialogKind::SaveFile {
-                                filename: format!("{}.ron", color_scheme_name),
-                            }),
-                            Message::DialogMessage,
-                            move |result| {
-                                Message::ColorSchemeExportResult(
-                                    color_scheme_kind,
-                                    color_scheme_id_opt,
-                                    result,
-                                )
-                            },
-                        );
-                        self.dialog_opt = Some(dialog);
-                        return command;
-                    }
+                } && self.dialog_opt.is_none()
+                {
+                    let (dialog, command) = Dialog::new(
+                        DialogSettings::new().kind(DialogKind::SaveFile {
+                            filename: format!("{}.ron", color_scheme_name),
+                        }),
+                        |msg| Message::DialogMessage(Box::new(msg)),
+                        move |result| {
+                            Message::ColorSchemeExportResult(
+                                color_scheme_kind,
+                                color_scheme_id_opt,
+                                result,
+                            )
+                        },
+                    );
+                    self.dialog_opt = Some(dialog);
+                    return command;
                 }
             }
             Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id_opt, result) => {
@@ -2079,7 +2082,7 @@ impl Application for App {
                     self.color_scheme_errors.clear();
                     let (dialog, command) = Dialog::new(
                         DialogSettings::new().kind(DialogKind::OpenMultipleFiles),
-                        Message::DialogMessage,
+                        |msg| Message::DialogMessage(Box::new(msg)),
                         move |result| Message::ColorSchemeImportResult(color_scheme_kind, result),
                     );
                     self.dialog_opt = Some(dialog);
@@ -2133,15 +2136,13 @@ impl Application for App {
             Message::ColorSchemeRenameSubmit => {
                 if let Some((color_scheme_kind, color_scheme_id, color_scheme_name)) =
                     self.color_scheme_renaming.take()
-                {
-                    if let Some(color_scheme) = self
+                    && let Some(color_scheme) = self
                         .config
                         .color_schemes_mut(color_scheme_kind)
                         .get_mut(&color_scheme_id)
-                    {
-                        color_scheme.name = color_scheme_name;
-                        return self.save_color_schemes(color_scheme_kind);
-                    }
+                {
+                    color_scheme.name = color_scheme_name;
+                    return self.save_color_schemes(color_scheme_kind);
                 }
             }
             Message::ColorSchemeTabActivate(entity) => {
@@ -2155,11 +2156,11 @@ impl Application for App {
                 }
             }
             Message::Config(config) => {
-                if config != self.config {
+                if *config != self.config {
                     let shortcuts_changed = config.shortcuts_custom != self.config.shortcuts_custom;
                     log::info!("update config");
                     //TODO: update syntax theme by clearing tabs, only if needed
-                    self.config = config;
+                    self.config = *config;
                     if shortcuts_changed {
                         self.shortcuts_config =
                             shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
@@ -2323,7 +2324,8 @@ impl Application for App {
             },
             Message::DialogMessage(dialog_message) => {
                 if let Some(dialog) = &mut self.dialog_opt {
-                    return dialog.update(dialog_message);
+                    // DialogMessage is boxed, so we need to dereference it before updating
+                    return dialog.update(*dialog_message);
                 }
             }
             Message::Drop(Some((pane, entity, data))) => {
@@ -2362,13 +2364,13 @@ impl Application for App {
                 return self.update_focus();
             }
             Message::FindNext => {
-                if !self.find_search_value.is_empty() {
-                    if let Some(tab_model) = self.pane_model.active() {
-                        let entity = tab_model.active();
-                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, true);
-                        }
+                if !self.find_search_value.is_empty()
+                    && let Some(tab_model) = self.pane_model.active()
+                {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, true);
                     }
                 }
 
@@ -2376,13 +2378,13 @@ impl Application for App {
                 return self.update_focus();
             }
             Message::FindPrevious => {
-                if !self.find_search_value.is_empty() {
-                    if let Some(tab_model) = self.pane_model.active() {
-                        let entity = tab_model.active();
-                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, false);
-                        }
+                if !self.find_search_value.is_empty()
+                    && let Some(tab_model) = self.pane_model.active()
+                {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, false);
                     }
                 }
 
@@ -2459,7 +2461,6 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
                         if let Some(url) =
                             terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
@@ -2478,14 +2479,12 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
                         if let Some(url) =
                             terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                            && let Err(err) = open::that_detached(url)
                         {
-                            if let Err(err) = open::that_detached(url) {
-                                log::warn!("failed to open {:?}: {}", url, err);
-                            }
+                            log::warn!("failed to open {:?}: {}", url, err);
                         }
                         terminal.context_menu = None;
                         terminal.active_regex_match = None;
@@ -2847,54 +2846,124 @@ impl Application for App {
                 return self.update_title(None);
             }
             Message::TabContextAction(entity, action) => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Close context menu
-                        {
-                            let mut terminal = terminal.lock().unwrap();
-                            //Some actions need the menu_state,
-                            //so only clear the position for them.
-                            match action {
-                                Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {
-                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
-                                        context_menu.position = None;
-                                    }
-                                }
-                                _ => {
-                                    terminal.context_menu = None;
-                                }
+                // Close context menu popup
+                let mut tasks = Vec::new();
+                if let Some((_popup_id, _, _, _, _, _)) = self.context_menu_popup.take() {
+                    #[cfg(feature = "wayland")]
+                    if is_wayland() {
+                        tasks.push(cosmic::task::message(Message::Surface(
+                            cosmic::surface::action::destroy_popup(_popup_id),
+                        )));
+                    }
+                }
+                // Close terminal context menu state
+                if let Some(tab_model) = self.pane_model.active()
+                    && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                {
+                    let mut terminal = terminal.lock().unwrap();
+                    //Some actions need the menu_state,
+                    //so only clear the position for them.
+                    match action {
+                        Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {
+                            if let Some(context_menu) = terminal.context_menu.as_mut() {
+                                context_menu.position = None;
                             }
                         }
-                        // Run action's message
-                        return self.update(action.message(Some(entity)));
+                        _ => {
+                            terminal.context_menu = None;
+                        }
                     }
                 }
+                tasks.push(self.update(action.message(Some(entity))));
+                return cosmic::Task::batch(tasks);
             }
             Message::TabContextMenu(pane, menu_state) => {
-                // Close any existing context menues
-                let panes: Vec<_> = self.pane_model.panes.iter().collect();
-                for (_pane, tab_model) in panes {
-                    let entity = tab_model.active();
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = None;
+                #[allow(unused_mut)]
+                let mut tasks = Vec::new();
+
+                // Close existing context menu popup if any
+                if let Some((_popup_id, _, _, _, _, _)) = self.context_menu_popup.take() {
+                    #[cfg(feature = "wayland")]
+                    if is_wayland() {
+                        tasks.push(cosmic::task::message(Message::Surface(
+                            cosmic::surface::action::destroy_popup(_popup_id),
+                        )));
                     }
                 }
 
-                // Show the context menu on the correct pane / terminal
-                if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                    let entity = tab_model.active();
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = menu_state;
+                // Clear all terminal context_menu state
+                for (_, tab_model) in self.pane_model.panes.iter() {
+                    for entity in tab_model.iter() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.context_menu = None;
+                        }
                     }
                 }
 
-                // Shift focus to the pane / terminal
-                // with the context menu
-                self.pane_model.set_focus(pane);
-                return self.update_title(Some(pane));
+                if let Some(menu_state) = menu_state {
+                    if let Some(_position) = menu_state.position {
+                        let local_position = menu_state.local_position.unwrap_or(_position);
+                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                            let entity = tab_model.active();
+                            let link = menu_state.link.clone();
+                            let popup_id = window::Id::unique();
+
+                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                                let mut terminal = terminal.lock().unwrap();
+                                terminal.context_menu = Some(menu_state);
+                            }
+
+                            self.context_menu_popup = Some((
+                                popup_id,
+                                pane,
+                                entity,
+                                link,
+                                widget::Id::unique(),
+                                local_position,
+                            ));
+
+                            #[cfg(feature = "wayland")]
+                            if is_wayland() {
+                                let main_window = self.core.main_window_id().unwrap();
+                                let pos_x = _position.x as i32;
+                                let pos_y = _position.y as i32;
+
+                                tasks.push(cosmic::task::message(Message::Surface(
+                                    cosmic::surface::action::app_popup(move |_app: &mut Self| {
+                                        use cosmic::cctk::wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
+                                        use cosmic::iced::runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
+
+                                        SctkPopupSettings {
+                                            parent: main_window,
+                                            id: popup_id,
+                                            positioner: SctkPositioner {
+                                                size: None,
+                                                anchor_rect: cosmic::iced::Rectangle {
+                                                    x: pos_x,
+                                                    y: pos_y,
+                                                    width: 1,
+                                                    height: 1,
+                                                },
+                                                anchor: Anchor::None,
+                                                gravity: Gravity::BottomRight,
+                                                reactive: true,
+                                                ..Default::default()
+                                            },
+                                            parent_size: None,
+                                            grab: true,
+                                            close_with_children: false,
+                                            input_zone: None,
+                                        }
+                                    }, None),
+                                )));
+                            }
+                        }
+                    }
+                    self.pane_model.set_focus(pane);
+                }
+
+                return cosmic::Task::batch(tasks);
             }
             Message::TabNew => {
                 return self.create_and_focus_new_terminal(
@@ -2930,9 +2999,7 @@ impl Application for App {
                     let pos = tab_model
                         .position(tab_model.active())
                         .and_then(|i| (i as usize).checked_sub(1))
-                        .unwrap_or_else(|| {
-                            tab_model.iter().count().checked_sub(1).unwrap_or_default()
-                        });
+                        .unwrap_or_else(|| tab_model.iter().count().saturating_sub(1));
 
                     let entity = tab_model.iter().nth(pos);
                     if let Some(entity) = entity {
@@ -2971,13 +3038,13 @@ impl Application for App {
                         }
                     },
                     TermEvent::ColorRequest(index, f) => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let terminal = terminal.lock().unwrap();
-                                let rgb = terminal.colors()[index].unwrap_or_default();
-                                let text = f(rgb);
-                                terminal.input_no_scroll(text.into_bytes());
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let terminal = terminal.lock().unwrap();
+                            let rgb = terminal.colors()[index].unwrap_or_default();
+                            let text = f(rgb);
+                            terminal.input_no_scroll(text.into_bytes());
                         }
                     }
                     TermEvent::CursorBlinkingChange => {
@@ -2987,11 +3054,11 @@ impl Application for App {
                         return self.update(Message::TabClose(Some(entity)));
                     }
                     TermEvent::PtyWrite(text) => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let terminal = terminal.lock().unwrap();
-                                terminal.input_no_scroll(text.into_bytes());
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let terminal = terminal.lock().unwrap();
+                            terminal.input_no_scroll(text.into_bytes());
                         }
                     }
                     TermEvent::ResetTitle => {
@@ -3011,12 +3078,12 @@ impl Application for App {
                         return self.update_title(Some(pane));
                     }
                     TermEvent::TextAreaSizeRequest(f) => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let terminal = terminal.lock().unwrap();
-                                let text = f(terminal.size().into());
-                                terminal.input_no_scroll(text.into_bytes());
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let terminal = terminal.lock().unwrap();
+                            let text = f(terminal.size().into());
+                            terminal.input_no_scroll(text.into_bytes());
                         }
                     }
                     TermEvent::Title(title) => {
@@ -3035,11 +3102,11 @@ impl Application for App {
                         return self.update_title(Some(pane));
                     }
                     TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let mut terminal = terminal.lock().unwrap();
-                                terminal.needs_update = true;
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.needs_update = true;
                         }
                     }
                     TermEvent::ChildExit(_error_code) => {
@@ -3175,6 +3242,22 @@ impl Application for App {
                 self.reset_terminal_panes_zoom();
                 return self.update_config();
             }
+            Message::ContextMenuPopupClosed(id) => {
+                if let Some((popup_id, pane, entity, _, _, _)) = &self.context_menu_popup
+                    && id == *popup_id
+                {
+                    // Clear link underline on the terminal
+                    if let Some(tab_model) = self.pane_model.panes.get(*pane)
+                        && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(*entity)
+                    {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.context_menu = None;
+                        terminal.active_regex_match = None;
+                        terminal.needs_update = true;
+                    }
+                    self.context_menu_popup = None;
+                }
+            }
             Message::Surface(a) => {
                 return cosmic::task::message(cosmic::Action::Cosmic(
                     cosmic::app::Action::Surface(a),
@@ -3281,7 +3364,26 @@ impl Application for App {
         ]
     }
 
+    fn on_close_requested(&self, id: window::Id) -> Option<Self::Message> {
+        if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup
+            && id == *popup_id
+        {
+            return Some(Message::ContextMenuPopupClosed(id));
+        }
+        None
+    }
+
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
+        if let Some((popup_id, _pane, entity, ref link, ref autosize_id, _)) =
+            self.context_menu_popup
+            && window_id == popup_id
+        {
+            return widget::autosize::autosize(
+                menu::context_menu(&self.config, &self.key_binds, entity, link.clone()),
+                autosize_id.clone(),
+            )
+            .into();
+        }
         match &self.dialog_opt {
             Some(dialog) => dialog.view(window_id),
             None => widget::text("Unknown window ID").into(),
@@ -3307,7 +3409,19 @@ impl Application for App {
                             .on_activate(Message::TabActivate)
                             .on_close(|entity| Message::TabClose(Some(entity))),
                     )
-                    .class(style::Container::Background)
+                    .class(style::Container::Custom(Box::new(|theme| {
+                        let cosmic = theme.cosmic();
+                        cosmic::iced::widget::container::Style {
+                            icon_color: Some(Color::from(cosmic.background.on)),
+                            text_color: Some(Color::from(cosmic.background.on)),
+                            background: Some(iced::Background::Color(
+                                cosmic.background.base.into(),
+                            )),
+                            border: iced::Border::default(),
+                            shadow: iced::Shadow::default(),
+                            snap: true,
+                        }
+                    })))
                     .width(Length::Fill),
                 );
             }
@@ -3337,25 +3451,48 @@ impl Application for App {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
 
-                let context_menu = {
-                    let terminal = terminal.lock().unwrap();
-                    terminal.context_menu.clone()
+                // If a context menu popup is active for this pane, inform the
+                // terminal_box so it will emit on_context_menu(None) on click
+                // to dismiss the popup.
+                if self.context_menu_popup.is_some() {
+                    terminal_box = terminal_box.context_menu(cosmic::iced::Point::ORIGIN);
+                }
+
+                let use_wayland_popup = {
+                    #[cfg(feature = "wayland")]
+                    {
+                        is_wayland()
+                    }
+                    #[cfg(not(feature = "wayland"))]
+                    {
+                        false
+                    }
                 };
 
-                let tab_element: Element<'_, Message> = match context_menu {
-                    Some(menu_state) => match menu_state.position {
-                        Some(point) => widget::popover(terminal_box.context_menu(point))
-                            .popup(menu::context_menu(
-                                &self.config,
-                                &self.key_binds,
-                                entity,
-                                menu_state.link,
-                            ))
-                            .position(widget::popover::Position::Point(point))
-                            .into(),
-                        None => terminal_box.into(),
-                    },
-                    None => terminal_box.into(),
+                let tab_element: Element<'_, Message> = if !use_wayland_popup {
+                    // Fallback: render context menu as an inline popover
+                    if let Some((_, popup_pane, popup_entity, ref link, _, point)) =
+                        self.context_menu_popup
+                    {
+                        if pane == popup_pane {
+                            let mut popover = widget::popover(terminal_box.context_menu(point));
+                            popover = popover
+                                .popup(menu::context_menu(
+                                    &self.config,
+                                    &self.key_binds,
+                                    popup_entity,
+                                    link.clone(),
+                                ))
+                                .position(widget::popover::Position::Point(point));
+                            popover.into()
+                        } else {
+                            terminal_box.into()
+                        }
+                    } else {
+                        terminal_box.into()
+                    }
+                } else {
+                    terminal_box.into()
                 };
                 tab_column = tab_column.push(tab_element);
             }
@@ -3404,7 +3541,7 @@ impl Application for App {
                         widget::tooltip::Position::Top,
                     )
                     .into(),
-                    widget::horizontal_space().into(),
+                    widget::space::horizontal().into(),
                     button::custom(icon_cache_get("window-close-symbolic", 16))
                         .on_press(Message::Find(false))
                         .padding(space_xxs)
@@ -3470,22 +3607,24 @@ impl Application for App {
                 }
                 _ => None,
             }),
-            Subscription::run_with_id(
-                TypeId::of::<TerminalEventSubscription>(),
-                stream::channel(100, |mut output| async move {
-                    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-                    output.send(Message::TermEventTx(event_tx)).await.unwrap();
+            Subscription::run_with(TypeId::of::<TerminalEventSubscription>(), |_| {
+                stream::channel(
+                    100,
+                    |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+                        output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
-                    while let Some((pane, entity, event)) = event_rx.recv().await {
-                        output
-                            .send(Message::TermEvent(pane, entity, event))
-                            .await
-                            .unwrap();
-                    }
+                        while let Some((pane, entity, event)) = event_rx.recv().await {
+                            output
+                                .send(Message::TermEvent(pane, entity, event))
+                                .await
+                                .unwrap();
+                        }
 
-                    panic!("terminal event channel closed");
-                }),
-            ),
+                        panic!("terminal event channel closed");
+                    },
+                )
+            }),
             cosmic_config::config_subscription(
                 TypeId::of::<ConfigSubscription>(),
                 Self::APP_ID.into(),
@@ -3499,7 +3638,7 @@ impl Application for App {
                         update.errors
                     );
                 }
-                Message::Config(update.config)
+                Message::Config(Box::new(update.config))
             }),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
@@ -3507,4 +3646,12 @@ impl Application for App {
             },
         ])
     }
+}
+
+#[cfg(feature = "wayland")]
+fn is_wayland() -> bool {
+    matches!(
+        cosmic::app::cosmic::windowing_system(),
+        Some(cosmic::app::cosmic::WindowingSystem::Wayland)
+    )
 }

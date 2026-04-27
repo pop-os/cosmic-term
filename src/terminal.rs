@@ -266,6 +266,7 @@ pub struct Terminal {
 
 impl Terminal {
     //TODO: error handling
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pane: pane_grid::Pane,
         entity: segmented_button::Entity,
@@ -305,13 +306,13 @@ impl Terminal {
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
             let font_system = font_system.raw();
-            buffer.set_wrap(font_system, Wrap::None);
+            buffer.set_wrap(Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced, None);
+            buffer.set_text(" ", &default_attrs, Shaping::Advanced, None);
             let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
-            buffer.set_monospace_width(font_system, Some(w));
+            buffer.set_monospace_width(Some(w));
             (w, metrics.line_height)
         };
 
@@ -457,15 +458,18 @@ impl Terminal {
         if width != self.size.width || height != self.size.height {
             let instant = Instant::now();
 
-            self.size.width = width;
-            self.size.height = height;
+            // Clamp dimensions to ensure at least 1 row and 1 column,
+            // preventing index-out-of-bounds panics in alacritty_terminal.
+            let min_width = self.size.cell_width.ceil() as u32;
+            let min_height = self.size.cell_height.ceil() as u32;
+            self.size.width = width.max(min_width);
+            self.size.height = height.max(min_height);
 
             self.notifier.on_resize(self.size.into());
             self.term.lock().resize(self.size);
 
             self.with_buffer_mut(|buffer| {
-                let mut font_system = font_system().write().unwrap();
-                buffer.set_size(font_system.raw(), Some(width as f32), Some(height as f32));
+                buffer.set_size(Some(width as f32), Some(height as f32));
             });
 
             self.needs_update = true;
@@ -648,10 +652,7 @@ impl Terminal {
 
         let metrics = config.metrics(zoom_adj);
         if metrics != self.buffer.metrics() {
-            {
-                let mut font_system = font_system().write().unwrap();
-                self.with_buffer_mut(|buffer| buffer.set_metrics(font_system.raw(), metrics));
-            }
+            self.with_buffer_mut(|buffer| buffer.set_metrics(metrics));
             update_cell_size = true;
         }
 
@@ -708,19 +709,13 @@ impl Terminal {
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
             self.with_buffer_mut(|buffer| {
-                buffer.set_wrap(font_system.raw(), Wrap::None);
+                buffer.set_wrap(Wrap::None);
 
                 // Use size of space to determine cell size
-                buffer.set_text(
-                    font_system.raw(),
-                    " ",
-                    &default_attrs,
-                    Shaping::Advanced,
-                    None,
-                );
+                buffer.set_text(" ", &default_attrs, Shaping::Advanced, None);
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
-                buffer.set_monospace_width(font_system.raw(), Some(w));
+                buffer.set_monospace_width(Some(w));
                 (w, buffer.metrics().line_height)
             })
         };
@@ -884,13 +879,12 @@ impl Terminal {
                     }
 
                     // Change color if selected
-                    if let Some(selection) = &term.selection {
-                        if let Some(range) = selection.to_range(&term) {
-                            if range.contains(indexed.point) {
-                                //TODO: better handling of selection
-                                mem::swap(&mut fg, &mut bg);
-                            }
-                        }
+                    if let Some(selection) = &term.selection
+                        && let Some(range) = selection.to_range(&term)
+                        && range.contains(indexed.point)
+                    {
+                        //TODO: better handling of selection
+                        mem::swap(&mut fg, &mut bg);
                     }
 
                     // Convert foreground to linear
@@ -904,10 +898,10 @@ impl Terminal {
 
                     let mut flags = indexed.cell.flags;
 
-                    if let Some(active_match) = &self.active_regex_match {
-                        if active_match.contains(&indexed.point) {
-                            flags |= Flags::UNDERLINE;
-                        }
+                    if let Some(active_match) = &self.active_regex_match
+                        && active_match.contains(&indexed.point)
+                    {
+                        flags |= Flags::UNDERLINE;
                     }
                     if let Some(active_id) = &self.active_hyperlink_id {
                         let mut matches_active = indexed
@@ -1216,13 +1210,12 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let next_match = self.next_match.take()?;
 
-        if self.start <= self.end {
-            if let Some(rm) = self
+        if self.start <= self.end
+            && let Some(rm) = self
                 .term
                 .regex_search_right(self.regex, self.start, self.end)
-            {
-                self.next_processed_match(rm);
-            }
+        {
+            self.next_processed_match(rm);
         }
 
         Some(next_match)

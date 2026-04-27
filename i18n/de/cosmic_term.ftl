@@ -28,7 +28,7 @@ new-profile = Neues Profil
 make-default = Als Standard festlegen
 working-directory = Arbeitsverzeichnis
 hold = Halten
-remain-open = Nach Beendigung des Kindprozesses offen bleiben.
+remain-open = Nach Beendigung des untergeordneten Prozesses geöffnet lassen.
 
 ## Einstellungen
 
@@ -38,7 +38,7 @@ settings = Einstellungen
 
 appearance = Aussehen
 theme = Thema
-match-desktop = An System anpassen
+match-desktop = An Desktop anpassen
 dark = Dunkel
 light = Hell
 syntax-dark = Dunkles Farbschema
@@ -67,7 +67,7 @@ focus-follow-mouse = Tippfokus folgt Maus
 
 advanced = Erweitert
 show-headerbar = Kopfzeile anzeigen
-show-header-description = Kopfzeile über das Rechtsklickmenü einblenden.
+show-header-description = Kopfzeile über das Rechtsklick-Menü aufzeigen
 # Suchen
 find-placeholder = Suchen...
 find-previous = Vorherigen suchen
@@ -141,3 +141,9 @@ type-to-search = Zum Suchen tippen...
 close-window = Fenster schließen
 copy-or-sigint = Kopieren oder SIGINT
 toggle-fullscreen = Vollbild umschalten
+shortcut-group-zoom = Zoom
+comment = Terminalemulator für den COSMIC Desktop
+paste-primary = Primär einfügen
+add-another-keybinding = Weitere Tastenbelegung hinzufügen
+shortcut-replace-body = { $binding } ist bereits { $existing } zugeordnet. Durch { $new_action } ersetzen?
+keywords = Befehl;Shell;Terminal;CLI;

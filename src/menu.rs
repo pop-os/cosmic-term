@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::iced::Point;
-use cosmic::widget::Column;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
+use cosmic::widget::{Column, space};
 use cosmic::{
     Element,
     app::Core,
-    iced::{
-        Background, Length, advanced::widget::text::Style as TextStyle, widget::horizontal_space,
-    },
-    iced_core::Border,
+    iced::core::Border,
+    iced::{Background, Length, advanced::widget::text::Style as TextStyle},
     theme,
     widget::{
         self, divider,
@@ -28,6 +26,7 @@ static MENU_ID: LazyLock<cosmic::widget::Id> =
 #[derive(Debug, Clone)]
 pub struct MenuState {
     pub position: Option<Point>,
+    pub local_position: Option<Point>,
     pub link: Option<String>,
 }
 
@@ -57,7 +56,7 @@ pub fn context_menu<'a>(
         let key = find_key(&action);
         menu_button(vec![
             widget::text(label).into(),
-            horizontal_space().into(),
+            space::horizontal().into(),
             widget::text(key)
                 .class(theme::Text::Custom(key_style))
                 .into(),
@@ -68,7 +67,7 @@ pub fn context_menu<'a>(
     let menu_checkbox = |label, value, action| {
         menu_button(vec![
             widget::text(label).into(),
-            widget::horizontal_space().into(),
+            widget::space::horizontal().into(),
             widget::toggler(value)
                 .on_toggle(move |_| Message::TabContextAction(entity, action))
                 .size(16.0)
