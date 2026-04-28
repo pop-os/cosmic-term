@@ -427,6 +427,7 @@ pub enum Message {
     ShowHeaderBar(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
+    TabNewInheritWorkingDirectory(bool),
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
@@ -1498,11 +1499,21 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
-            widget::settings::item::builder(fl!("show-headerbar"))
-                .description(fl!("show-header-description"))
-                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-        );
+        let advanced_section = widget::settings::section()
+            .title(fl!("advanced"))
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .description(fl!("show-header-description"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
+            .add(
+                widget::settings::item::builder(fl!("tab-new-inherit-working-directory"))
+                    .description(fl!("tab-new-inherit-working-directory-description"))
+                    .toggler(
+                        self.config.tab_new_inherit_working_directory,
+                        Message::TabNewInheritWorkingDirectory,
+                    ),
+            );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -1516,11 +1527,23 @@ impl App {
         self.config.default_profile
     }
 
+    fn active_terminal_working_directory(&self) -> Option<PathBuf> {
+        let tab_model = self.pane_model.active()?;
+        let entity = tab_model.active();
+        let terminal = tab_model.data::<Mutex<Terminal>>(entity)?;
+        let terminal = terminal.lock().unwrap();
+        terminal.working_directory()
+    }
+
     fn create_and_focus_new_terminal(
         &mut self,
         pane: pane_grid::Pane,
         profile_id_opt: Option<ProfileId>,
+        inherit_working_directory: bool,
     ) -> Task<Message> {
+        let inherited_working_directory = inherit_working_directory
+            .then(|| self.active_terminal_working_directory())
+            .flatten();
         self.pane_model.set_focus(pane);
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
@@ -1557,12 +1580,13 @@ impl App {
                                         }
                                         None
                                     }),
-                                    working_directory: startup_options.working_directory.or_else(
-                                        || {
+                                    working_directory: startup_options
+                                        .working_directory
+                                        .or_else(|| inherited_working_directory.clone())
+                                        .or_else(|| {
                                             (!profile.working_directory.is_empty())
                                                 .then(|| profile.working_directory.clone().into())
-                                        },
-                                    ),
+                                        }),
                                     drain_on_exit: startup_options.drain_on_exit
                                         || profile.drain_on_exit,
                                     ..startup_options
@@ -1574,7 +1598,11 @@ impl App {
                                 };
                                 (options, tab_title_override)
                             } else {
-                                (self.startup_options.take().unwrap_or_default(), None)
+                                let mut options = self.startup_options.take().unwrap_or_default();
+                                if options.working_directory.is_none() {
+                                    options.working_directory = inherited_working_directory.clone();
+                                }
+                                (options, None)
                             };
 
                             let entity = tab_model
@@ -2552,7 +2580,7 @@ impl Application for App {
                 if let Some((pane, _)) = result {
                     self.terminal_ids.insert(pane, widget::Id::unique());
                     let command =
-                        self.create_and_focus_new_terminal(pane, self.get_default_profile());
+                        self.create_and_focus_new_terminal(pane, self.get_default_profile(), false);
                     self.pane_model.panes_created += 1;
                     return command;
                 }
@@ -2664,8 +2692,11 @@ impl Application for App {
                 return self.save_profiles();
             }
             Message::ProfileOpen(profile_id) => {
-                return self
-                    .create_and_focus_new_terminal(self.pane_model.focused(), Some(profile_id));
+                return self.create_and_focus_new_terminal(
+                    self.pane_model.focused(),
+                    Some(profile_id),
+                    false,
+                );
             }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
@@ -2730,6 +2761,12 @@ impl Application for App {
                     config_set!(show_headerbar, show_headerbar);
                     return self.update_config();
                 }
+            }
+            Message::TabNewInheritWorkingDirectory(tab_new_inherit_working_directory) => {
+                config_set!(
+                    tab_new_inherit_working_directory,
+                    tab_new_inherit_working_directory
+                );
             }
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
@@ -2944,10 +2981,15 @@ impl Application for App {
                 return self.create_and_focus_new_terminal(
                     self.pane_model.focused(),
                     self.get_default_profile(),
+                    self.config.tab_new_inherit_working_directory,
                 );
             }
             Message::TabNewNoProfile => {
-                return self.create_and_focus_new_terminal(self.pane_model.focused(), None);
+                return self.create_and_focus_new_terminal(
+                    self.pane_model.focused(),
+                    None,
+                    self.config.tab_new_inherit_working_directory,
+                );
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
