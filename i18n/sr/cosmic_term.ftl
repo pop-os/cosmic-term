@@ -1,0 +1,12 @@
+quit = Изађи
+cancel = Откажи
+import = Увези
+export = Извези
+appearance = Изглед
+light = Светло
+dark = Тамна
+settings = Подешавања
+reset-to-default = Врати на подразумевано
+type-to-search = Куцајте за претрагу...
+add-another-keybinding = Додај још једну комбинацију тастера
+replace = Замени
