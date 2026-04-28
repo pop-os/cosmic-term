@@ -58,6 +58,7 @@ use-bright-bold = Make bold text brighter
 ### Splits
 splits = Splits
 focus-follow-mouse = Typing focus follows mouse
+show-pane-borders = Show pane borders
 
 ### Advanced
 advanced = Advanced

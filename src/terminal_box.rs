@@ -11,7 +11,7 @@ use cosmic::{
     Renderer,
     cosmic_theme::palette::{WithAlpha, blend::Compose},
     iced::core::{
-        Border, Shell,
+        Border, Shell, border::Radius,
         clipboard::Clipboard,
         keyboard::key::Named,
         layout::{self, Layout},
@@ -111,6 +111,7 @@ pub struct TerminalBox<'a, Message> {
     border: Border,
     padding: Padding,
     show_headerbar: bool,
+    pane_border_radius: Option<Radius>,
     click_timing: Duration,
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<MenuState>) -> Message + 'a>>,
@@ -137,6 +138,7 @@ where
             border: Border::default(),
             padding: Padding::new(0.0),
             show_headerbar: true,
+            pane_border_radius: None,
             click_timing: Duration::from_millis(500),
             context_menu: None,
             on_context_menu: None,
@@ -170,6 +172,11 @@ where
 
     pub fn show_headerbar(mut self, show_headerbar: bool) -> Self {
         self.show_headerbar = show_headerbar;
+        self
+    }
+
+    pub fn pane_border_radius(mut self, pane_border_radius: Option<Radius>) -> Self {
+        self.pane_border_radius = pane_border_radius;
         self
     }
 
@@ -368,13 +375,22 @@ where
         let state = tree.state.downcast_ref::<State>();
 
         let cosmic_theme = theme.cosmic();
-        // matches the corners to the window border
-        let corner_radius = if self.sharp_corners {
+        let corner_radius = if let Some(r) = self.pane_border_radius {
+            r.into()
+        } else if self.sharp_corners {
+            // matches the corners to the window border
             cosmic_theme.radius_0()
         } else {
-            cosmic_theme.radius_s()
-        }
-        .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 });
+            cosmic_theme
+                .radius_s()
+                .map(|x| if x < 4.0 { x - 1.0 } else { x + 3.0 })
+        };
+        // When there's a headerbar and no pane border, only round the bottom corners
+        let border_radius: Radius = if self.show_headerbar && self.pane_border_radius.is_none() {
+            [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
+        } else {
+            corner_radius.into()
+        };
         let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
@@ -393,11 +409,7 @@ where
                 Quad {
                     bounds: layout.bounds(),
                     border: Border {
-                        radius: if self.show_headerbar {
-                            [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
-                        } else {
-                            corner_radius.into()
-                        },
+                        radius: border_radius,
                         width: self.border.width,
                         color: self.border.color,
                     },
@@ -437,11 +449,7 @@ where
                 Quad {
                     bounds: layout.bounds(),
                     border: Border {
-                        radius: if self.show_headerbar {
-                            [0.0, 0.0, corner_radius[2], corner_radius[3]].into()
-                        } else {
-                            corner_radius.into()
-                        },
+                        radius: border_radius,
                         width: self.border.width,
                         color: self.border.color,
                     },
