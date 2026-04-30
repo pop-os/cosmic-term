@@ -767,13 +767,30 @@ impl App {
     // Call this any time the tab changes
     fn update_title(&mut self, pane: Option<pane_grid::Pane>) -> Task<Message> {
         let pane = pane.unwrap_or(self.pane_model.focused());
+        let cwd = self.active_terminal_working_directory();
+        let app_name = fl!("cosmic-terminal");
         if let Some(tab_model) = self.pane_model.panes.get(pane) {
             let (header_title, window_title) = match tab_model.text(tab_model.active()) {
-                Some(tab_title) => (
-                    tab_title.to_string(),
-                    format!("{tab_title} — {}", fl!("cosmic-terminal")),
-                ),
-                None => (String::new(), fl!("cosmic-terminal")),
+                Some(tab_title) => {
+                    let header = if self.config.tab_title_format.is_empty() {
+                        tab_title.to_string()
+                    } else {
+                        config::render_title_format(
+                            &self.config.tab_title_format,
+                            tab_title,
+                            cwd.as_deref(),
+                            &app_name,
+                        )
+                    };
+                    let window = config::render_title_format(
+                        &self.config.window_title_format,
+                        tab_title,
+                        cwd.as_deref(),
+                        &app_name,
+                    );
+                    (header, window)
+                }
+                None => (String::new(), app_name.clone()),
             };
             self.set_header_title(header_title);
             Task::batch([

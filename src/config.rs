@@ -238,6 +238,96 @@ pub struct Config {
     pub default_profile: Option<ProfileId>,
     #[serde(default)]
     pub shortcuts_custom: Shortcuts,
+    #[serde(default = "default_window_title_format")]
+    pub window_title_format: String,
+    #[serde(default = "default_tab_title_format")]
+    pub tab_title_format: String,
+}
+
+fn default_window_title_format() -> String {
+    // Preserves the existing "{tab_title} — cosmic-terminal" output.
+    "{title} — {app}".to_string()
+}
+
+fn default_tab_title_format() -> String {
+    // Empty = use whatever the shell sets via OSC 0/2 (current behaviour).
+    String::new()
+}
+
+/// Substitute `{title}`, `{cwd}`, `{cwd_basename}`, `{app}` in a title-format string.
+pub fn render_title_format(
+    fmt: &str,
+    title: &str,
+    cwd: Option<&std::path::Path>,
+    app_name: &str,
+) -> String {
+    let cwd_str = cwd.and_then(|p| p.to_str()).unwrap_or("");
+    let cwd_basename = cwd
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    fmt.replace("{title}", title)
+        .replace("{cwd_basename}", cwd_basename)
+        .replace("{cwd}", cwd_str)
+        .replace("{app}", app_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_title_format;
+    use std::path::Path;
+
+    #[test]
+    fn substitutes_title_and_app() {
+        assert_eq!(
+            render_title_format("{title} — {app}", "bash", None, "cosmic-terminal"),
+            "bash — cosmic-terminal"
+        );
+    }
+
+    #[test]
+    fn substitutes_cwd_when_present() {
+        let p = Path::new("/home/user/project");
+        assert_eq!(
+            render_title_format("{cwd}: {title}", "vim", Some(p), "cosmic-terminal"),
+            "/home/user/project: vim"
+        );
+    }
+
+    #[test]
+    fn cwd_basename_is_last_component() {
+        let p = Path::new("/home/user/project");
+        assert_eq!(
+            render_title_format("{cwd_basename} — {title}", "vim", Some(p), "x"),
+            "project — vim"
+        );
+    }
+
+    #[test]
+    fn missing_cwd_renders_empty() {
+        assert_eq!(
+            render_title_format("{cwd}: {title}", "vim", None, "x"),
+            ": vim"
+        );
+    }
+
+    #[test]
+    fn unknown_placeholders_are_left_alone() {
+        assert_eq!(
+            render_title_format("{unknown} {title}", "vim", None, "x"),
+            "{unknown} vim"
+        );
+    }
+
+    #[test]
+    fn cwd_basename_must_match_before_cwd_to_avoid_partial_replacement() {
+        // {cwd_basename} contains the substring "cwd}", so the order of substitution matters.
+        let p = Path::new("/srv/app");
+        assert_eq!(
+            render_title_format("{cwd_basename}", "x", Some(p), "y"),
+            "app"
+        );
+    }
 }
 
 impl Default for Config {
@@ -262,6 +352,8 @@ impl Default for Config {
             use_bright_bold: false,
             default_profile: None,
             shortcuts_custom: Shortcuts::default(),
+            window_title_format: default_window_title_format(),
+            tab_title_format: default_tab_title_format(),
         }
     }
 }
