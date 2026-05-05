@@ -1,6 +1,6 @@
 [package]
 name = "cosmic-term"
-version = "1.0.11"
+version = "1.0.12"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2024"
 license = "GPL-3.0-only"
@@ -40,7 +40,7 @@ git = "https://github.com/pop-os/cosmic-files.git"
 default-features = false
 
 [dependencies.cosmic-text]
-git = "https://github.com/pop-os/cosmic-text.git"
+version = "0.19"
 features = ["monospace_fallback", "shape-run-cache"]
 
 [dependencies.libcosmic]
