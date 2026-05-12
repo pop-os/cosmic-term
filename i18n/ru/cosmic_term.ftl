@@ -141,3 +141,5 @@ tab-activate = Активировать вкладку { $number }
 toggle-fullscreen = Вкл./выкл. полноэкранный режим
 type-to-search = Введите для поиска...
 copy-link = Копировать ссылку
+tab-new-inherit-working-directory = В новых вкладках исп. текущий каталог
+tab-new-inherit-working-directory-description = Открывать новые вкладки в рабочем каталоге активной вкладки
