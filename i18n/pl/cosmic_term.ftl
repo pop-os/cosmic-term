@@ -147,3 +147,5 @@ focus-pane-left = Aktywuj lewy panel
 focus-pane-right = Aktywuj prawy panel
 focus-pane-up = Aktywuj panel wyżej
 copy-link = Skopiuj Odnośnik
+tab-new-inherit-working-directory = Nowe karty użyją obecnego katalogu
+tab-new-inherit-working-directory-description = Otwieraj nowe karty w katalogu roboczym aktywnej karty

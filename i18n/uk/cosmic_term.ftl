@@ -147,3 +147,5 @@ focus-pane-up = Фокус на верхню панель
 comment = Емулятор терміналу для середовища COSMIC
 keywords = Команда;Оболонка;Термінал;Інтерфейс;CLI;
 copy-link = Копіювати ланку
+tab-new-inherit-working-directory = У нових вкладках використовується поточний каталог
+tab-new-inherit-working-directory-description = Відкривати нові вкладки в робочому каталозі активної вкладки

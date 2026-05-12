@@ -149,3 +149,5 @@ copy-or-sigint = Kopioi tai SIGINT
 shortcut-group-zoom = Lähennä
 toggle-fullscreen = Koko näyttö päällä tai pois
 shortcut-group-other = Muut
+tab-new-inherit-working-directory = Uudet välilehdet käyttävät nykyistä hakemistoa
+tab-new-inherit-working-directory-description = Avaa uudet välilehdet aktiivisen välilehden työskentelyhakemistossa
