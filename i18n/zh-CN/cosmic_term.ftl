@@ -147,3 +147,5 @@ toggle-fullscreen = 切换全屏
 comment = COSMIC 桌面的终端模拟器
 keywords = 指令;外壳;终端;命令行界面;
 copy-link = 复制链接
+tab-new-inherit-working-directory = 新标签使用当前目录
+tab-new-inherit-working-directory-description = 在活动标签的工作目录中打开新标签

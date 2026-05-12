@@ -107,3 +107,5 @@ type-to-search = Іздеу үшін теріңіз...
 comment = COSMIC жұмыс үстелі үшін терминал эмуляторы
 keywords = Command;Shell;Terminal;CLI;Команда;Қоршам;Терминал;
 copy-link = Сілтемені көшіру
+tab-new-inherit-working-directory = Жаңа беттерде ағымдағы буманы қолдану
+tab-new-inherit-working-directory-description = Жаңа беттерді белсенді беттің жұмыс бумасында ашу
