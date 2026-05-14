@@ -3622,6 +3622,10 @@ impl Application for App {
                 stream::channel(
                     100,
                     |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                        // Bounded: when the GUI can't drain fast enough, alacritty's PTY reader
+                        // blocks on send → kernel pipe fills → producing program is throttled by
+                        // the OS. Capacity 1024 caps the queue depth; per-event memory depends on
+                        // payload (Wakeup is ~100 B; Title/PtyWrite carry owned Strings).
                         let (event_tx, mut event_rx) = mpsc::channel(1024);
                         output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
