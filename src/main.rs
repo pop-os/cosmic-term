@@ -67,6 +67,9 @@ mod menu;
 use terminal::{Terminal, TerminalPaneGrid, TerminalScroll};
 mod terminal;
 
+use pane_drag::{DropRegion, PaneDropPreview};
+mod pane_drag;
+
 use terminal_box::terminal_box;
 
 use crate::dnd::DndDrop;
@@ -87,6 +90,9 @@ pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();
     icon_cache.get(name, size)
 }
+
+// Modifier the user holds with Left-Click to start a pane drag
+const PANE_DRAG_MODIFIERS: Modifiers = Modifiers::ALT;
 
 /// Runs application with these settings
 #[rustfmt::skip]
@@ -402,6 +408,9 @@ pub enum Message {
     PaneResized(pane_grid::ResizeEvent),
     PaneSplit(pane_grid::Axis),
     PaneToggleMaximized,
+    PaneDragPicked(pane_grid::Pane),
+    PaneDragHover(pane_grid::Pane, DropRegion),
+    PaneDragReleased,
     #[cfg(feature = "password_manager")]
     PasswordManager(password_manager::PasswordManagerMessage),
     #[cfg(feature = "password_manager")]
@@ -528,6 +537,12 @@ pub struct App {
         widget::Id,
         cosmic::iced::Point,
     )>,
+    // Set while the user is dragging a pane; cleared on mouse release.
+    pane_drag: Option<pane_grid::Pane>,
+    // Last pane and region under the cursor; together they resolve the drop
+    // target when a pane drag is released.
+    hovered_pane: Option<pane_grid::Pane>,
+    hovered_region: Option<DropRegion>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -1883,6 +1898,9 @@ impl Application for App {
             shortcut_search_value: String::new(),
             modifiers: Modifiers::empty(),
             context_menu_popup: None,
+            pane_drag: None,
+            hovered_pane: None,
+            hovered_region: None,
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
         };
@@ -2507,8 +2525,11 @@ impl Application for App {
                 self.modifiers = modifiers;
             }
             Message::MouseEnter(pane) => {
-                self.pane_model.set_focus(pane);
-                return self.update_focus();
+                self.hovered_pane = Some(pane);
+                if self.config.focus_follow_mouse {
+                    self.pane_model.set_focus(pane);
+                    return self.update_focus();
+                }
             }
             Message::ShortcutCaptureCancel => {
                 self.shortcut_capture = None;
@@ -2609,6 +2630,38 @@ impl Application for App {
                 self.pane_model.panes.drop(pane, target);
             }
             Message::PaneDragged(_) => {}
+            Message::PaneDragPicked(pane) => {
+                // Nowhere to drop with a single pane or a maximized layout.
+                if self.pane_model.panes.iter().count() > 1
+                    && self.pane_model.panes.maximized().is_none()
+                {
+                    self.pane_model.set_focus(pane);
+                    self.pane_drag = Some(pane);
+                    self.hovered_pane = Some(pane);
+                    self.hovered_region = Some(DropRegion::Center);
+                }
+            }
+            Message::PaneDragHover(pane, region) => {
+                if self.pane_drag.is_some() {
+                    self.hovered_pane = Some(pane);
+                    self.hovered_region = Some(region);
+                }
+            }
+            Message::PaneDragReleased => {
+                if let Some(source) = self.pane_drag.take() {
+                    // Drop on self is a no-op (Center) or, worse, an Edge drop
+                    // would close source and fail to re-insert it.
+                    if let (Some(target), Some(region)) =
+                        (self.hovered_pane, self.hovered_region)
+                        && target != source
+                    {
+                        self.pane_model
+                            .panes
+                            .drop(source, pane_grid::Target::Pane(target, region.into()));
+                    }
+                    self.hovered_region = None;
+                }
+            }
             #[cfg(feature = "password_manager")]
             Message::PasswordManager(msg) => {
                 return self.password_mgr.update(msg);
@@ -3445,6 +3498,8 @@ impl Application for App {
                 .cloned()
                 .unwrap_or_else(widget::Id::unique);
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let drag_active = self.pane_drag.is_some();
+
                 let mut terminal_box = terminal_box(terminal, &self.key_binds)
                     .id(terminal_id)
                     .disabled(self.core.window.show_context)
@@ -3453,13 +3508,17 @@ impl Application for App {
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
+                    .on_drag_start(PANE_DRAG_MODIFIERS, move || Message::PaneDragPicked(pane))
+                    .on_mouse_enter(move || Message::MouseEnter(pane))
                     .opacity(self.config.opacity_ratio())
                     .padding(space_xxs)
                     .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar);
 
-                if self.config.focus_follow_mouse {
-                    terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
+                // Only listen for region changes while a drag is active.
+                if drag_active {
+                    terminal_box = terminal_box
+                        .on_drop_region(move |region| Message::PaneDragHover(pane, region));
                 }
 
                 // If a context menu popup is active for this pane, inform the
@@ -3590,7 +3649,18 @@ impl Application for App {
         .on_drag(Message::PaneDragged);
 
         //TODO: apply window border radius xs at bottom of window
-        pane_grid.into()
+        // Stack is always present so the widget tree doesn't change shape
+        // between drags; otherwise iced rebuilds the subtree and
+        // terminal_box's modifier state resets, breaking consecutive drags.
+        let drag = self
+            .pane_drag
+            .zip(self.hovered_pane)
+            .zip(self.hovered_region)
+            .map(|((source, hovered), region)| (source, hovered, region));
+        cosmic::iced::widget::Stack::new()
+            .push(pane_grid)
+            .push(PaneDropPreview::new(self.pane_model.panes.layout(), drag))
+            .into()
     }
 
     fn system_theme_update(
@@ -3615,6 +3685,13 @@ impl Application for App {
                 }
                 Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
                     Some(Message::CopyPrimary(None))
+                }
+                _ => None,
+            }),
+            // Pane-drag release runs alongside CopyPrimary above.
+            event::listen_with(|event, _status, _window_id| match event {
+                Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
+                    Some(Message::PaneDragReleased)
                 }
                 _ => None,
             }),
