@@ -100,7 +100,7 @@ pub struct EventProxy(
     pane_grid::Pane,
     segmented_button::Entity,
     mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
-    );
+);
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {

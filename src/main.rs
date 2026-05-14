@@ -502,8 +502,7 @@ pub struct App {
     find: bool,
     find_search_id: widget::Id,
     find_search_value: String,
-    term_event_tx_opt:
-        Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
+    term_event_tx_opt: Option<mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
     color_scheme_errors: Vec<String>,
