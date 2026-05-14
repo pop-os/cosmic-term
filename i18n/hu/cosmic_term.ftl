@@ -58,7 +58,7 @@ default-font = Betűtípus
 default-font-size = Betűméret
 default-font-stretch = Betűszélesség
 default-font-weight = Normál betűsúly
-default-dim-font-weight = Halvány betűsúly
+default-dim-font-weight = Vékony betűsúly
 default-bold-font-weight = Félkövér betűsúly
 use-bright-bold = Félkövér szöveg világosítása
 
@@ -147,3 +147,5 @@ tab-activate = { $number }. lap aktiválása
 toggle-fullscreen = Teljes képernyő váltása
 type-to-search = Gépelj a kereséshez…
 copy-link = Hivatkozás másolása
+tab-new-inherit-working-directory = Az új lapok az aktuális könyvtárat használják
+tab-new-inherit-working-directory-description = Az új lapok az aktív lap munkakönyvtárában nyílnak meg

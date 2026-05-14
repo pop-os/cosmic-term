@@ -7,8 +7,8 @@ use cosmic::widget::{Column, space};
 use cosmic::{
     Element,
     app::Core,
+    iced::core::Border,
     iced::{Background, Length, advanced::widget::text::Style as TextStyle},
-    iced_core::Border,
     theme,
     widget::{
         self, divider,
@@ -26,6 +26,7 @@ static MENU_ID: LazyLock<cosmic::widget::Id> =
 #[derive(Debug, Clone)]
 pub struct MenuState {
     pub position: Option<Point>,
+    pub local_position: Option<Point>,
     pub link: Option<String>,
 }
 

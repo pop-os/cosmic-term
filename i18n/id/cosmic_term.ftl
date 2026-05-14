@@ -107,3 +107,5 @@ focus-pane-up = Fokuskan panel ke atas
 comment = Emulator terminal untuk desktop COSMIC
 keywords = Perintah;Shell;Terminal;CLI;
 copy-link = Salin Tautan
+tab-new-inherit-working-directory = Tab baru menggunakan direktori saat ini
+tab-new-inherit-working-directory-description = Buka tab baru di direktori pekerjaan tab aktif

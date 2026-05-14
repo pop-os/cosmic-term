@@ -10,15 +10,7 @@ use alacritty_terminal::{
 use cosmic::{
     Renderer,
     cosmic_theme::palette::{WithAlpha, blend::Compose},
-    iced::{
-        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
-        advanced::graphics::text::Raw,
-        event::{Event, Status},
-        keyboard::{Event as KeyEvent, Key, Modifiers},
-        mouse::{self, Button, Event as MouseEvent, ScrollDelta},
-        window::RedrawRequest,
-    },
-    iced_core::{
+    iced::core::{
         Border, Shell,
         clipboard::Clipboard,
         keyboard::key::Named,
@@ -31,9 +23,16 @@ use cosmic::{
             tree,
         },
     },
+    iced::{
+        Color, Element, Length, Padding, Point, Rectangle, Size, Vector,
+        advanced::graphics::text::Raw,
+        event::Event,
+        keyboard::{Event as KeyEvent, Key, Modifiers},
+        mouse::{self, Button, Event as MouseEvent, ScrollDelta},
+    },
     theme::Theme,
 };
-use cosmic::{iced_core::SmolStr, widget::menu::key_bind::KeyBind};
+use cosmic::{iced::core::SmolStr, widget::menu::key_bind::KeyBind};
 use cosmic_text::LayoutGlyph;
 use indexmap::IndexSet;
 use std::{
@@ -863,8 +862,8 @@ where
                     if is_mouse_mode {
                         state.autoscroll.stop();
                     } else {
-                        if let Some((pointer, multiplier)) = state.autoscroll.next_due() {
-                            if update_buffer_drag(
+                        if let Some((pointer, multiplier)) = state.autoscroll.next_due()
+                            && update_buffer_drag(
                                 state,
                                 &mut terminal,
                                 buffer_size,
@@ -872,9 +871,9 @@ where
                                 layout.bounds(),
                                 self.padding,
                                 multiplier,
-                            ) {
-                                shell.capture_event();
-                            }
+                            )
+                        {
+                            shell.capture_event();
                         }
                         if state.autoscroll.is_active() {
                             shell.request_redraw();
@@ -1300,8 +1299,13 @@ where
                                             None,
                                         );
                                         let link = get_hyperlink(&terminal, location);
+                                        let abs = cosmic::iced::Point::new(
+                                            layout.bounds().x + p.x,
+                                            layout.bounds().y + p.y,
+                                        );
                                         shell.publish(on_context_menu(Some(MenuState {
-                                            position: Some(p),
+                                            position: Some(abs),
+                                            local_position: Some(p),
                                             link,
                                         })));
                                     }
@@ -1314,21 +1318,20 @@ where
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
                 state.autoscroll.stop();
-                if let Some(dragging) = state.dragging.take() {
-                    if let Dragging::Buffer {
+                if let Some(dragging) = state.dragging.take()
+                    && let Dragging::Buffer {
                         last_point,
                         last_side,
                         ..
                     } = dragging
+                {
                     {
-                        {
-                            let mut term = terminal.term.lock();
-                            if let Some(selection) = &mut term.selection {
-                                selection.update(last_point, last_side);
-                            }
+                        let mut term = terminal.term.lock();
+                        if let Some(selection) = &mut term.selection {
+                            selection.update(last_point, last_side);
                         }
-                        terminal.needs_update = true;
                     }
+                    terminal.needs_update = true;
                 }
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
@@ -1339,13 +1342,12 @@ where
 
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    if state.modifiers.control() {
-                        if let Some(on_open_hyperlink) = &self.on_open_hyperlink {
-                            if let Some(hyperlink) = get_hyperlink(&terminal, location) {
-                                shell.publish(on_open_hyperlink(hyperlink));
-                                shell.capture_event();
-                            }
-                        }
+                    if state.modifiers.control()
+                        && let Some(on_open_hyperlink) = &self.on_open_hyperlink
+                        && let Some(hyperlink) = get_hyperlink(&terminal, location)
+                    {
+                        shell.publish(on_open_hyperlink(hyperlink));
+                        shell.capture_event();
                     }
 
                     if is_mouse_mode {
@@ -1358,8 +1360,6 @@ where
                     } else {
                         shell.capture_event();
                     }
-                } else {
-                    shell.capture_event();
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(_button)) => {
@@ -1650,10 +1650,10 @@ fn update_active_regex_match(
         .find(|bounds| bounds.contains(&location))
     {
         'update: {
-            if let Some(active_match) = &terminal.active_regex_match {
-                if active_match == match_ {
-                    break 'update;
-                }
+            if let Some(active_match) = &terminal.active_regex_match
+                && active_match == match_
+            {
+                break 'update;
             }
             terminal.active_regex_match = Some(match_.clone());
             terminal.needs_update = true;
@@ -1714,6 +1714,7 @@ enum EdgeScrollDirection {
     Bottom,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn edge_scroll_adjustment(
     y: f32,
     buffer_height: f32,
