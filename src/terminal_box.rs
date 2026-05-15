@@ -51,6 +51,11 @@ use crate::{
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
 
+/// Pointer movement in pixels above which a left-press release is treated as a
+/// drag rather than a click. Used to suppress hyperlink activation when the
+/// user is selecting text rather than clicking a link.
+const LINK_CLICK_DRAG_THRESHOLD: f32 = 4.0;
+
 /// Drives repeated drag updates while the pointer is outside the widget.
 struct DragAutoscroll {
     active: bool,
@@ -1247,6 +1252,7 @@ where
                                     last_edge_overshoot: 0.0,
                                     last_point: location,
                                     last_side: side,
+                                    press_point: p,
                                 });
                             } else if scrollbar_rect.contains(Point::new(x, y)) {
                                 if let Some(start_scroll) = terminal.scrollbar() {
@@ -1318,12 +1324,12 @@ where
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
                 state.autoscroll.stop();
-                if let Some(dragging) = state.dragging.take()
-                    && let Dragging::Buffer {
-                        last_point,
-                        last_side,
-                        ..
-                    } = dragging
+                let buffer_press_point = if let Some(Dragging::Buffer {
+                    last_point,
+                    last_side,
+                    press_point,
+                    ..
+                }) = state.dragging.take()
                 {
                     {
                         let mut term = terminal.term.lock();
@@ -1332,7 +1338,10 @@ where
                         }
                     }
                     terminal.needs_update = true;
-                }
+                    Some(press_point)
+                } else {
+                    None
+                };
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
@@ -1342,7 +1351,12 @@ where
 
                     let location = terminal
                         .viewport_to_point(TermPoint::new(row as usize, TermColumn(col as usize)));
-                    if state.modifiers.control()
+                    let was_click = buffer_press_point.is_none_or(|press_point| {
+                        (press_point.x - p.x).abs() < LINK_CLICK_DRAG_THRESHOLD
+                            && (press_point.y - p.y).abs() < LINK_CLICK_DRAG_THRESHOLD
+                    });
+                    if was_click
+                        && state.modifiers.control()
                         && let Some(on_open_hyperlink) = &self.on_open_hyperlink
                         && let Some(hyperlink) = get_hyperlink(&terminal, location)
                     {
@@ -1700,6 +1714,7 @@ enum Dragging {
         last_edge_overshoot: f32,
         last_point: TermPoint,
         last_side: TermSide,
+        press_point: Point,
     },
     Scrollbar {
         start_y: f32,
@@ -1808,6 +1823,7 @@ fn update_buffer_drag(
         last_edge_overshoot,
         last_point,
         last_side,
+        press_point: _,
     } = dragging
     else {
         return false;
