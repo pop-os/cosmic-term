@@ -1045,12 +1045,31 @@ impl Terminal {
                 self.notifier.notify(code);
             }
         } else {
-            MouseReporter::report_mouse_wheel_as_arrows(
-                self,
+            let codes = self.mouse_reporter.normal_mouse_wheel_scroll(
                 self.size().cell_width,
                 self.size().cell_height,
                 delta,
+                modifiers,
+                mode.contains(TermMode::UTF8_MOUSE),
+                x,
+                y,
             );
+
+            for code in codes {
+                self.notifier.notify(code);
+            }
+        }
+    }
+
+    pub fn scroll_mouse_as_arrows(&mut self, delta: ScrollDelta) {
+        let is_app_cursor = self.term.lock().mode().contains(TermMode::APP_CURSOR);
+        let codes: Vec<_> = self
+            .mouse_reporter
+            .mouse_wheel_arrow_codes(self.size().cell_height, delta, is_app_cursor)
+            .collect();
+
+        for code in codes {
+            self.input_no_scroll(code);
         }
     }
 }
