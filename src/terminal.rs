@@ -99,13 +99,16 @@ impl From<Size> for WindowSize {
 pub struct EventProxy(
     pane_grid::Pane,
     segmented_button::Entity,
-    mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+    mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
 );
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {
-        //TODO: handle error
-        let _ = self.2.send((self.0, self.1, event));
+        // Bounded channel; blocking_send propagates backpressure to alacritty's
+        // PTY reader instead of letting events accumulate. Called from alacritty's
+        // std::thread PTY reader (not a tokio worker), so blocking is safe and
+        // blocking_send won't panic.
+        let _ = self.2.blocking_send((self.0, self.1, event));
     }
 }
 
@@ -270,7 +273,7 @@ impl Terminal {
     pub fn new(
         pane: pane_grid::Pane,
         entity: segmented_button::Entity,
-        event_tx: mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+        event_tx: mpsc::Sender<(pane_grid::Pane, segmented_button::Entity, Event)>,
         config: Config,
         options: Options,
         app_config: &AppConfig,
