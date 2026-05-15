@@ -443,6 +443,7 @@ pub enum Message {
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
+    DisableLigatures(bool),
     WindowClose,
     WindowNew,
     WindowFocused,
@@ -1479,6 +1480,10 @@ impl App {
                 .add(
                     widget::settings::item::builder(fl!("use-bright-bold"))
                         .toggler(self.config.use_bright_bold, Message::UseBrightBold),
+                )
+                .add(
+                    widget::settings::item::builder(fl!("disable-ligatures"))
+                        .toggler(self.config.disable_ligatures, Message::DisableLigatures),
                 );
             let padding = Padding {
                 top: 0.0,
@@ -2770,6 +2775,12 @@ impl Application for App {
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
                     config_set!(use_bright_bold, use_bright_bold);
+                    return self.update_config();
+                }
+            }
+            Message::DisableLigatures(disable_ligatures) => {
+                if disable_ligatures != self.config.disable_ligatures {
+                    config_set!(disable_ligatures, disable_ligatures);
                     return self.update_config();
                 }
             }
