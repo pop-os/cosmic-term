@@ -386,6 +386,8 @@ pub enum Message {
     Key(Modifiers, Key),
     LaunchUrl(String),
     LaunchUrlByMenu,
+    LaunchUrlConfirm,
+    LaunchUrlCancel,
     Modifiers(Modifiers),
     ShortcutCaptureCancel,
     ShortcutCaptureStart(shortcuts::KeyBindAction),
@@ -512,6 +514,7 @@ pub struct App {
     color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
+    pending_launch_url: Option<String>,
     shortcut_capture: Option<shortcuts::KeyBindAction>,
     shortcut_conflict: Option<ShortcutConflict>,
     shortcut_conflict_overlay_restore: Option<bool>,
@@ -1873,6 +1876,7 @@ impl Application for App {
             color_scheme_rename_id: widget::Id::unique(),
             color_scheme_tab_model: widget::segmented_button::Model::default(),
             profile_expanded: None,
+            pending_launch_url: None,
             show_advanced_font_settings: false,
             shortcut_capture: None,
             shortcut_conflict: None,
@@ -1895,6 +1899,10 @@ impl Application for App {
 
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
+        if self.pending_launch_url.take().is_some() {
+            return Task::none();
+        }
+
         if self.core.window.show_context {
             // Handle keyboard shortcut page escape
             if let ContextPage::KeyboardShortcuts = self.context_page {
@@ -2464,9 +2472,23 @@ impl Application for App {
                 }
             }
             Message::LaunchUrl(url) => {
-                if let Err(err) = open::that_detached(&url) {
+                if launch_url_scheme_is_safe(&url) {
+                    if let Err(err) = open::that_detached(&url) {
+                        log::warn!("failed to open {:?}: {}", url, err);
+                    }
+                } else {
+                    self.pending_launch_url = Some(url);
+                }
+            }
+            Message::LaunchUrlConfirm => {
+                if let Some(url) = self.pending_launch_url.take()
+                    && let Err(err) = open::that_detached(&url)
+                {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
+            }
+            Message::LaunchUrlCancel => {
+                self.pending_launch_url = None;
             }
             Message::CopyUrlByMenu => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -3334,6 +3356,22 @@ impl Application for App {
     }
 
     fn dialog(&self) -> Option<Element<'_, Message>> {
+        if let Some(url) = self.pending_launch_url.as_ref() {
+            return Some(
+                widget::dialog()
+                    .title(fl!("launch-url-confirm-title"))
+                    .body(fl!("launch-url-confirm-body", url = url.as_str()))
+                    .primary_action(
+                        widget::button::suggested(fl!("launch-url-open"))
+                            .on_press(Message::LaunchUrlConfirm),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel")).on_press(Message::LaunchUrlCancel),
+                    )
+                    .into(),
+            );
+        }
+
         let conflict = self.shortcut_conflict.as_ref()?;
         let binding = shortcuts::binding_display(&conflict.binding);
         let existing = shortcuts::action_label(conflict.existing_action);
@@ -3661,6 +3699,37 @@ impl Application for App {
             },
         ])
     }
+}
+
+/// Returns true when `url` uses a scheme that is safe to hand to the
+/// platform's URL handler without an extra confirmation step. Anything else
+/// (ssh://, git://, file:, custom desktop-registered schemes, etc.) is routed
+/// through a confirmation dialog so the user sees the full URI before
+/// `open::that_detached` is invoked.
+fn launch_url_scheme_is_safe(url: &str) -> bool {
+    let Some((scheme, _)) = url.split_once(':') else {
+        return false;
+    };
+    // Scheme syntax per RFC 3986: ALPHA *(ALPHA / DIGIT / "+" / "-" / ".")
+    let mut chars = scheme.chars();
+    let valid_scheme = chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'));
+    if !valid_scheme {
+        return false;
+    }
+    matches!(
+        scheme.to_ascii_lowercase().as_str(),
+        "http"
+            | "https"
+            | "mailto"
+            | "ftp"
+            | "ftps"
+            | "gemini"
+            | "gopher"
+            | "ipfs"
+            | "ipns"
+            | "news"
+    )
 }
 
 #[cfg(feature = "wayland")]

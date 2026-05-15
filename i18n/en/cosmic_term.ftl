@@ -91,6 +91,13 @@ shortcut-group-window = Window
 shortcut-group-zoom = Zoom
 shortcut-replace-body = { $binding } is already assigned to { $existing }. Replace it with { $new_action }?
 shortcut-replace-title = Replace shortcut?
+
+# Hyperlink launch confirmation
+launch-url-confirm-title = Open link?
+launch-url-confirm-body = This link uses an unusual scheme. Open it?
+
+    { $url }
+launch-url-open = Open
 tab-activate = Activate tab { $number }
 toggle-fullscreen = Toggle fullscreen
 type-to-search = Type to search...
