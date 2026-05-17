@@ -117,6 +117,7 @@ copy = Copy
 paste = Paste
 select-all = Select all
 find = Find
+clear-buffer = Clear buffer
 clear-scrollback = Clear scrollback
 
 ## Open

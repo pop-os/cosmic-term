@@ -81,6 +81,7 @@ pub fn context_menu<'a>(
         Element::from(menu_item(fl!("paste"), Action::Paste)),
         Element::from(menu_item(fl!("select-all"), Action::SelectAll)),
         Element::from(divider::horizontal::light()),
+        Element::from(menu_item(fl!("clear-buffer"), Action::ClearBuffer)),
         Element::from(menu_item(fl!("clear-scrollback"), Action::ClearScrollback)),
         Element::from(divider::horizontal::light()),
         Element::from(menu_item(
@@ -236,6 +237,7 @@ pub fn menu_bar<'a>(
                         MenuItem::Button(fl!("paste"), None, Action::Paste),
                         MenuItem::Button(fl!("select-all"), None, Action::SelectAll),
                         MenuItem::Divider,
+                        MenuItem::Button(fl!("clear-buffer"), None, Action::ClearBuffer),
                         MenuItem::Button(fl!("clear-scrollback"), None, Action::ClearScrollback),
                         MenuItem::Divider,
                         MenuItem::Button(fl!("find"), None, Action::Find),
