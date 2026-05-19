@@ -3481,7 +3481,7 @@ impl Application for App {
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(if t.transparent {
-                        t.cosmic().frosted.alpha()
+                        t.cosmic().alpha_map.blurred_alpha(t.cosmic().frosted)
                     } else {
                         self.config.opacity_ratio()
                     })
