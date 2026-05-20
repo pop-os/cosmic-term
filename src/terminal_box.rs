@@ -13,6 +13,7 @@ use cosmic::{
     iced::core::{
         Border, Shell,
         clipboard::Clipboard,
+        input_method::{self, InputMethod},
         keyboard::key::Named,
         layout::{self, Layout},
         renderer::{self, Quad, Renderer as _},
@@ -232,6 +233,49 @@ where
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
+    }
+
+    fn input_method<'b>(
+        &self,
+        state: &'b State,
+        layout: Layout<'_>,
+        terminal: &std::sync::MutexGuard<'_, Terminal>,
+    ) -> InputMethod<&'b str> {
+        if !state.is_focused {
+            return InputMethod::Disabled;
+        }
+        if self.context_menu.is_some() {
+            return InputMethod::Disabled;
+        }
+
+        let view_position = layout.position() + [self.padding.left, self.padding.top].into();
+
+        // Draw cursor
+        let cursor = terminal.term.lock().renderable_content().cursor;
+        let mut col = cursor.point.column.0;
+        let line = cursor.point.line.0;
+        let width = terminal.size().cell_width;
+        let mut cursor_position = Vector::<f32>::ZERO;
+        let mut line_height = 0.0;
+        terminal.with_buffer(|buffer| {
+            let layout = buffer.layout_runs().nth(line as usize).unwrap();
+            for glyph in layout.glyphs {
+                cursor_position.x += glyph.w;
+                let ch_width = if glyph.w > width { 2 } else { 1 };
+                if ch_width > col {
+                    break;
+                }
+                col -= ch_width;
+            }
+            cursor_position.y = layout.line_top;
+            line_height = layout.line_height;
+        });
+
+        InputMethod::Enabled {
+            cursor: Rectangle::new(view_position + cursor_position, Size::new(1.0, line_height)),
+            purpose: input_method::Purpose::Normal,
+            preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
+        }
     }
 }
 
@@ -879,6 +923,7 @@ where
                             shell.request_redraw();
                         }
                     }
+                    shell.request_input_method(&self.input_method(state, layout, &terminal));
                 }
                 cosmic::iced::window::Event::Unfocused => {
                     state.is_focused = false;
@@ -1160,6 +1205,28 @@ where
                     }
                 }
             }
+            Event::InputMethod(event) => match event {
+                input_method::Event::Opened | input_method::Event::Closed => {
+                    state.preedit = matches!(event, input_method::Event::Opened)
+                        .then(input_method::Preedit::new);
+                }
+                input_method::Event::Preedit(content, selection) => {
+                    if state.is_focused {
+                        let metrics = terminal.with_buffer(|buffer| buffer.metrics());
+                        state.preedit = Some(input_method::Preedit {
+                            content: content.to_owned(),
+                            selection: selection.clone(),
+                            text_size: Some(metrics.font_size.into()),
+                        })
+                    }
+                }
+                input_method::Event::Commit(text) => {
+                    if state.is_focused {
+                        terminal.paste(text.to_string());
+                        shell.capture_event();
+                    }
+                }
+            },
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
                     let x = p.x - self.padding.left;
@@ -1314,6 +1381,8 @@ where
                         }
                         shell.capture_event();
                     }
+                } else {
+                    state.is_focused = false;
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
@@ -1867,6 +1936,7 @@ pub struct State {
     scroll_pixels: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
     autoscroll: DragAutoscroll,
+    preedit: Option<input_method::Preedit>,
 }
 
 impl State {
@@ -1880,6 +1950,7 @@ impl State {
             scroll_pixels: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
             autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
+            preedit: None,
         }
     }
 }

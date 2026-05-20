@@ -107,3 +107,5 @@ shortcut-replace-body = { $binding } je již přiřazena k „{ $existing }“. 
 shortcut-capture-hint = Stiskněte kombinaci kláves
 paste-primary = Vložit primární
 copy-link = Kopírovat odkaz
+tab-new-inherit-working-directory = Nové karty používají aktuální adresář
+tab-new-inherit-working-directory-description = Otevírat nové karty v pracovním adresáři aktivní karty

@@ -94,3 +94,7 @@ tab-activate = 활성 탭 { $number }
 toggle-fullscreen = 전체 화면 전환
 type-to-search = 입력하여 검색…
 copy-link = 링크 복사
+no-shortcuts = 단축키 없음
+reset-to-default = 기본값으로 되돌리기
+shortcut-group-other = 기타
+shortcut-group-zoom = 확대

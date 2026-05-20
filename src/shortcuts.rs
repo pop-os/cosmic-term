@@ -512,6 +512,8 @@ fn key_from_string(value: &str) -> Option<Key> {
         "ArrowRight" | "Right" => Some(Key::Named(Named::ArrowRight)),
         "ArrowUp" | "Up" => Some(Key::Named(Named::ArrowUp)),
         "ArrowDown" | "Down" => Some(Key::Named(Named::ArrowDown)),
+        "PageUp" => Some(Key::Named(Named::PageUp)),
+        "PageDown" => Some(Key::Named(Named::PageDown)),
         "Space" | "space" => Some(Key::Character(" ".into())),
         _ if !value.is_empty() => Some(Key::Character(value.into())),
         _ => None,
