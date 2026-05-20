@@ -4,6 +4,7 @@
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::iced::core::keyboard::key::Named;
+use cosmic::iced::keyboard::key;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::pane_grid::Pane;
@@ -383,7 +384,7 @@ pub enum Message {
     FindSearchValueChanged(String),
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
-    Key(Modifiers, Key),
+    Key(Modifiers, Key, key::Physical),
     LaunchUrl(String),
     LaunchUrlByMenu,
     Modifiers(Modifiers),
@@ -2379,7 +2380,7 @@ impl Application for App {
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
-            Message::Key(modifiers, key) => {
+            Message::Key(modifiers, key, physical_key) => {
                 // Hard-coded keys
                 match key {
                     Key::Named(Named::Copy) => {
@@ -2395,9 +2396,14 @@ impl Application for App {
                     _ => {}
                 }
 
+                let latin_key = match key.to_latin(physical_key) {
+                    Some(char) => Key::Character(char.to_string().into()),
+                    None => key.clone(),
+                };
+
                 // Handle shortcut capture
                 if let Some(action) = self.shortcut_capture {
-                    if let Some(binding) = shortcuts::binding_from_key(modifiers, key) {
+                    if let Some(binding) = shortcuts::binding_from_key(modifiers, latin_key) {
                         self.shortcut_capture = None;
                         if let Some(existing_action) =
                             self.shortcuts_config.action_for_binding(&binding)
@@ -2419,7 +2425,7 @@ impl Application for App {
 
                 // Handle configurable keys
                 for (key_bind, action) in &self.key_binds {
-                    if key_bind.matches(modifiers, &key) {
+                    if key_bind.matches(modifiers, &latin_key) {
                         return self.update(action.message(None));
                     }
                 }
@@ -3554,9 +3560,12 @@ impl Application for App {
 
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
-                Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
-                    Some(Message::Key(modifiers, key))
-                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key,
+                    modifiers,
+                    physical_key,
+                    ..
+                }) => Some(Message::Key(modifiers, key, physical_key)),
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
                 }
