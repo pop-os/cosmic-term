@@ -3,7 +3,7 @@
 use cosmic::iced::Point;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
-use cosmic::widget::{Column, space};
+use cosmic::widget::space;
 use cosmic::{
     Element,
     app::Core,
@@ -122,7 +122,7 @@ pub fn context_menu<'a>(
         );
         rows.insert(2, Element::from(divider::horizontal::light()));
     }
-    let content = Column::with_children(rows);
+    let content = widget::menu::menu_column::MenuColumn::with_children(rows);
     widget::container(content)
         .padding(1)
         //TODO: move style to libcosmic
@@ -153,7 +153,8 @@ pub fn color_scheme_menu<'a>(
     let menu_item =
         |label, message| menu_button(vec![widget::text(label).into()]).on_press(message);
 
-    let mut column = widget::column::with_capacity(if id_opt.is_some() { 3 } else { 1 });
+    let mut column =
+        widget::menu::menu_column::MenuColumn::with_capacity(if id_opt.is_some() { 3 } else { 1 });
     if let Some(id) = id_opt {
         column = column.push(menu_item(
             fl!("rename"),
