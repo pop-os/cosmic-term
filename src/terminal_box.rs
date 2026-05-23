@@ -1127,6 +1127,7 @@ where
                 modifiers,
                 key,
                 physical_key,
+                modified_key,
                 ..
             }) if state.is_focused => {
                 for key_bind in self.key_binds.keys() {
@@ -1173,11 +1174,10 @@ where
                         }
                     }
                     (false, true, _, true) => {
-                        //This is normally Ctrl+Minus, but since that
-                        //is taken by zoom, we send that code for
-                        //Ctrl+Underline instead, like xterm and
-                        //gnome-terminal
-                        if *key == Key::Character("_".into()) {
+                        // Ctrl+Shift+<key>: send 0x1F (C-_) on '_', matching xterm/gnome-terminal.
+                        // Use `modified_key` so this works regardless of which physical key
+                        // produces '_' on the user's layout.
+                        if *modified_key == Key::Character("_".into()) {
                             terminal.input_scroll(b"\x1F".as_slice());
                             shell.capture_event();
                         }
