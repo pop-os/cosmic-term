@@ -45,10 +45,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    Action, Terminal, TerminalScroll, menu::MenuState, mouse_reporter::MouseReporter,
-    terminal::Metadata,
-};
+use crate::{Action, Terminal, TerminalScroll, menu::MenuState, terminal::Metadata};
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -1551,12 +1548,7 @@ where
                         let row = y / terminal.size().cell_height;
                         terminal.scroll_mouse(*delta, &state.modifiers, col as u32, row as u32);
                     } else if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
-                        MouseReporter::report_mouse_wheel_as_arrows(
-                            &terminal,
-                            terminal.size().cell_width,
-                            terminal.size().cell_height,
-                            *delta,
-                        );
+                        terminal.scroll_as_arrows(*delta);
                         shell.capture_event();
                     } else {
                         match delta {

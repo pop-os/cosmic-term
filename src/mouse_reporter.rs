@@ -3,10 +3,6 @@ use cosmic::{
     iced::{Event, keyboard::Modifiers, mouse::Button},
 };
 
-use crate::terminal::Terminal;
-
-const SCROLL_SPEED: u32 = 3;
-
 #[derive(Default)]
 pub struct MouseReporter {
     last_movment_x: Option<u32>,
@@ -17,6 +13,30 @@ pub struct MouseReporter {
 }
 
 impl MouseReporter {
+    pub fn accumulate_scroll(
+        &mut self,
+        delta: ScrollDelta,
+        cell_width: f32,
+        cell_height: f32,
+    ) -> (i32, i32) {
+        match delta {
+            ScrollDelta::Lines { x, y } => {
+                self.accumulated_scroll_x += x;
+                self.accumulated_scroll_y += y;
+            }
+            ScrollDelta::Pixels { x, y } => {
+                self.accumulated_scroll_x += x / cell_width;
+                self.accumulated_scroll_y += y / cell_height;
+            }
+        }
+
+        let lines_x = self.accumulated_scroll_x as i32;
+        let lines_y = self.accumulated_scroll_y as i32;
+        self.accumulated_scroll_x -= lines_x as f32;
+        self.accumulated_scroll_y -= lines_y as f32;
+        (lines_x, lines_y)
+    }
+
     fn button_number(button: Button) -> Option<u8> {
         match button {
             Button::Left => Some(0),
@@ -178,24 +198,7 @@ impl MouseReporter {
         x: u32,
         y: u32,
     ) -> impl Iterator<Item = Vec<u8>> {
-        let (lines_x, lines_y) = match delta {
-            ScrollDelta::Lines { x, y } => (x as i32, y as i32),
-            ScrollDelta::Pixels { x, y } => {
-                //Accumulate change
-                self.accumulated_scroll_x += x / term_cell_width;
-                self.accumulated_scroll_y += y / term_cell_height;
-
-                //Resolve lines crossed
-                let lines_x = self.accumulated_scroll_x as i32;
-                let lines_y = self.accumulated_scroll_y as i32;
-
-                //Subtract accounted lines from accumulators
-                self.accumulated_scroll_x -= lines_x as f32;
-                self.accumulated_scroll_y -= lines_y as f32;
-
-                (lines_x, lines_y)
-            }
-        };
+        let (lines_x, lines_y) = self.accumulate_scroll(delta, term_cell_width, term_cell_height);
 
         //Resolve modifier flags
         let mut modifier_flags = 0;
@@ -234,27 +237,5 @@ impl MouseReporter {
                 let term_code = format!("\x1b[<{};{};{}M", button_no, x + 1, y + 1);
                 term_code.as_bytes().to_vec()
             })
-    }
-
-    //Emulate mouse wheel scroll with up/down arrows. Using mouse spec uses
-    //scroll-back and scroll-forw actions, which moves whole windows like page up/page down.
-    pub fn report_mouse_wheel_as_arrows(
-        terminal: &Terminal,
-        term_cell_width: f32,
-        term_cell_height: f32,
-        delta: ScrollDelta,
-    ) {
-        let (_delta_x, delta_y) = match delta {
-            ScrollDelta::Lines { x, y } => (x, y),
-            ScrollDelta::Pixels { x, y } => (x / term_cell_width, y / term_cell_height),
-        };
-        //Send delta_y * SCROLL_SPEED number of Up/Down arrows
-        for _ in 0..(delta_y.abs() as u32 * SCROLL_SPEED) {
-            if delta_y > 0.0 {
-                terminal.input_no_scroll(b"\x1B[A".as_slice())
-            } else if delta_y < 0.0 {
-                terminal.input_no_scroll(b"\x1B[B".as_slice())
-            }
-        }
     }
 }
