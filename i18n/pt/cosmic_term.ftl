@@ -113,3 +113,4 @@ menu-about = Acerca do Terminal COSMIC...
 repository = Repositório
 support = Suporte
 clear-scrollback = Limpar scrollback
+cancel = Cancelar
