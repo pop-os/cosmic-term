@@ -21,8 +21,7 @@ use cosmic::{
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, LineEnding, Metrics, Shaping,
-    Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, LineEnding, Shaping, Weight, Wrap,
 };
 use indexmap::IndexSet;
 use std::{
@@ -284,7 +283,7 @@ impl Terminal {
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
 
-        let metrics = Metrics::new(14.0, 21.0);
+        let metrics = app_config.metrics(0);
 
         let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
         let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
@@ -640,7 +639,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if self.bold_font_weight.0 != config.font_weight {
+        if self.bold_font_weight.0 != config.bold_font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
             update_cell_size = true;
         }
