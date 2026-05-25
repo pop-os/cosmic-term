@@ -1051,12 +1051,18 @@ impl Terminal {
         let (_, lines_y) = self
             .mouse_reporter
             .accumulate_scroll(delta, cell_width, cell_height);
+        let is_app_cursor = self.term.lock().mode().contains(TermMode::APP_CURSOR);
+        let (up, down) = if is_app_cursor {
+            (&b"\x1BOA"[..], &b"\x1BOB"[..])
+        } else {
+            (&b"\x1B[A"[..], &b"\x1B[B"[..])
+        };
         const SCROLL_SPEED: u32 = 3;
         for _ in 0..(lines_y.unsigned_abs() * SCROLL_SPEED) {
             if lines_y > 0 {
-                self.input_no_scroll(b"\x1B[A".as_slice())
+                self.input_no_scroll(up)
             } else if lines_y < 0 {
-                self.input_no_scroll(b"\x1B[B".as_slice())
+                self.input_no_scroll(down)
             }
         }
     }
