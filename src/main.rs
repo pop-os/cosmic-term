@@ -3225,12 +3225,21 @@ impl Application for App {
                 }
             }
             Message::WindowNew => match env::current_exe() {
-                Ok(exe) => match process::Command::new(&exe).spawn() {
-                    Ok(_child) => {}
-                    Err(err) => {
-                        log::error!("failed to execute {:?}: {}", exe, err);
+                Ok(exe) => {
+                    let mut command = process::Command::new(&exe);
+                    if self.config.tab_new_inherit_working_directory
+                        && let Some(dir) = self.active_terminal_working_directory()
+                    {
+                        command.arg("--working-directory");
+                        command.arg(dir);
                     }
-                },
+                    match command.spawn() {
+                        Ok(_child) => {}
+                        Err(err) => {
+                            log::error!("failed to execute {:?}: {}", exe, err);
+                        }
+                    }
+                }
                 Err(err) => {
                     log::error!("failed to get current executable path: {}", err);
                 }

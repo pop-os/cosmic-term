@@ -63,8 +63,8 @@ focus-follow-mouse = Typing focus follows mouse
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu
-tab-new-inherit-working-directory = New tabs use current directory
-tab-new-inherit-working-directory-description = Open new tabs in the active tab's working directory
+tab-new-inherit-working-directory = New tabs and windows use current directory
+tab-new-inherit-working-directory-description = Open new tabs and windows in the active tab's working directory
 
 ### Keyboard shortcuts
 add-another-keybinding = Add another keybinding
