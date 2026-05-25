@@ -1025,10 +1025,9 @@ impl Terminal {
         x: u32,
         y: u32,
     ) {
-        let term_lock = self.term.lock();
-        let mode = term_lock.mode();
+        let is_sgr = self.term.lock().mode().contains(TermMode::SGR_MOUSE);
 
-        if mode.contains(TermMode::SGR_MOUSE) {
+        if is_sgr {
             let codes = self.mouse_reporter.sgr_mouse_wheel_scroll(
                 self.size().cell_width,
                 self.size().cell_height,
@@ -1042,12 +1041,23 @@ impl Terminal {
                 self.notifier.notify(code);
             }
         } else {
-            MouseReporter::report_mouse_wheel_as_arrows(
-                self,
-                self.size().cell_width,
-                self.size().cell_height,
-                delta,
-            );
+            self.scroll_as_arrows(delta);
+        }
+    }
+
+    pub fn scroll_as_arrows(&mut self, delta: ScrollDelta) {
+        let cell_width = self.size().cell_width;
+        let cell_height = self.size().cell_height;
+        let (_, lines_y) = self
+            .mouse_reporter
+            .accumulate_scroll(delta, cell_width, cell_height);
+        const SCROLL_SPEED: u32 = 3;
+        for _ in 0..(lines_y.unsigned_abs() * SCROLL_SPEED) {
+            if lines_y > 0 {
+                self.input_no_scroll(b"\x1B[A".as_slice())
+            } else if lines_y < 0 {
+                self.input_no_scroll(b"\x1B[B".as_slice())
+            }
         }
     }
 }
