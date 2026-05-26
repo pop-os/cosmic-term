@@ -4,6 +4,7 @@
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::iced::core::keyboard::key::Named;
+use cosmic::iced::keyboard::key::Physical;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::pane_grid::Pane;
@@ -383,7 +384,7 @@ pub enum Message {
     FindSearchValueChanged(String),
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
-    Key(Modifiers, Key),
+    Key(Modifiers, Physical, Key),
     LaunchUrl(String),
     LaunchUrlByMenu,
     Modifiers(Modifiers),
@@ -990,6 +991,7 @@ impl App {
                             //TODO: re-export in libcosmic
                             iced::widget::text::Style {
                                 color: Some(cosmic.destructive_text_color().into()),
+                                ..Default::default()
                             }
                         }))
                         .into(),
@@ -2419,7 +2421,7 @@ impl Application for App {
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
-            Message::Key(modifiers, key) => {
+            Message::Key(modifiers, physical, key) => {
                 // Hard-coded keys
                 match key {
                     Key::Named(Named::Copy) => {
@@ -2459,7 +2461,7 @@ impl Application for App {
 
                 // Handle configurable keys
                 for (key_bind, action) in &self.key_binds {
-                    if key_bind.matches(modifiers, &key) {
+                    if key_bind.matches(modifiers, &key, Some(&physical)) {
                         return self.update(action.message(None));
                     }
                 }
@@ -3608,9 +3610,12 @@ impl Application for App {
 
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
-                Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
-                    Some(Message::Key(modifiers, key))
-                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key,
+                    physical_key,
+                    modifiers,
+                    ..
+                }) => Some(Message::Key(modifiers, physical_key, key)),
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
                 }
