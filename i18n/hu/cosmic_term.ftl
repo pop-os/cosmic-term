@@ -1,6 +1,6 @@
 cosmic-terminal = COSMIC Terminál
 comment = Terminálemulátor a COSMIC asztali környezethez
-keywords = parancssor;terminál;
+keywords = parancssor;héj;terminál;CLI;
 new-terminal = Új terminál
 
 # Context Pages
@@ -32,7 +32,7 @@ new-profile = Új profil
 make-default = Beállítás alapértelmezettként
 working-directory = Munkakönyvtár
 hold = Maradjon nyitva
-remain-open = Maradjon nyitva a gyermekfolyamat kilépése után
+remain-open = Maradjon nyitva a gyermekfolyamat kilépése után.
 
 ## Settings
 
