@@ -936,13 +936,14 @@ where
             },
             Event::Keyboard(KeyEvent::KeyPressed {
                 key: Key::Named(named),
+                physical_key,
                 modified_key: Key::Named(modified_named),
                 modifiers,
                 text,
                 ..
             }) if state.is_focused && named == modified_named => {
                 for key_bind in self.key_binds.keys() {
-                    if key_bind.matches(*modifiers, &Key::Named(*named)) {
+                    if key_bind.matches(*modifiers, &Key::Named(*named), Some(&physical_key)) {
                         shell.capture_event();
                         return;
                     }
@@ -1102,6 +1103,7 @@ where
                 text,
                 modifiers,
                 key,
+                physical_key,
                 ..
             }) if state.is_focused && *key == Key::Character(SmolStr::new(" ")) => {
                 //Special handle Enter, Escape, Backspace and Tab as described in
@@ -1127,10 +1129,11 @@ where
                 text,
                 modifiers,
                 key,
+                physical_key,
                 ..
             }) if state.is_focused => {
                 for key_bind in self.key_binds.keys() {
-                    if key_bind.matches(*modifiers, key) {
+                    if key_bind.matches(*modifiers, key, Some(&physical_key)) {
                         shell.capture_event();
 
                         return;

@@ -49,6 +49,7 @@ pub fn context_menu<'a>(
         color.alpha *= 0.75;
         TextStyle {
             color: Some(color.into()),
+            ..Default::default()
         }
     }
 
