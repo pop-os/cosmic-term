@@ -47,7 +47,7 @@ use std::{
 
 use crate::{
     Action, Terminal, TerminalScroll, menu::MenuState, mouse_reporter::MouseReporter,
-    terminal::Metadata,
+    pane_drag::DropRegion, terminal::Metadata,
 };
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -116,6 +116,9 @@ pub struct TerminalBox<'a, Message> {
     context_menu: Option<Point>,
     on_context_menu: Option<Box<dyn Fn(Option<MenuState>) -> Message + 'a>>,
     on_mouse_enter: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_drag_start: Option<Box<dyn Fn() -> Message + 'a>>,
+    drag_start_modifiers: Modifiers,
+    on_drop_region: Option<Box<dyn Fn(DropRegion) -> Message + 'a>>,
     opacity: Option<f32>,
     mouse_inside_boundary: Option<bool>,
     on_middle_click: Option<Box<dyn Fn() -> Message + 'a>>,
@@ -142,6 +145,9 @@ where
             context_menu: None,
             on_context_menu: None,
             on_mouse_enter: None,
+            on_drag_start: None,
+            drag_start_modifiers: Modifiers::empty(),
+            on_drop_region: None,
             opacity: None,
             mouse_inside_boundary: None,
             on_middle_click: None,
@@ -194,6 +200,24 @@ where
 
     pub fn on_mouse_enter(mut self, on_mouse_enter: impl Fn() -> Message + 'a) -> Self {
         self.on_mouse_enter = Some(Box::new(on_mouse_enter));
+        self
+    }
+
+    pub fn on_drag_start(
+        mut self,
+        modifiers: Modifiers,
+        callback: impl Fn() -> Message + 'a,
+    ) -> Self {
+        self.drag_start_modifiers = modifiers;
+        self.on_drag_start = Some(Box::new(callback));
+        self
+    }
+
+    pub fn on_drop_region(
+        mut self,
+        on_drop_region: impl Fn(DropRegion) -> Message + 'a,
+    ) -> Self {
+        self.on_drop_region = Some(Box::new(on_drop_region));
         self
     }
 
@@ -1232,6 +1256,16 @@ where
             },
             Event::Mouse(MouseEvent::ButtonPressed(button)) => {
                 if let Some(p) = cursor_position.position_in(layout.bounds()) {
+                    // Intercept Modifier+left-click pane drag before mouse-mode reporting
+                    if *button == Button::Left
+                        && state.modifiers == self.drag_start_modifiers
+                        && let Some(on_drag_start) = &self.on_drag_start
+                    {
+                        shell.publish(on_drag_start());
+                        shell.capture_event();
+                        return;
+                    }
+
                     let x = p.x - self.padding.left;
                     let y = p.y - self.padding.top;
                     //TODO: better calculation of position
@@ -1465,6 +1499,19 @@ where
                     } else {
                         self.mouse_inside_boundary = Some(mouse_is_inside);
                     }
+                }
+
+                // Emit on every region change while a drop callback is wired.
+                if let Some(on_drop_region) = &self.on_drop_region
+                    && let Some(local) = cursor_position.position_in(layout.bounds())
+                {
+                    let region = DropRegion::from_local_position(local, layout.bounds().size());
+                    if state.last_drop_region != Some(region) {
+                        state.last_drop_region = Some(region);
+                        shell.publish(on_drop_region(region));
+                    }
+                } else if cursor_position.position_in(layout.bounds()).is_none() {
+                    state.last_drop_region = None;
                 }
                 if let Some(p_global) = cursor_position.position() {
                     let bounds = layout.bounds();
@@ -1940,6 +1987,7 @@ pub struct State {
     scrollbar_rect: Cell<Rectangle<f32>>,
     autoscroll: DragAutoscroll,
     preedit: Option<input_method::Preedit>,
+    last_drop_region: Option<DropRegion>,
 }
 
 impl State {
@@ -1954,6 +2002,7 @@ impl State {
             scrollbar_rect: Cell::new(Rectangle::default()),
             autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
             preedit: None,
+            last_drop_region: None,
         }
     }
 }
