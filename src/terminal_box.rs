@@ -45,12 +45,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    Action, Terminal, TerminalScroll, menu::MenuState, mouse_reporter::MouseReporter,
-    terminal::Metadata,
-};
+use crate::{Action, Terminal, TerminalScroll, menu::MenuState, terminal::Metadata};
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
+const WHEEL_SCROLL_LINES_PER_DELTA: f32 = 6.0;
 
 /// Drives repeated drag updates while the pointer is outside the widget.
 struct DragAutoscroll {
@@ -1550,44 +1548,28 @@ where
                         let col = x / terminal.size().cell_width;
                         let row = y / terminal.size().cell_height;
                         terminal.scroll_mouse(*delta, &state.modifiers, col as u32, row as u32);
+                        shell.capture_event();
                     } else if terminal.term.lock().mode().contains(TermMode::ALT_SCREEN) {
-                        MouseReporter::report_mouse_wheel_as_arrows(
-                            &terminal,
-                            terminal.size().cell_width,
-                            terminal.size().cell_height,
-                            *delta,
-                        );
+                        terminal.scroll_mouse_as_arrows(*delta);
                         shell.capture_event();
                     } else {
-                        match delta {
-                            ScrollDelta::Lines { x: _, y } => {
-                                //TODO: this adjustment is just a guess!
-                                state.scroll_pixels = 0.0;
-                                let lines = (-y * 6.0) as i32;
-                                if lines != 0 {
-                                    terminal.scroll(TerminalScroll::Delta(-lines));
-                                }
-                                shell.capture_event();
-                            }
+                        let delta_lines = match delta {
+                            ScrollDelta::Lines { x: _, y } => y * WHEEL_SCROLL_LINES_PER_DELTA,
                             ScrollDelta::Pixels { x: _, y } => {
-                                //TODO: this adjustment is just a guess!
-                                state.scroll_pixels -= y * 6.0;
-                                let mut lines = 0;
                                 let metrics = terminal.with_buffer(|buffer| buffer.metrics());
-                                while state.scroll_pixels <= -metrics.line_height {
-                                    lines -= 1;
-                                    state.scroll_pixels += metrics.line_height;
+                                if metrics.line_height > 0.0 {
+                                    y * WHEEL_SCROLL_LINES_PER_DELTA / metrics.line_height
+                                } else {
+                                    0.0
                                 }
-                                while state.scroll_pixels >= metrics.line_height {
-                                    lines += 1;
-                                    state.scroll_pixels -= metrics.line_height;
-                                }
-                                if lines != 0 {
-                                    terminal.scroll(TerminalScroll::Delta(-lines));
-                                }
-                                shell.capture_event();
                             }
+                        };
+                        let lines =
+                            accumulate_scroll_lines(&mut state.wheel_scroll_remainder, delta_lines);
+                        if lines != 0 {
+                            terminal.scroll(TerminalScroll::Delta(lines));
                         }
+                        shell.capture_event();
                     }
                     {
                         let x = p.x - self.padding.left;
@@ -1786,6 +1768,21 @@ enum EdgeScrollDirection {
     Bottom,
 }
 
+fn accumulate_scroll_lines(remainder: &mut f32, delta_lines: f32) -> i32 {
+    if delta_lines == 0.0 {
+        return 0;
+    }
+
+    if *remainder != 0.0 && (*remainder).signum() != delta_lines.signum() {
+        *remainder = 0.0;
+    }
+
+    *remainder += delta_lines;
+    let lines = (*remainder).trunc() as i32;
+    *remainder -= lines as f32;
+    lines
+}
+
 #[allow(clippy::too_many_arguments)]
 fn edge_scroll_adjustment(
     y: f32,
@@ -1936,7 +1933,7 @@ pub struct State {
     click: Option<(ClickKind, Instant)>,
     dragging: Option<Dragging>,
     is_focused: bool,
-    scroll_pixels: f32,
+    wheel_scroll_remainder: f32,
     scrollbar_rect: Cell<Rectangle<f32>>,
     autoscroll: DragAutoscroll,
     preedit: Option<input_method::Preedit>,
@@ -1950,7 +1947,7 @@ impl State {
             click: None,
             dragging: None,
             is_focused: false,
-            scroll_pixels: 0.0,
+            wheel_scroll_remainder: 0.0,
             scrollbar_rect: Cell::new(Rectangle::default()),
             autoscroll: DragAutoscroll::new(AUTOSCROLL_INTERVAL),
             preedit: None,
@@ -2030,11 +2027,30 @@ fn ss3(code: &str, modifiers: u8) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{EdgeScrollDirection, edge_scroll_adjustment};
+    use super::{EdgeScrollDirection, accumulate_scroll_lines, edge_scroll_adjustment};
 
     const BUFFER_HEIGHT: f32 = 200.0;
     const CELL_HEIGHT: f32 = 20.0;
     const MAX_ROW: f32 = 9.0;
+
+    #[test]
+    fn wheel_scroll_accumulates_fractional_lines() {
+        let mut remainder = 0.0;
+
+        assert_eq!(accumulate_scroll_lines(&mut remainder, 0.4), 0);
+        assert!((remainder - 0.4).abs() < f32::EPSILON);
+
+        assert_eq!(accumulate_scroll_lines(&mut remainder, 0.7), 1);
+        assert!((remainder - 0.1).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn wheel_scroll_direction_change_does_not_cancel_new_scroll() {
+        let mut remainder = 0.8;
+
+        assert_eq!(accumulate_scroll_lines(&mut remainder, -1.0), -1);
+        assert_eq!(remainder, 0.0);
+    }
 
     #[test]
     fn edge_scroll_small_top_overshoot_does_not_scroll_immediately() {
