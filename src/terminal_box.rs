@@ -943,7 +943,7 @@ where
                 ..
             }) if state.is_focused && named == modified_named => {
                 for key_bind in self.key_binds.keys() {
-                    if key_bind.matches(*modifiers, &Key::Named(*named), Some(&physical_key)) {
+                    if key_bind.matches(*modifiers, &Key::Named(*named), Some(physical_key)) {
                         shell.capture_event();
                         return;
                     }
@@ -1133,7 +1133,7 @@ where
                 ..
             }) if state.is_focused => {
                 for key_bind in self.key_binds.keys() {
-                    if key_bind.matches(*modifiers, key, Some(&physical_key)) {
+                    if key_bind.matches(*modifiers, key, Some(physical_key)) {
                         shell.capture_event();
 
                         return;
