@@ -21,8 +21,8 @@ use cosmic::{
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, LineEnding, Metrics, Shaping,
-    Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, FeatureTag, FontFeatures,
+    LineEnding, Metrics, Shaping, Weight, Wrap,
 };
 use indexmap::IndexSet;
 use std::{
@@ -54,6 +54,14 @@ pub const MIN_CURSOR_CONTRAST: f64 = 1.5;
 /// Duplicated from you guessed it.
 /// A regex expression can start or end outside the visible screen. Therefore, without this constant, some regular expressions would not match at the top and bottom.
 pub const MAX_SEARCH_LINES: usize = 100;
+
+fn no_ligature_features() -> FontFeatures {
+    let mut features = FontFeatures::new();
+    features.disable(FeatureTag::STANDARD_LIGATURES);
+    features.disable(FeatureTag::CONTEXTUAL_LIGATURES);
+    features.disable(FeatureTag::CONTEXTUAL_ALTERNATES);
+    features
+}
 
 /// https://github.com/alacritty/alacritty/blob/4a7728bf7fac06a35f27f6c4f31e0d9214e5152b/alacritty/src/config/ui_config.rs#L36-L39
 fn url_regex_search() -> RegexSearch {
@@ -261,6 +269,7 @@ pub struct Terminal {
     shell_pid: Option<u32>,
     size: Size,
     use_bright_bold: bool,
+    disable_ligatures: bool,
     zoom_adj: i8,
 }
 
@@ -283,6 +292,7 @@ impl Terminal {
         let dim_font_weight = app_config.dim_font_weight;
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
+        let disable_ligatures = app_config.disable_ligatures;
 
         let metrics = Metrics::new(14.0, 21.0);
 
@@ -294,12 +304,16 @@ impl Terminal {
         let (default_metada_idx, _) = metadata_set.insert_full(default_metada);
 
         //TODO: set color to default fg
-        let default_attrs = Attrs::new()
+        let mut default_attrs = Attrs::new()
             .family(Family::Monospace)
             .weight(Weight(font_weight))
             .stretch(font_stretch)
             .color(default_fg)
             .metadata(default_metada_idx);
+
+        if disable_ligatures {
+            default_attrs = default_attrs.font_features(no_ligature_features());
+        }
 
         let mut buffer = Buffer::new_empty(metrics);
 
@@ -364,6 +378,7 @@ impl Terminal {
             tab_title_override,
             term,
             use_bright_bold,
+            disable_ligatures,
             zoom_adj: Default::default(),
             is_focused: true,
         })
@@ -647,6 +662,16 @@ impl Terminal {
 
         if self.use_bright_bold != config.use_bright_bold {
             self.use_bright_bold = config.use_bright_bold;
+            update_cell_size = true;
+        }
+
+        if self.disable_ligatures != config.disable_ligatures {
+            self.disable_ligatures = config.disable_ligatures;
+            self.default_attrs = if config.disable_ligatures {
+                self.default_attrs.clone().font_features(no_ligature_features())
+            } else {
+                self.default_attrs.clone().font_features(FontFeatures::new())
+            };
             update_cell_size = true;
         }
 
