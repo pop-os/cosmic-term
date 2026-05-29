@@ -186,7 +186,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     // Terminal config setup
-    let term_config = term::Config::default();
+    let term_config = term::Config {
+        scrolling_history: 100_000,
+        ..term::Config::default()
+    };
     // Set up environmental variables for terminal
     tty::setup_env();
     // Override TERM for better compatibility
