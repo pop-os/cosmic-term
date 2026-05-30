@@ -118,6 +118,7 @@ paste = Paste
 select-all = Select all
 find = Find
 clear-scrollback = Clear scrollback
+clear-and-reset = Clear and reset
 
 ## Open
 open-link = Open Link
