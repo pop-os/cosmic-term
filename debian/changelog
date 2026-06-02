@@ -1,3 +1,9 @@
+cosmic-term (1.0.15) noble; urgency=medium
+
+  * Epoch 1.0.15 version update
+
+ -- Jeremy Soller <jeremy@system76.com>  Tue, 02 Jun 2026 11:03:25 -0600
+
 cosmic-term (1.0.14) noble; urgency=medium
 
   * Epoch 1.0.14 version update
