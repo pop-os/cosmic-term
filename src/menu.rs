@@ -18,7 +18,7 @@ use cosmic::{
 };
 use std::{collections::HashMap, sync::LazyLock};
 
-use crate::{Action, AppTheme, ColorSchemeId, ColorSchemeKind, Config, Message, fl};
+use crate::{Action, ColorSchemeId, ColorSchemeKind, Config, Message, fl};
 
 static MENU_ID: LazyLock<cosmic::widget::Id> =
     LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
@@ -206,18 +206,7 @@ pub fn menu_bar<'a>(
 
     //TODO: what to do if there are no profiles?
 
-    // Determine dark/light scheme from in-memory state. 
-    let color_scheme_kind = match config.app_theme {
-        AppTheme::Dark => ColorSchemeKind::Dark,
-        AppTheme::Light => ColorSchemeKind::Light,
-        AppTheme::System => {
-            if core.system_theme().theme_type.is_dark() {
-                ColorSchemeKind::Dark
-            } else {
-                ColorSchemeKind::Light
-            }
-        }
-    };
+    let color_scheme_kind = config.color_scheme_kind(core.system_theme());
 
     responsive_menu_bar()
         .item_height(ItemHeight::Dynamic(40))

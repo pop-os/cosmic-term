@@ -688,11 +688,12 @@ impl App {
         }
 
         // Set config of all tabs
+        let color_scheme_kind = self.config.color_scheme_kind(&theme);
         for (_pane, tab_model) in self.pane_model.panes.iter() {
             for entity in tab_model.iter() {
                 if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
-                    terminal.set_config(&self.config, &self.themes);
+                    terminal.set_config(&self.config, color_scheme_kind, &self.themes);
                 }
             }
         }
@@ -708,6 +709,7 @@ impl App {
         // skip writing config to fs when zoom in/ out
         // recalculate the pane due to the changes of zoom_adj value
         // but only for the active pane/tab
+        let color_scheme_kind = self.config.color_scheme_kind(self.core.system_theme());
         if let Some(tab_model) = self.pane_model.active() {
             for entity in tab_model.iter() {
                 if tab_model.is_active(entity)
@@ -724,7 +726,7 @@ impl App {
                         }
                         _ => {}
                     }
-                    terminal.set_config(&self.config, &self.themes);
+                    terminal.set_config(&self.config, color_scheme_kind, &self.themes);
                 }
             }
         }
@@ -1552,10 +1554,11 @@ impl App {
         self.pane_model.set_focus(pane);
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
+                let color_scheme_kind = self.config.color_scheme_kind(self.core.system_theme());
                 let colors = self
                     .themes
-                    .get(&self.config.syntax_theme(profile_id_opt))
-                    .or_else(|| match self.config.color_scheme_kind() {
+                    .get(&self.config.syntax_theme(color_scheme_kind, profile_id_opt))
+                    .or_else(|| match color_scheme_kind {
                         ColorSchemeKind::Dark => self
                             .themes
                             .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
@@ -1632,7 +1635,11 @@ impl App {
                                 tab_title_override,
                             ) {
                                 Ok(mut terminal) => {
-                                    terminal.set_config(&self.config, &self.themes);
+                                    terminal.set_config(
+                                        &self.config,
+                                        color_scheme_kind,
+                                        &self.themes,
+                                    );
                                     tab_model
                                         .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
                                 }
@@ -1671,7 +1678,7 @@ impl App {
                     None => {
                         log::error!(
                             "failed to find terminal theme {:?}",
-                            self.config.syntax_theme(profile_id_opt)
+                            self.config.syntax_theme(color_scheme_kind, profile_id_opt)
                         );
                         //TODO: fall back to known good theme
                     }

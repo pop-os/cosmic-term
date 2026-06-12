@@ -290,11 +290,17 @@ impl Config {
         }
     }
 
-    pub fn color_scheme_kind(&self) -> ColorSchemeKind {
-        if self.app_theme.theme().theme_type.is_dark() {
-            ColorSchemeKind::Dark
-        } else {
-            ColorSchemeKind::Light
+    pub fn color_scheme_kind(&self, system_theme: &theme::Theme) -> ColorSchemeKind {
+        match self.app_theme {
+            AppTheme::Dark => ColorSchemeKind::Dark,
+            AppTheme::Light => ColorSchemeKind::Light,
+            AppTheme::System => {
+                if system_theme.theme_type.is_dark() {
+                    ColorSchemeKind::Dark
+                } else {
+                    ColorSchemeKind::Light
+                }
+            }
         }
     }
 
@@ -358,8 +364,11 @@ impl Config {
     }
 
     // Get current syntax theme based on dark mode
-    pub fn syntax_theme(&self, profile_id_opt: Option<ProfileId>) -> (String, ColorSchemeKind) {
-        let color_scheme_kind = self.color_scheme_kind();
+    pub fn syntax_theme(
+        &self,
+        color_scheme_kind: ColorSchemeKind,
+        profile_id_opt: Option<ProfileId>,
+    ) -> (String, ColorSchemeKind) {
         let theme_name = match profile_id_opt.and_then(|profile_id| self.profiles.get(&profile_id))
         {
             Some(profile) => match color_scheme_kind {
