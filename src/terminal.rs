@@ -613,6 +613,7 @@ impl Terminal {
     pub fn set_config(
         &mut self,
         config: &AppConfig,
+        color_scheme_kind: ColorSchemeKind,
         themes: &HashMap<(String, ColorSchemeKind), Colors>,
     ) {
         let mut update_cell_size = false;
@@ -655,7 +656,9 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(&config.syntax_theme(self.profile_id_opt)) {
+        if let Some(colors) =
+            themes.get(&config.syntax_theme(color_scheme_kind, self.profile_id_opt))
+        {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {

@@ -206,6 +206,8 @@ pub fn menu_bar<'a>(
 
     //TODO: what to do if there are no profiles?
 
+    let color_scheme_kind = config.color_scheme_kind(core.system_theme());
+
     responsive_menu_bar()
         .item_height(ItemHeight::Dynamic(40))
         .item_width(ItemWidth::Uniform(320))
@@ -267,7 +269,7 @@ pub fn menu_bar<'a>(
                         MenuItem::Button(
                             fl!("menu-color-schemes"),
                             None,
-                            Action::ColorSchemes(config.color_scheme_kind()),
+                            Action::ColorSchemes(color_scheme_kind),
                         ),
                         MenuItem::Button(
                             fl!("menu-keyboard-shortcuts"),
