@@ -3066,7 +3066,7 @@ impl Application for App {
                             && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
                         {
                             let terminal = terminal.lock().unwrap();
-                            let rgb = terminal.colors()[index].unwrap_or_default();
+                            let rgb = terminal.effective_color(index);
                             let text = f(rgb);
                             terminal.input_no_scroll(text.into_bytes());
                         }

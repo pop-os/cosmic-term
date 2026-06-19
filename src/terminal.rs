@@ -386,6 +386,19 @@ impl Terminal {
         &self.colors
     }
 
+    pub fn effective_color(&self, index: usize) -> Rgb {
+        if index == NamedColor::Background as usize {
+            self.colors[index].unwrap_or_else(|| {
+                // Allow using an unset background
+                let [r, g, b, _] =
+                    cosmic_text::Color(WINDOW_BG_COLOR.load(Ordering::SeqCst)).as_rgba();
+                Rgb { r, g, b }
+            })
+        } else {
+            self.colors[index].unwrap_or_default()
+        }
+    }
+
     pub fn default_attrs(&self) -> &Attrs<'static> {
         &self.default_attrs
     }
