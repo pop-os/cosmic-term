@@ -190,7 +190,7 @@ impl TerminalPaneGrid {
             let entity = tab_model.active();
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
-                terminal.is_focused = self.focus == *pane;
+                terminal.set_focused(self.focus == *pane);
                 terminal.update();
             }
         }
@@ -200,7 +200,7 @@ impl TerminalPaneGrid {
             let entity = tab_model.active();
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
-                terminal.is_focused = false;
+                terminal.set_focused(false);
                 terminal.update();
             }
         }
@@ -400,6 +400,22 @@ impl Terminal {
 
     pub fn set_zoom_adj(&mut self, value: i8) {
         self.zoom_adj = value;
+    }
+
+    fn set_focused(&mut self, is_focused: bool) {
+        let focus_changed = self.is_focused != is_focused;
+        self.is_focused = is_focused;
+
+        if focus_changed {
+            let report_focus = self.term.lock().mode().contains(TermMode::FOCUS_IN_OUT);
+            if report_focus {
+                const FOCUS_IN: &[u8] = b"\x1b[I";
+                const FOCUS_OUT: &[u8] = b"\x1b[O";
+
+                let input = if is_focused { FOCUS_IN } else { FOCUS_OUT };
+                self.input_no_scroll(input);
+            }
+        }
     }
 
     pub fn redraw(&self) -> bool {
