@@ -147,5 +147,5 @@ tab-activate = { $number }. lap aktiválása
 toggle-fullscreen = Teljes képernyő váltása
 type-to-search = Gépelj a kereséshez…
 copy-link = Hivatkozás másolása
-tab-new-inherit-working-directory = Az új lapok az aktuális könyvtárat használják
-tab-new-inherit-working-directory-description = Az új lapok az aktív lap munkakönyvtárában nyílnak meg
+tab-new-inherit-working-directory = Az új lapok és ablakok az aktuális könyvtárat használják
+tab-new-inherit-working-directory-description = Az új lapok és ablakok az aktív lap munkakönyvtárában nyílnak meg

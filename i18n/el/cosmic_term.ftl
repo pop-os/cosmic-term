@@ -150,5 +150,5 @@ paste-primary = Πρωτεύουσα επικόλληση
 shortcut-group-other = Άλλες
 shortcut-group-zoom = Ζουμ
 shortcut-replace-body = Ο συνδυασμός { $binding } έχει ήδη αντιστοιχιστεί στην ενέργεια «{ $existing }». Θέλετε να αντικατασταθεί με την ενέργεια «{ $new_action }»;
-tab-new-inherit-working-directory = Οι νέες καρτέλες χρησιμοποιούν τον τρέχοντα κατάλογο
-tab-new-inherit-working-directory-description = Άνοιγμα νέων καρτελών στον τρέχοντα κατάλογο της ενεργής καρτέλας
+tab-new-inherit-working-directory = Οι νέες καρτέλες και παράθυρα χρησιμοποιούν τον τρέχοντα κατάλογο
+tab-new-inherit-working-directory-description = Άνοιγμα νέων καρτελών και παραθύρων στον τρέχοντα κατάλογο της ενεργής καρτέλας

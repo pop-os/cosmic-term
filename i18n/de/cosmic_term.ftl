@@ -147,5 +147,5 @@ paste-primary = Primär einfügen
 add-another-keybinding = Weitere Tastenbelegung hinzufügen
 shortcut-replace-body = { $binding } ist bereits { $existing } zugeordnet. Durch { $new_action } ersetzen?
 keywords = Befehl;Shell;Terminal;CLI;
-tab-new-inherit-working-directory = Neue Tabs verwenden das aktuelle Verzeichnis
-tab-new-inherit-working-directory-description = Neue Tabs im Arbeitsverzeichnis des aktiven Tabs öffnen
+tab-new-inherit-working-directory = Neue Tabs und Fenster verwenden das aktuelle Verzeichnis
+tab-new-inherit-working-directory-description = Neue Tabs und Fenster im Arbeitsverzeichnis des aktiven Tabs öffnen
