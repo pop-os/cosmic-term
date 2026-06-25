@@ -147,5 +147,5 @@ reset-to-default = Rétablir les paramètres par défaut
 toggle-fullscreen = Basculer en plein écran
 comment = Émulateur de terminal pour le bureau COSMIC
 keywords = Commande;Shell;Terminal;CLI;
-tab-new-inherit-working-directory = Les nouveaux onglets utilisent le répertoire actuel
-tab-new-inherit-working-directory-description = Ouvrir les nouveaux onglets dans le répertoire de travail de l'onglet actif
+tab-new-inherit-working-directory = Les nouveaux onglets et fenêtres utilisent le répertoire actuel
+tab-new-inherit-working-directory-description = Ouvrir les nouveaux onglets et fenêtres dans le répertoire de travail de l'onglet actif

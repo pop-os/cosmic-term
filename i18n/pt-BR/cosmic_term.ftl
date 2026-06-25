@@ -147,5 +147,5 @@ tab-activate = Ativar aba { $number }
 toggle-fullscreen = Alternar para tela cheia
 type-to-search = Digite para pesquisar...
 copy-link = Copiar link
-tab-new-inherit-working-directory = Novas abas usam o diretório atual
-tab-new-inherit-working-directory-description = Abrir novas abas no diretório de trabalho da aba ativa
+tab-new-inherit-working-directory = Novas abas e janelas usam o diretório atual
+tab-new-inherit-working-directory-description = Abrir novas abas e janelas no diretório de trabalho da aba ativa

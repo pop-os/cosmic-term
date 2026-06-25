@@ -147,5 +147,5 @@ copy-link = 複製連結
 shortcut-replace-body = { $binding } 已經分配至 { $existing }。 要取代它為 { $new_action }?
 clear-scrollback = 清除捲動回朔
 comment = COSMIC 桌面終端機模擬器
-tab-new-inherit-working-directory = 新分頁使用目前目錄
-tab-new-inherit-working-directory-description = 在作用中分頁的工作目錄開啟新分頁
+tab-new-inherit-working-directory = 新分頁和視窗使用目前目錄
+tab-new-inherit-working-directory-description = 在作用中分頁的工作目錄開啟新分頁和視窗

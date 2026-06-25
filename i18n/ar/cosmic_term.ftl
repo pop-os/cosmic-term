@@ -145,5 +145,5 @@ tab-activate = نشّط لسان { $number }
 toggle-fullscreen = بدّل ملء الشاشة
 type-to-search = اكتب للبحث...
 copy-link = انسخ الرابط
-tab-new-inherit-working-directory = الألسنة الجديدة تستخدم المجلد الحالي
-tab-new-inherit-working-directory-description = افتح ألسنة جديدة في مجلد العمل الخاص باللسان النشط
+tab-new-inherit-working-directory = الألسنة الجديدة والنوافذ تستخدم المجلد الحالي
+tab-new-inherit-working-directory-description = افتح الألسنة الجديدة والنوافذ في مجلد العمل الخاص باللسان النشط
