@@ -1,7 +1,13 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
+use alacritty_terminal::{
+    event::Event as TermEvent,
+    grid::{Dimensions, GridCell},
+    index::Line,
+    term::{self, color::Colors as TermColors},
+    tty,
+};
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::iced::core::keyboard::key::Named;
 use cosmic::iced::keyboard::key::Physical;
@@ -242,6 +248,7 @@ pub struct Flags {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Action {
     About,
+    ClearBuffer,
     ClearScrollback,
     ColorSchemes(ColorSchemeKind),
     Copy,
@@ -293,6 +300,7 @@ impl Action {
     fn message(&self, entity_opt: Option<segmented_button::Entity>) -> Message {
         match self {
             Self::About => Message::ToggleContextPage(ContextPage::About),
+            Self::ClearBuffer => Message::ClearBuffer(entity_opt),
             Self::ClearScrollback => Message::ClearScrollback(entity_opt),
             Self::ColorSchemes(color_scheme_kind) => {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
@@ -356,6 +364,7 @@ impl MenuAction for Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
+    ClearBuffer(Option<segmented_button::Entity>),
     ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
@@ -1972,6 +1981,38 @@ impl Application for App {
             Message::AppTheme(app_theme) => {
                 config_set!(app_theme, app_theme);
                 return self.update_config();
+            }
+            Message::ClearBuffer(entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        let mut term = terminal.term.lock();
+                        let grid = term.grid_mut();
+                        let point = grid.cursor.point;
+                        let mut line = point.line;
+                        // Include any wrapped lines above the cursor.
+                        while line > grid.topmost_line()
+                            && grid[line - Line(1)]
+                                .last()
+                                .is_some_and(|c| c.flags().contains(term::cell::Flags::WRAPLINE))
+                        {
+                            line -= 1;
+                        }
+                        let saved_rows: Vec<_> = (line.0..=grid.cursor.point.line.0)
+                            .map(|i| grid[Line(i)].clone())
+                            .collect();
+                        grid.reset();
+                        let new_line = saved_rows.len() - 1;
+                        for (i, row) in saved_rows.into_iter().enumerate() {
+                            grid[Line(i as i32)] = row;
+                        }
+                        grid.cursor.point.line = Line(new_line as i32);
+                        grid.cursor.point.column = point.column;
+                        drop(term);
+                        terminal.needs_update = true;
+                    }
+                }
             }
             Message::ClearScrollback(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
