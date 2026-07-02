@@ -87,7 +87,7 @@ new-window = Νέο παράθυρο
 profile = Προφίλ
 menu-profiles = Προφίλ...
 close-tab = Κλείσιμο καρτέλας
-quit = Έξοδος
+quit = Τερματισμός
 
 ## Edit
 
