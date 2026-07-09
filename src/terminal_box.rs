@@ -429,7 +429,6 @@ where
             // Pane too small for content, but still fill background
             let terminal = self.terminal.lock().unwrap();
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
-            let background_color = shade(meta.bg, state.is_focused && !self.disabled);
             renderer.fill_quad(
                 Quad {
                     bounds: layout.bounds(),
@@ -446,12 +445,12 @@ where
                     ..Default::default()
                 },
                 Color::from_rgba(
-                    f32::from(background_color.r()) / 255.0,
-                    f32::from(background_color.g()) / 255.0,
-                    f32::from(background_color.b()) / 255.0,
+                    f32::from(meta.bg.r()) / 255.0,
+                    f32::from(meta.bg.g()) / 255.0,
+                    f32::from(meta.bg.b()) / 255.0,
                     match self.opacity {
                         Some(opacity) => opacity,
-                        None => f32::from(background_color.a()) / 255.0,
+                        None => f32::from(meta.bg.a()) / 255.0,
                     },
                 ),
             );
@@ -472,8 +471,6 @@ where
         // Render default background
         {
             let meta = &terminal.metadata_set[terminal.default_attrs().metadata];
-            let background_color = shade(meta.bg, state.is_focused && !self.disabled);
-
             renderer.fill_quad(
                 Quad {
                     bounds: layout.bounds(),
@@ -490,12 +487,12 @@ where
                     ..Default::default()
                 },
                 Color::from_rgba(
-                    f32::from(background_color.r()) / 255.0,
-                    f32::from(background_color.g()) / 255.0,
-                    f32::from(background_color.b()) / 255.0,
+                    f32::from(meta.bg.r()) / 255.0,
+                    f32::from(meta.bg.g()) / 255.0,
+                    f32::from(meta.bg.b()) / 255.0,
                     match self.opacity {
                         Some(opacity) => opacity,
-                        None => f32::from(background_color.a()) / 255.0,
+                        None => f32::from(meta.bg.a()) / 255.0,
                     },
                 ),
             );
@@ -574,10 +571,9 @@ where
 
                         let metadata = &self.metadata_set[self.metadata];
                         if metadata.bg != self.metadata_set[self.default_metadata].bg {
-                            let color = shade(metadata.bg, is_focused);
                             renderer.fill_quad(
                                 mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
-                                cosmic_text_to_iced_color(color),
+                                cosmic_text_to_iced_color(metadata.bg),
                             );
                         }
 
@@ -1752,20 +1748,6 @@ fn accumulate_wheel_lines(y: f32, accumulator: f32) -> (i32, f32) {
     let total = accumulator + y * SCROLL_LINE_MULTIPLIER;
     let lines = total.trunc() as i32;
     (lines, total - lines as f32)
-}
-
-fn shade(color: cosmic_text::Color, is_focused: bool) -> cosmic_text::Color {
-    if is_focused {
-        color
-    } else {
-        let shade = 0.92;
-        cosmic_text::Color::rgba(
-            (f32::from(color.r()) * shade) as u8,
-            (f32::from(color.g()) * shade) as u8,
-            (f32::from(color.b()) * shade) as u8,
-            color.a(),
-        )
-    }
 }
 
 impl<'a, Message> From<TerminalBox<'a, Message>> for Element<'a, Message, cosmic::Theme, Renderer>
