@@ -2582,7 +2582,8 @@ impl Application for App {
             }
             Message::PaneClicked(pane) => {
                 self.pane_model.set_focus(pane);
-                return self.update_title(Some(pane));
+                let title_task = self.update_title(Some(pane));
+                return Task::batch([self.update_focus(), title_task]);
             }
             Message::PaneSplit(axis) => {
                 let result = self.pane_model.panes.split(
