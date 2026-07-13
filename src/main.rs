@@ -1675,6 +1675,43 @@ impl App {
         terminal.working_directory()
     }
 
+    /// Default hex color when the user switches to a custom cursor color.
+    /// Seeds from the active color scheme rather than a hardcoded value.
+    fn default_custom_cursor_hex(&self) -> HexColor {
+        // Prefer the focused terminal's palette (may differ from the global scheme).
+        if let Some(tab_model) = self.pane_model.active() {
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let terminal = terminal.lock().unwrap();
+                if let Some(hex) = cursor::scheme_cursor_hex(terminal.colors()) {
+                    return hex;
+                }
+                // Fall back to the live terminal state (e.g. OSC color overrides).
+                let term = terminal.term.lock();
+                if let Some(hex) = cursor::scheme_cursor_hex(term.colors()) {
+                    return hex;
+                }
+            }
+        }
+
+        // No open terminal: use the configured syntax theme.
+        let color_scheme_kind = self.config.color_scheme_kind(self.core.system_theme());
+        let scheme_key = self.config.syntax_theme(color_scheme_kind, None);
+        if let Some(colors) = self.themes.get(&scheme_key)
+            && let Some(hex) = cursor::scheme_cursor_hex(colors)
+        {
+            return hex;
+        }
+
+        // Last resort: built-in COSMIC dark/light themes always define a cursor color.
+        let fallback_colors = match color_scheme_kind {
+            ColorSchemeKind::Dark => terminal_theme::cosmic_dark(),
+            ColorSchemeKind::Light => terminal_theme::cosmic_light(),
+        };
+        cursor::scheme_cursor_hex(&fallback_colors)
+            .expect("builtin color scheme defines a cursor color")
+    }
+
     fn create_and_focus_new_terminal(
         &mut self,
         pane: pane_grid::Pane,
@@ -1972,11 +2009,20 @@ impl Application for App {
             fl!("cursor-blink-never"),
         ];
 
+        let color_scheme_kind = flags.config.color_scheme_kind(core.system_theme());
+        let fallback_colors = match color_scheme_kind {
+            ColorSchemeKind::Dark => terminal_theme::cosmic_dark(),
+            ColorSchemeKind::Light => terminal_theme::cosmic_light(),
+        };
         let cursor_color_custom_input = flags
             .config
             .cursor_color_custom
             .map(|hex| hex.display_rgb().to_string())
-            .unwrap_or_else(|| "#ffffff".to_string());
+            .unwrap_or_else(|| {
+                cursor::scheme_cursor_hex(&fallback_colors)
+                    .map(|hex| hex.display_rgb().to_string())
+                    .unwrap_or_default()
+            });
 
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
@@ -2350,7 +2396,9 @@ impl Application for App {
                         .config
                         .cursor_color_custom
                         .map(|hex| hex.display_rgb().to_string())
-                        .unwrap_or_else(|| "#ffffff".to_string());
+                        .unwrap_or_else(|| {
+                            self.default_custom_cursor_hex().display_rgb().to_string()
+                        });
                     if shortcuts_changed {
                         self.shortcuts_config =
                             shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
@@ -2773,7 +2821,7 @@ impl Application for App {
                 config_set!(cursor_color_source, source);
                 if source == CursorColorSource::Custom && self.config.cursor_color_custom.is_none()
                 {
-                    let hex = HexColor::rgb(255, 255, 255);
+                    let hex = self.default_custom_cursor_hex();
                     config_set!(cursor_color_custom, Some(hex));
                     self.cursor_color_custom_input = hex.display_rgb().to_string();
                 }
