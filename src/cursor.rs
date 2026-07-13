@@ -2,8 +2,9 @@
 
 use alacritty_terminal::{
     term::color::Colors,
-    vte::ansi::{CursorShape, Rgb},
+    vte::ansi::{CursorShape, NamedColor, Rgb},
 };
+use hex_color::HexColor;
 
 use crate::config::{Config, CursorBlinkSetting, CursorColorSource, CursorStyleSetting};
 
@@ -74,6 +75,13 @@ pub fn should_blink(settings: &CursorSettings, is_focused: bool, terminal_blinki
         CursorBlinkSetting::Always => true,
         CursorBlinkSetting::RespectTerminal => terminal_blinking,
     }
+}
+
+/// Default custom cursor color seeded from the active color scheme.
+pub fn scheme_cursor_hex(colors: &Colors) -> Option<HexColor> {
+    colors[NamedColor::Cursor]
+        .or_else(|| colors[NamedColor::Foreground])
+        .map(|rgb| HexColor::rgb(rgb.r, rgb.g, rgb.b))
 }
 
 pub fn effective_cursor_rgb(settings: &CursorSettings, colors: &Colors) -> Option<Rgb> {
