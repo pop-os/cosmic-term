@@ -328,6 +328,8 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
             KeyBindAction::TabClose,
             KeyBindAction::TabNext,
             KeyBindAction::TabPrev,
+            KeyBindAction::TabMoveLeft,
+            KeyBindAction::TabMoveRight,
             KeyBindAction::TabActivate0,
             KeyBindAction::TabActivate1,
             KeyBindAction::TabActivate2,
