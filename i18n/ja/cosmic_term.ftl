@@ -45,6 +45,27 @@ syntax-dark = 構文強調 ダーク
 syntax-light = 構文強調 ライト
 default-zoom-step = ズームステップ
 opacity = 透明度
+cursor = カーソル
+cursor-color = カーソルの色
+cursor-color-scheme = カラースキームを使用
+cursor-color-custom = カスタム色
+cursor-color-custom-description = 16進色（例: #ff0000）
+cursor-style = カーソルスタイル
+cursor-style-follow-terminal = ターミナルに従う
+cursor-style-block = ブロック
+cursor-style-beam = ビーム
+cursor-style-underline = 下線
+cursor-style-hollow-block = 中空ブロック
+cursor-unfocused-style = 非フォーカス時のカーソルスタイル
+cursor-blink = カーソルの点滅
+cursor-blink-respect-terminal = ターミナルに従う
+cursor-blink-always = 常に点滅
+cursor-blink-never = 点滅しない
+cursor-blink-interval = 点滅間隔
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } ミリ秒
+   *[other] { $ms } ミリ秒
+}
 
 ### Font
 

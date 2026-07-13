@@ -45,7 +45,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{Action, Terminal, TerminalScroll, menu::MenuState, terminal::Metadata};
+use crate::{
+    Action, Terminal, TerminalScroll, cursor::effective_shape, menu::MenuState, terminal::Metadata,
+};
 
 const AUTOSCROLL_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -518,12 +520,11 @@ where
                         &mut self,
                         glyph: &LayoutGlyph,
                         renderer: &mut Renderer,
-                        is_focused: bool,
                     ) {
                         if glyph.metadata == self.metadata {
                             self.end_x = glyph.x + glyph.w;
                         } else {
-                            self.fill(renderer, is_focused);
+                            self.fill(renderer);
                             self.metadata = glyph.metadata;
                             self.glyph_font_size = glyph.font_size;
                             self.start_x = glyph.x;
@@ -531,11 +532,7 @@ where
                         }
                     }
 
-                    fn fill<Renderer: renderer::Renderer>(
-                        &mut self,
-                        renderer: &mut Renderer,
-                        is_focused: bool,
-                    ) {
+                    fn fill<Renderer: renderer::Renderer>(&mut self, renderer: &mut Renderer) {
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::from_rgba(
                                 f32::from(color.r()) / 255.0,
@@ -704,9 +701,9 @@ where
                     metadata_set,
                 };
                 for glyph in run.glyphs {
-                    bg_rect.update(glyph, renderer, state.is_focused);
+                    bg_rect.update(glyph, renderer);
                 }
-                bg_rect.fill(renderer, state.is_focused);
+                bg_rect.fill(renderer);
             }
         });
 
@@ -798,21 +795,29 @@ where
             let cursor = term.renderable_content().cursor;
             drop(term);
 
-            // Skip drawing cursor when scrolled - the cursor is below the visible viewport
-            if display_offset > 0 {
-                // Cursor is off-screen when scrolled up
-            } else {
+            let cursor_settings = terminal.cursor_settings();
+            let is_focused = terminal.is_focused();
+            let effective = effective_shape(&cursor_settings, is_focused, cursor.shape);
+
+            if display_offset == 0
+                && effective != CursorShape::Hidden
+                && terminal.cursor_blink_visible
+            {
                 let col = cursor.point.column.0;
                 let line = cursor.point.line.0;
-                let color = terminal.term.lock().colors()[NamedColor::Cursor]
-                    .or(terminal.colors()[NamedColor::Cursor])
+                let color = terminal.colors()[NamedColor::Cursor]
+                    .or_else(|| terminal.term.lock().colors()[NamedColor::Cursor])
                     .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
-                    .unwrap_or(Color::WHITE); // TODO default color from theme?
+                    .or_else(|| {
+                        terminal.colors()[NamedColor::Foreground]
+                            .map(|rgb| Color::from_rgb8(rgb.r, rgb.g, rgb.b))
+                    })
+                    .unwrap_or(Color::WHITE);
                 let width = terminal.size().cell_width;
                 let height = terminal.size().cell_height;
                 let top_left = view_position
                     + Vector::new((col as f32 * width).floor(), (line as f32 * height).floor());
-                match cursor.shape {
+                match effective {
                     CursorShape::Beam => {
                         let quad = Quad {
                             bounds: Rectangle::new(top_left, Size::new(1.0, height)),
@@ -834,7 +839,7 @@ where
                         };
                         renderer.fill_quad(quad, color);
                     }
-                    CursorShape::Block if !state.is_focused => {
+                    CursorShape::Block if !is_focused => {
                         let quad = Quad {
                             bounds: Rectangle::new(top_left, Size::new(width, height)),
                             border: Border {
@@ -858,7 +863,7 @@ where
                         };
                         renderer.fill_quad(quad, Color::TRANSPARENT);
                     }
-                    CursorShape::Block | CursorShape::Hidden => {} // Block is handled seperately
+                    CursorShape::Block | CursorShape::Hidden => {} // Block is handled separately
                 }
             }
         }

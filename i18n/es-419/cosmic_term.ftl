@@ -45,6 +45,27 @@ syntax-dark = Esquema de color oscuro
 syntax-light = Esquema de color claro
 default-zoom-step = Granularidad de ampliación
 opacity = Opacidad de fondo
+cursor = Cursor
+cursor-color = Color del cursor
+cursor-color-scheme = Usar esquema de color
+cursor-color-custom = Color personalizado
+cursor-color-custom-description = Color hexadecimal (p. ej. #ff0000)
+cursor-style = Estilo del cursor
+cursor-style-follow-terminal = Seguir la terminal
+cursor-style-block = Bloque
+cursor-style-beam = Barra
+cursor-style-underline = Subrayado
+cursor-style-hollow-block = Bloque hueco
+cursor-unfocused-style = Estilo del cursor sin foco
+cursor-blink = Parpadeo del cursor
+cursor-blink-respect-terminal = Seguir la terminal
+cursor-blink-always = Parpadear siempre
+cursor-blink-never = No parpadear nunca
+cursor-blink-interval = Intervalo de parpadeo
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } milisegundo
+   *[other] { $ms } milisegundos
+}
 
 ### Font
 

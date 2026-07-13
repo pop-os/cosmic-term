@@ -38,6 +38,27 @@ remain-open = 자식 프로세스 종료 후 열린 상태를 유지합니다.
 menu-color-schemes = 색 구성표...
 working-directory = 작업 디렉터리
 opacity = 배경 투명도
+cursor = 커서
+cursor-color = 커서 색상
+cursor-color-scheme = 색 구성표 사용
+cursor-color-custom = 사용자 지정 색상
+cursor-color-custom-description = 16진수 색상(예: #ff0000)
+cursor-style = 커서 스타일
+cursor-style-follow-terminal = 터미널 따르기
+cursor-style-block = 블록
+cursor-style-beam = 막대
+cursor-style-underline = 밑줄
+cursor-style-hollow-block = 빈 블록
+cursor-unfocused-style = 포커스 없을 때 커서 스타일
+cursor-blink = 커서 깜빡임
+cursor-blink-respect-terminal = 터미널 따르기
+cursor-blink-always = 항상 깜빡임
+cursor-blink-never = 깜빡이지 않음
+cursor-blink-interval = 깜빡임 간격
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } 밀리초
+   *[other] { $ms } 밀리초
+}
 tab-title = 탭 제목
 zoom-reset = 기본 텍스트 크기
 passwords-title = 암호

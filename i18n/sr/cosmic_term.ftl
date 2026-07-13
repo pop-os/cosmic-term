@@ -33,6 +33,27 @@ menu-color-schemes = Шеме боја...
 working-directory = Радни директоријум
 profiles = Профили
 opacity = Непровидност позадине
+cursor = Cursor
+cursor-color = Cursor color
+cursor-color-scheme = Use color scheme
+cursor-color-custom = Custom color
+cursor-color-custom-description = Hex color (e.g. #ff0000)
+cursor-style = Cursor style
+cursor-style-follow-terminal = Follow terminal
+cursor-style-block = Block
+cursor-style-beam = Beam
+cursor-style-underline = Underline
+cursor-style-hollow-block = Hollow block
+cursor-unfocused-style = Unfocused cursor style
+cursor-blink = Cursor blink
+cursor-blink-respect-terminal = Respect terminal
+cursor-blink-always = Always blink
+cursor-blink-never = Never blink
+cursor-blink-interval = Blink interval
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } millisecond
+   *[other] { $ms } milliseconds
+}
 tab-title = Наслов језичка
 zoom-reset = Подразумевана величина текста
 rename = Преименуј
