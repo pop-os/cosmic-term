@@ -45,6 +45,27 @@ syntax-dark = Donker kleurenpalet
 syntax-light = Licht kleurenpalet
 default-zoom-step = Zoomstappen
 opacity = Achtergronddoorzichtigheid
+cursor = Cursor
+cursor-color = Cursorkleur
+cursor-color-scheme = Kleurenschema gebruiken
+cursor-color-custom = Aangepaste kleur
+cursor-color-custom-description = Hex-kleur (bijv. #ff0000)
+cursor-style = Cursorstijl
+cursor-style-follow-terminal = Terminal volgen
+cursor-style-block = Blok
+cursor-style-beam = Balk
+cursor-style-underline = Onderstrepen
+cursor-style-hollow-block = Hol blok
+cursor-unfocused-style = Cursorstijl zonder focus
+cursor-blink = Cursor knippert
+cursor-blink-respect-terminal = Terminal volgen
+cursor-blink-always = Altijd knipperen
+cursor-blink-never = Nooit knipperen
+cursor-blink-interval = Knipperinterval
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } milliseconde
+   *[other] { $ms } milliseconden
+}
 
 ### Font
 

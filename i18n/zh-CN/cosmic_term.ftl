@@ -45,6 +45,27 @@ syntax-dark = 暗色模式
 syntax-light = 亮色模式
 default-zoom-step = 缩放步长
 opacity = 背景不透明度
+cursor = 光标
+cursor-color = 光标颜色
+cursor-color-scheme = 使用配色方案
+cursor-color-custom = 自定义颜色
+cursor-color-custom-description = 十六进制颜色（例如 #ff0000）
+cursor-style = 光标样式
+cursor-style-follow-terminal = 跟随终端
+cursor-style-block = 方块
+cursor-style-beam = 竖线
+cursor-style-underline = 下划线
+cursor-style-hollow-block = 空心方块
+cursor-unfocused-style = 未聚焦光标样式
+cursor-blink = 光标闪烁
+cursor-blink-respect-terminal = 跟随终端
+cursor-blink-always = 始终闪烁
+cursor-blink-never = 从不闪烁
+cursor-blink-interval = 闪烁间隔
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } 毫秒
+   *[other] { $ms } 毫秒
+}
 
 ### Font
 
