@@ -73,14 +73,40 @@ password_manager = ["secret-service", "thiserror", "secstr"]
 inherits = "release"
 debug = true
 
-# [patch.'https://github.com/pop-os/libcosmic']
-# libcosmic = { path = "../libcosmic" }
-# cosmic-config = { path = "../libcosmic/cosmic-config" }
-# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
-# iced_futures = { path = "../libcosmic/iced/futures" }
-# iced_winit = { path = "../libcosmic/iced/winit" }
-# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
-# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
-# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
-# iced_futures = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
-# iced_winit = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+
+[patch.'https://github.com/pop-os/libcosmic']
+iced = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_futures = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_core = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_runtime = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_renderer = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_widget = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_accessibility = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_tiny_skia = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_winit = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+iced_wgpu = { git = "https://github.com/pop-os/iced", branch = "wayland-rs" }
+# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "wayland-rs" }
+# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "wayland-rs" }
+
+[patch.crates-io]
+wayland-sys = { git = "https://github.com/smithay/wayland-rs" }
+wayland-backend = { git = "https://github.com/smithay/wayland-rs" }
+wayland-server = { git = "https://github.com/smithay/wayland-rs" }
+wayland-scanner = { git = "https://github.com/smithay/wayland-rs" }
+wayland-client = { git = "https://github.com/smithay/wayland-rs" }
+wayland-protocols = { git = "https://github.com/smithay/wayland-rs" }
+wayland-protocols-wlr = { git = "https://github.com/smithay/wayland-rs" }
+wayland-cursor = { git = "https://github.com/smithay/wayland-rs" }
+smithay-client-toolkit = { git = "https://github.com/ids1024/client-toolkit", branch = "wayland-update" }
+sctk-adwaita = { git = "https://github.com/ids1024/sctk-adwaita", branch = "dispatch2" }
+
+[patch."https://github.com/pop-os/winit.git"]
+winit = { git = "https://github.com/ids1024/winit", branch = "dispatch2-cosmic" }
+winit-core = { git = "https://github.com/ids1024/winit", branch = "dispatch2-cosmic" }
+
+[patch."https://github.com/pop-os/smithay-clipboard"]
+smithay-clipboard = { git = "https://github.com/ids1024/smithay-clipboard", branch = "wayland-rs-update-pop" }
+
+[patch."https://github.com/pop-os/cosmic-protocols"]
+cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols//", branch = "wayland-rs" }
+cosmic-client-toolkit = { git = "https://github.com/pop-os/cosmic-protocols//", branch = "wayland-rs" }
