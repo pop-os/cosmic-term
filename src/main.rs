@@ -904,7 +904,7 @@ impl App {
             };
             self.set_header_title(header_title);
             Task::batch([
-                if let Some(window_id) = self.core.window_id() {
+                if let Some(window_id) = self.core.main_window_id() {
                     self.set_window_title(window_title, window_id)
                 } else {
                     Task::none()
@@ -1616,22 +1616,19 @@ impl App {
             .add(
                 widget::settings::item::builder(fl!("dropdown-height"))
                     .control(widget::row::with_children(vec![
-                        widget::slider(100..=1000, self.config.dropdown_height, |value| {
+                        // under 300, we the resize-slider is hard to access in spacious mode, so that should be the lower bound
+                        widget::slider(300..=1300, self.config.dropdown_height, |value| {
                             Message::DropdownHeight(value)
                         })
                         .width(Length::Fill)
                         .into(),
                         widget::text(format!("{}px", self.config.dropdown_height))
-                            .size(14)
                             .width(Length::Shrink)
                             .into(),
                     ])),
             );
 
-        let in_dropdown = matches!(self.mode, TerminalMode::DropDown { .. });
-
-        if in_dropdown {
-            // In drop-down mode, put the header toggle in the dropdown section
+        if matches!(self.mode, TerminalMode::DropDown { .. }) {
             dropdown_section = dropdown_section.add(
                 widget::settings::item::builder(fl!("show-headerbar-dropdown"))
                     .toggler(
@@ -1642,19 +1639,14 @@ impl App {
         }
 
         let mut advanced_section = widget::settings::section().title(fl!("advanced"));
-
-        if !in_dropdown {
-            // In normal mode, show the regular header toggle in advanced
+        if !matches!(self.mode, TerminalMode::DropDown { .. }) {
             advanced_section = advanced_section.add(
                 widget::settings::item::builder(fl!("show-headerbar"))
-                    .description(fl!("show-header-description"))
                     .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
             );
         }
-
         advanced_section = advanced_section.add(
             widget::settings::item::builder(fl!("tab-new-inherit-working-directory"))
-                .description(fl!("tab-new-inherit-working-directory-description"))
                 .toggler(
                     self.config.tab_new_inherit_working_directory,
                     Message::TabNewInheritWorkingDirectory,
@@ -1662,10 +1654,11 @@ impl App {
         );
 
         widget::settings::view_column(vec![
+            // dropdown section is first, as we don't want to resize away the resize-slider
+            dropdown_section.into(),
             appearance_section.into(),
             font_section.into(),
             splits_section.into(),
-            dropdown_section.into(),
             advanced_section.into(),
         ])
         .into()
