@@ -1594,7 +1594,7 @@ impl App {
             .add(
                 widget::text(format!("{}px", self.config.dropdown_height))
                     .size(14)
-                    .class(cosmic::style::Text::Color(cosmic::iced_core::Color::from(
+                    .class(cosmic::style::Text::Color(Color::from(
                         [0.5, 0.5, 0.5],
                     ))),
             );
@@ -3614,7 +3614,13 @@ impl Application for App {
             && window_id == popup_id
         {
             return widget::autosize::autosize(
-                menu::context_menu(&self.config, &self.key_binds, entity, link.clone()),
+                menu::context_menu(
+                    &self.config,
+                    &self.key_binds,
+                    entity,
+                    link.clone(),
+                    matches!(self.mode, TerminalMode::DropDown { .. }),
+                ),
                 autosize_id.clone(),
             )
             .into();
@@ -3914,24 +3920,29 @@ impl Application for App {
 
         // Only subscribe to SIGUSR1 signal in drop-down mode
         if matches!(self.mode, TerminalMode::DropDown { .. }) {
-            subscriptions.push(Subscription::run_with_id(
+            subscriptions.push(Subscription::run_with(
                 TypeId::of::<DropDownSignalSubscription>(),
-                stream::channel(1, |mut output| async move {
-                    let mut signal_stream = match tokio::signal::unix::signal(
-                        tokio::signal::unix::SignalKind::user_defined1()
-                    ) {
-                        Ok(stream) => stream,
-                        Err(e) => {
-                            log::error!("Failed to create signal stream: {}", e);
-                            return;
-                        }
-                    };
+                |_| {
+                    stream::channel(
+                        1,
+                        |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                            let mut signal_stream = match tokio::signal::unix::signal(
+                                tokio::signal::unix::SignalKind::user_defined1()
+                            ) {
+                                Ok(stream) => stream,
+                                Err(e) => {
+                                    log::error!("Failed to create signal stream: {}", e);
+                                    return;
+                                }
+                            };
 
-                    loop {
-                        signal_stream.recv().await;
-                        let _ = output.send(Message::ToggleDropDown).await;
-                    }
-                }),
+                            loop {
+                                signal_stream.recv().await;
+                                let _ = output.send(Message::ToggleDropDown).await;
+                            }
+                        },
+                    )
+                },
             ));
         }
 
