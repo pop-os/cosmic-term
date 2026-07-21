@@ -8,7 +8,7 @@ use cosmic::iced::keyboard::key::Physical;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::pane_grid::Pane;
-use cosmic::widget::segmented_button::ReorderEvent;
+use cosmic::widget::segmented_button::{InsertPosition, ReorderEvent};
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
@@ -281,6 +281,8 @@ pub enum Action {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    TabMoveLeft,
+    TabMoveRight,
     ToggleFullscreen,
     WindowClose,
     WindowNew,
@@ -334,6 +336,8 @@ impl Action {
             Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
+            Self::TabMoveLeft => Message::TabMoveLeft,
+            Self::TabMoveRight => Message::TabMoveRight,
             Self::ToggleFullscreen => Message::ToggleFullscreen,
             Self::WindowClose => Message::WindowClose,
             Self::WindowNew => Message::WindowNew,
@@ -441,6 +445,8 @@ pub enum Message {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    TabMoveLeft,
+    TabMoveRight,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleFullscreen,
@@ -3032,6 +3038,33 @@ impl Application for App {
                     let entity = tab_model.iter().nth(pos);
                     if let Some(entity) = entity {
                         return self.update(Message::TabActivate(entity));
+                    }
+                }
+            }
+            Message::TabMoveLeft => {
+                if let Some(tab_model) = self.pane_model.active_mut() {
+                    let pos: usize = tab_model
+                        .position(tab_model.active())
+                        .expect("at least one tab is always open")
+                        .into();
+                    if pos > 0 {
+                        let dragged = tab_model.iter().nth(pos).expect("tab unavailable");
+                        let target = tab_model.iter().nth(pos - 1).expect("previous tab missing");
+                        tab_model.reorder(dragged, target, InsertPosition::Before);
+                    }
+                }
+            }
+            Message::TabMoveRight => {
+                if let Some(tab_model) = self.pane_model.active_mut() {
+                    let len = tab_model.iter().count();
+                    let pos: usize = tab_model
+                        .position(tab_model.active())
+                        .expect("at least one tab is always open")
+                        .into();
+                    if pos < len - 1 && len > 1 {
+                        let dragged = tab_model.iter().nth(pos).expect("tab unavailable");
+                        let target = tab_model.iter().nth(pos + 1).expect("next tab missing");
+                        tab_model.reorder(dragged, target, InsertPosition::After);
                     }
                 }
             }
