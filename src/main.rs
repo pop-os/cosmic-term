@@ -522,8 +522,6 @@ pub enum Message {
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
-    SettingsWindowOpened(window::Id),
-    SettingsWindowCloseRequested(window::Id),
     ToggleDropDown,
     ToggleFullscreen,
     ToggleContextPage(ContextPage),
@@ -590,7 +588,6 @@ pub struct App {
     themes: HashMap<(String, ColorSchemeKind), TermColors>,
     context_page: ContextPage,
     dialog_opt: Option<Dialog<Message>>,
-    settings_window_id: Option<window::Id>,
     terminal_ids: HashMap<pane_grid::Pane, widget::Id>,
     find: bool,
     find_search_id: widget::Id,
@@ -2028,7 +2025,6 @@ impl Application for App {
             themes: HashMap::new(),
             context_page: ContextPage::Settings,
             dialog_opt: None,
-            settings_window_id: None,
             terminal_ids,
             find: false,
             find_search_id: widget::Id::unique(),
@@ -3390,25 +3386,6 @@ impl Application for App {
                 return self.update(Message::TabNew);
             }
             Message::ToggleContextPage(context_page) => {
-                // In drop-down mode, open settings in a separate window
-                // instead of the context_drawer overlay which doesn't work
-                // on layer surfaces.
-                if matches!(self.mode, TerminalMode::DropDown { .. })
-                    && context_page == ContextPage::Settings
-                {
-                    if let Some(id) = self.settings_window_id.take() {
-                        // Settings window already open; close it.
-                        return window::close(id);
-                    }
-                    let (id, spawn) = window::open(window::Settings {
-                        size: iced::Size::new(480.0, 640.0),
-                        ..Default::default()
-                    });
-                    self.settings_window_id = Some(id);
-                    return spawn
-                        .map(move |_| cosmic::Action::App(Message::SettingsWindowOpened(id)));
-                }
-
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
                     self.pane_model.update_terminal_focus();
@@ -3471,16 +3448,6 @@ impl Application for App {
             }
             Message::UpdateDefaultProfile((default, profile_id)) => {
                 config_set!(default_profile, default.then_some(profile_id));
-            }
-            Message::SettingsWindowOpened(_id) => {
-                // Settings window is now open; nothing to do.
-                return Task::none();
-            }
-            Message::SettingsWindowCloseRequested(id) => {
-                if self.settings_window_id == Some(id) {
-                    self.settings_window_id = None;
-                    return window::close(id);
-                }
             }
             Message::WindowClose => {
                 if let Some(window_id) = self.core.main_window_id() {
@@ -3664,15 +3631,6 @@ impl Application for App {
                 return self.view();
             }
             _ => {}
-        }
-
-        // Handle settings window (separate window in drop-down mode)
-        if self.settings_window_id == Some(window_id) {
-            return widget::container(widget::scrollable(self.settings()))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .class(style::Container::WindowBackground)
-                .into();
         }
 
         // Handle dialog windows
@@ -3894,24 +3852,41 @@ impl Application for App {
         .on_drag(Message::PaneDragged);
 
         //TODO: apply window border radius xs at bottom of window
-        let view: Element<'_, Self::Message> = pane_grid.into();
+        let mut view: Element<'_, Self::Message> = pane_grid.into();
 
         // In drop-down mode, we don't go through view_main(), so render
-        // the header bar ourselves when it's enabled.
-        if matches!(self.mode, TerminalMode::DropDown { .. }) && self.config.show_headerbar_dropdown {
-            let mut header = widget::header_bar();
-            for el in self.header_start() {
-                header = header.start(el);
-            }
-            for el in self.header_end() {
-                header = header.end(el);
+        // the header bar and context drawer ourselves.
+        if matches!(self.mode, TerminalMode::DropDown { .. }) {
+            if self.core.window.show_context {
+                if let Some(context) = self.context_drawer() {
+                    view = widget::context_drawer(
+                        context.title,
+                        context.actions,
+                        context.header,
+                        context.footer,
+                        context.on_close,
+                        view,
+                        context.content,
+                        320.0,
+                    )
+                    .into();
+                }
             }
 
-            widget::column::with_children(vec![header.into(), view])
-                .into()
-        } else {
-            view
+            if self.config.show_headerbar_dropdown {
+                let mut header = widget::header_bar();
+                for el in self.header_start() {
+                    header = header.start(el);
+                }
+                for el in self.header_end() {
+                    header = header.end(el);
+                }
+
+                view = widget::column::with_children(vec![header.into(), view]).into();
+            }
         }
+
+        view
     }
 
     fn system_theme_update(
@@ -3928,7 +3903,7 @@ impl Application for App {
         struct DropDownSignalSubscription;
 
         let mut subscriptions = vec![
-            event::listen_with(|event, _status, window_id| match event {
+            event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key,
                     physical_key,
@@ -3940,9 +3915,6 @@ impl Application for App {
                 }
                 Event::Mouse(MouseEvent::ButtonReleased(MouseButton::Left)) => {
                     Some(Message::CopyPrimary(None))
-                }
-                Event::Window(window::Event::CloseRequested) => {
-                    Some(Message::SettingsWindowCloseRequested(window_id))
                 }
                 _ => None,
             }),

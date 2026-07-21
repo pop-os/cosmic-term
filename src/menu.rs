@@ -92,20 +92,13 @@ pub fn context_menu<'a>(
         Element::from(menu_item(fl!("split-vertical"), Action::PaneSplitVertical)),
     ];
 
-    if is_drop_down {
-        // Pane maximize doesn't work well on layer surfaces;
-        // provide a toggle to hide/show the drop-down instead.
-        rows.push(Element::from(menu_item(
-            fl!("dropdown"),
-            Action::ToggleDropDown,
-        )));
-    } else {
+    if !is_drop_down {
         rows.push(Element::from(menu_item(
             fl!("pane-toggle-maximize"),
             Action::PaneToggleMaximized,
         )));
+        rows.push(Element::from(divider::horizontal::light()));
     }
-    rows.push(Element::from(divider::horizontal::light()));
     rows.push(Element::from(menu_item(fl!("new-tab"), Action::TabNew)));
     rows.push(Element::from(menu_item(fl!("menu-settings"), Action::Settings)));
 
