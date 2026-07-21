@@ -35,6 +35,7 @@ pub fn context_menu<'a>(
     key_binds: &HashMap<KeyBind, Action>,
     entity: segmented_button::Entity,
     link: Option<String>,
+    is_drop_down: bool,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
         for (key_bind, key_action) in key_binds {
@@ -89,14 +90,25 @@ pub fn context_menu<'a>(
             Action::PaneSplitHorizontal,
         )),
         Element::from(menu_item(fl!("split-vertical"), Action::PaneSplitVertical)),
-        Element::from(menu_item(
+    ];
+
+    if is_drop_down {
+        // Pane maximize doesn't work well on layer surfaces;
+        // provide a toggle to hide/show the drop-down instead.
+        rows.push(Element::from(menu_item(
+            fl!("dropdown"),
+            Action::ToggleDropDown,
+        )));
+    } else {
+        rows.push(Element::from(menu_item(
             fl!("pane-toggle-maximize"),
             Action::PaneToggleMaximized,
-        )),
-        Element::from(divider::horizontal::light()),
-        Element::from(menu_item(fl!("new-tab"), Action::TabNew)),
-        Element::from(menu_item(fl!("menu-settings"), Action::Settings)),
-    ];
+        )));
+    }
+    rows.push(Element::from(divider::horizontal::light()));
+    rows.push(Element::from(menu_item(fl!("new-tab"), Action::TabNew)));
+    rows.push(Element::from(menu_item(fl!("menu-settings"), Action::Settings)));
+
     #[cfg(feature = "password_manager")]
     {
         rows.push(Element::from(menu_item(
