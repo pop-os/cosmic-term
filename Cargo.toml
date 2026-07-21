@@ -11,14 +11,13 @@ alacritty_terminal = "0.25.1"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
 log = "0.4"
-libc = "0.2"
 open = "5.3.2"
 paste = "1.0"
 regex = "1"
 ron = "0.11"
 serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
-tokio = { version = "1", features = ["sync", "signal"] }
+tokio = { version = "1", features = ["sync", "signal", "time"] }
 # CLI arguments
 clap_lex = "0.7"
 # Internationalization

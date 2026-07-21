@@ -22,7 +22,7 @@ use cosmic::{
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
         platform_specific::shell::commands::layer_surface::{
-            destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
+            destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity, Layer,
         },
         platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings,
         stream, window,
@@ -85,19 +85,12 @@ mod terminal_theme;
 mod dnd;
 
 use clap_lex::RawArgs;
-use libc;
 
 static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
 
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();
     icon_cache.get(name, size)
-}
-
-/// Send SIGUSR1 to a process by PID.
-fn send_toggle_signal(pid: u32) {
-    // SAFETY: libc::kill with a valid signal number is always sound.
-    unsafe { libc::kill(pid as i32, libc::SIGUSR1) };
 }
 
 /// Scan /proc for an existing cosmic-term process with --drop-down flag.
@@ -219,7 +212,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "Found existing drop-down instance (PID {}), sending toggle signal and exiting",
                 pid
             );
-            send_toggle_signal(pid);
+            let _ = std::process::Command::new("kill")
+                .arg("-USR1")
+                .arg(pid.to_string())
+                .spawn();
             return Ok(());
         }
     }
@@ -638,6 +634,7 @@ impl App {
             keyboard_interactivity: KeyboardInteractivity::OnDemand,
             anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
             namespace: "cosmic-term-dropdown".into(),
+            layer: Layer::Overlay,
             size: Some((None, Some(height_px))),
             ..Default::default()
         })
@@ -907,7 +904,7 @@ impl App {
             };
             self.set_header_title(header_title);
             Task::batch([
-                if let Some(window_id) = self.core.main_window_id() {
+                if let Some(window_id) = self.core.window_id() {
                     self.set_window_title(window_title, window_id)
                 } else {
                     Task::none()
@@ -1989,11 +1986,11 @@ impl Application for App {
                 ),
             ]);
 
-        // Determine terminal mode
+        // Determine terminal mode. Start with window_id = None so the
+        // layer surface isn't created until the event loop is running
+        // (avoids a first-frame compositor race).
         let mode = if flags.drop_down {
-            TerminalMode::DropDown {
-                window_id: Some(window::Id::unique()),
-            }
+            TerminalMode::DropDown { window_id: None }
         } else {
             TerminalMode::Normal
         };
@@ -2056,9 +2053,13 @@ impl Application for App {
         app.set_curr_font_weights_and_stretches();
 
         let mut commands = vec![app.update_config(), app.update_title(None)];
-        // Create layer surface command if in drop-down mode
-        if let TerminalMode::DropDown { window_id: Some(id) } = app.mode {
-            commands.push(Self::create_dropdown_layer_surface(id, app.config.dropdown_height));
+        // on initial drop-down mode launch, if we instantly toggle the drop-down, the transparency is not yet frosted
+        // it's fine on later launches and delaying it just 1ms fixes it too
+        if matches!(app.mode, TerminalMode::DropDown { .. }) {
+            commands.push(cosmic::task::future(async {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                Message::ToggleDropDown
+            }));
         }
 
         (app, Task::batch(commands))
