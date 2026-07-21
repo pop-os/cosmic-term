@@ -84,17 +84,56 @@ mod terminal_theme;
 
 mod dnd;
 
-mod pid_file;
-use pid_file::{PidFile, PidFileError};
-
 use clap_lex::RawArgs;
-use nix::sys::signal::{self, Signal};
+use libc;
 
 static ICON_CACHE: LazyLock<Mutex<IconCache>> = LazyLock::new(|| Mutex::new(IconCache::new()));
 
 pub fn icon_cache_get(name: &'static str, size: u16) -> widget::icon::Icon {
     let mut icon_cache = ICON_CACHE.lock().unwrap();
     icon_cache.get(name, size)
+}
+
+/// Send SIGUSR1 to a process by PID.
+fn send_toggle_signal(pid: u32) {
+    // SAFETY: libc::kill with a valid signal number is always sound.
+    unsafe { libc::kill(pid as i32, libc::SIGUSR1) };
+}
+
+/// Scan /proc for an existing cosmic-term process with --drop-down flag.
+fn find_existing_dropdown_pid() -> Option<u32> {
+    let current_pid = std::process::id();
+    let proc_dir = match std::fs::read_dir("/proc") {
+        Ok(d) => d,
+        Err(_) => return None,
+    };
+    for entry in proc_dir.flatten() {
+        let name = entry.file_name();
+        let pid_str = name.to_string_lossy();
+        // Only process numeric directory names
+        let pid: u32 = match pid_str.parse() {
+            Ok(p) if p != current_pid => p,
+            _ => continue,
+        };
+        // Read cmdline
+        let cmdline_path = entry.path().join("cmdline");
+        let cmdline = match std::fs::read(&cmdline_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        // cmdline is null-separated; look for cosmic-term and --drop-down
+        let args: Vec<&[u8]> = cmdline.split(|b| *b == 0).collect();
+        let has_cosmic_term = args.iter().any(|a| {
+            a.ends_with(b"cosmic-term")
+                || a.ends_with(b"cosmic-term\n")
+                || a == b"cosmic-term"
+        });
+        let has_dropdown = args.iter().any(|a| *a == b"--drop-down");
+        if has_cosmic_term && has_dropdown {
+            return Some(pid);
+        }
+    }
+    None
 }
 
 /// Runs application with these settings
@@ -171,36 +210,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     localize::localize();
 
-    // Drop-down mode single-instance handling
-    let _pid_file = if drop_down {
-        // Try to acquire the lock file
-        match PidFile::new() {
-            Ok(pid_file) => {
-                // We got the lock - we are the first instance
-                Some(pid_file)
-            }
-            Err(PidFileError::Locked(Some(pid))) => {
-                // Another instance is running, signal it to toggle and exit
-                log::info!(
-                    "Found existing drop-down instance (PID {}), sending toggle signal and exiting",
-                    pid
-                );
-                let _ = signal::kill(pid, Signal::SIGUSR1);
-                return Ok(());
-            }
-            Err(PidFileError::Locked(None)) => {
-                // Lock is held but couldn't read PID
-                log::warn!("Could not read PID from lock file, exiting");
-                return Ok(());
-            }
-            Err(PidFileError::Io(e)) => {
-                log::error!("Failed to access lock file: {}", e);
-                return Err(e.into());
-            }
+    // Drop-down mode single-instance handling:
+    // scan /proc for an existing cosmic-term --drop-down process.
+    if drop_down {
+        // Look for a running cosmic-term --drop-down process.
+        if let Some(pid) = find_existing_dropdown_pid() {
+            log::info!(
+                "Found existing drop-down instance (PID {}), sending toggle signal and exiting",
+                pid
+            );
+            send_toggle_signal(pid);
+            return Ok(());
         }
-    } else {
-        None
-    };
+    }
 
     let (config_handler, config) = match cosmic_config::Config::new(App::APP_ID, CONFIG_VERSION) {
         Ok(config_handler) => {
@@ -316,6 +338,7 @@ pub enum Action {
     #[cfg(feature = "password_manager")]
     PasswordManager,
     ShowHeaderBar(bool),
+    ShowHeaderBarDropdown(bool),
     TabActivate0,
     TabActivate1,
     TabActivate2,
@@ -370,6 +393,9 @@ impl Action {
             Self::SelectAll => Message::SelectAll(entity_opt),
             Self::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Self::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
+            Self::ShowHeaderBarDropdown(show_headerbar) => {
+                Message::ShowHeaderBarDropdown(*show_headerbar)
+            }
             Self::TabActivate0 => Message::TabActivateJump(0),
             Self::TabActivate1 => Message::TabActivateJump(1),
             Self::TabActivate2 => Message::TabActivateJump(2),
@@ -481,6 +507,7 @@ pub enum Message {
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
+    ShowHeaderBarDropdown(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabNewInheritWorkingDirectory(bool),
@@ -608,15 +635,25 @@ impl App {
         }
     }
 
-    fn create_dropdown_layer_surface(id: window::Id, height: u32) -> Task<Message> {
+    fn create_dropdown_layer_surface(id: window::Id, height_px: u32) -> Task<Message> {
         get_layer_surface(SctkLayerSurfaceSettings {
             id,
             keyboard_interactivity: KeyboardInteractivity::OnDemand,
             anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
             namespace: "cosmic-term-dropdown".into(),
-            size: Some((None, Some(height))),
+            size: Some((None, Some(height_px))),
             ..Default::default()
         })
+    }
+
+    /// Returns a valid parent window ID for popups.
+    /// In drop-down mode, use the layer surface window; otherwise use the main window.
+    fn popup_parent_id(&self) -> Option<window::Id> {
+        match &self.mode {
+            TerminalMode::DropDown { window_id: Some(id) } => Some(*id),
+            TerminalMode::DropDown { window_id: None } => None,
+            TerminalMode::Normal => self.core.main_window_id(),
+        }
     }
 
     fn update_color_schemes(&mut self) {
@@ -1328,7 +1365,7 @@ impl App {
                                             theme_i,
                                         )
                                     },
-                                    self.core.main_window_id().unwrap_or(window::Id::RESERVED),
+                                    self.popup_parent_id().unwrap_or(window::Id::RESERVED),
                                     Message::Surface,
                                     |a| a,
                                 ),
@@ -1581,39 +1618,54 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let dropdown_section = widget::settings::section().title(fl!("dropdown"))
+        let mut dropdown_section = widget::settings::section().title(fl!("dropdown"))
             .add(
                 widget::settings::item::builder(fl!("dropdown-height"))
-                    .description(fl!("dropdown-height-description"))
-                    .control(widget::slider(
-                        200..=1200,
-                        self.config.dropdown_height,
-                        |value| Message::DropdownHeight(value),
-                    )),
-            )
-            .add(
-                widget::text(format!("{}px", self.config.dropdown_height))
-                    .size(14)
-                    .class(cosmic::style::Text::Color(Color::from(
-                        [0.5, 0.5, 0.5],
-                    ))),
+                    .control(widget::row::with_children(vec![
+                        widget::slider(100..=1000, self.config.dropdown_height, |value| {
+                            Message::DropdownHeight(value)
+                        })
+                        .width(Length::Fill)
+                        .into(),
+                        widget::text(format!("{}px", self.config.dropdown_height))
+                            .size(14)
+                            .width(Length::Shrink)
+                            .into(),
+                    ])),
             );
 
-        let advanced_section = widget::settings::section()
-            .title(fl!("advanced"))
-            .add(
+        let in_dropdown = matches!(self.mode, TerminalMode::DropDown { .. });
+
+        if in_dropdown {
+            // In drop-down mode, put the header toggle in the dropdown section
+            dropdown_section = dropdown_section.add(
+                widget::settings::item::builder(fl!("show-headerbar-dropdown"))
+                    .toggler(
+                        self.config.show_headerbar_dropdown,
+                        Message::ShowHeaderBarDropdown,
+                    ),
+            );
+        }
+
+        let mut advanced_section = widget::settings::section().title(fl!("advanced"));
+
+        if !in_dropdown {
+            // In normal mode, show the regular header toggle in advanced
+            advanced_section = advanced_section.add(
                 widget::settings::item::builder(fl!("show-headerbar"))
                     .description(fl!("show-header-description"))
                     .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .add(
-                widget::settings::item::builder(fl!("tab-new-inherit-working-directory"))
-                    .description(fl!("tab-new-inherit-working-directory-description"))
-                    .toggler(
-                        self.config.tab_new_inherit_working_directory,
-                        Message::TabNewInheritWorkingDirectory,
-                    ),
             );
+        }
+
+        advanced_section = advanced_section.add(
+            widget::settings::item::builder(fl!("tab-new-inherit-working-directory"))
+                .description(fl!("tab-new-inherit-working-directory-description"))
+                .toggler(
+                    self.config.tab_new_inherit_working_directory,
+                    Message::TabNewInheritWorkingDirectory,
+                ),
+        );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -2924,6 +2976,19 @@ impl Application for App {
                     return config_task;
                 }
             }
+            Message::ShowHeaderBarDropdown(show_headerbar) => {
+                if show_headerbar != self.config.show_headerbar_dropdown {
+                    config_set!(show_headerbar_dropdown, show_headerbar);
+                    // In drop-down mode, recreate the layer surface to pick up
+                    // the new header bar layout.
+                    if let TerminalMode::DropDown { window_id: Some(id) } = self.mode {
+                        return Task::batch([
+                            destroy_layer_surface(id),
+                            Self::create_dropdown_layer_surface(id, self.config.dropdown_height),
+                        ]);
+                    }
+                }
+            }
             Message::TabNewInheritWorkingDirectory(tab_new_inherit_working_directory) => {
                 config_set!(
                     tab_new_inherit_working_directory,
@@ -3102,7 +3167,9 @@ impl Application for App {
 
                             #[cfg(feature = "wayland")]
                             if is_wayland() {
-                                let main_window = self.core.main_window_id().unwrap();
+                                let Some(parent_window) = self.popup_parent_id() else {
+                                    return Task::none();
+                                };
                                 let pos_x = _position.x as i32;
                                 let pos_y = _position.y as i32;
 
@@ -3114,7 +3181,7 @@ impl Application for App {
                                         use cosmic::iced::runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
 
                                         SctkPopupSettings {
-                                            parent: main_window,
+                                            parent: parent_window,
                                             id: popup_id,
                                             positioner: SctkPositioner {
                                                 size: None,
@@ -3831,7 +3898,7 @@ impl Application for App {
 
         // In drop-down mode, we don't go through view_main(), so render
         // the header bar ourselves when it's enabled.
-        if matches!(self.mode, TerminalMode::DropDown { .. }) && self.config.show_headerbar {
+        if matches!(self.mode, TerminalMode::DropDown { .. }) && self.config.show_headerbar_dropdown {
             let mut header = widget::header_bar();
             for el in self.header_start() {
                 header = header.start(el);

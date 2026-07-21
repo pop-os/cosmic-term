@@ -116,11 +116,19 @@ pub fn context_menu<'a>(
             Action::PasswordManager,
         )));
     }
-    rows.push(Element::from(menu_checkbox(
-        fl!("show-headerbar"),
-        config.show_headerbar,
-        Action::ShowHeaderBar(!config.show_headerbar),
-    )));
+    if is_drop_down {
+        rows.push(Element::from(menu_checkbox(
+            fl!("show-headerbar-dropdown"),
+            config.show_headerbar_dropdown,
+            Action::ShowHeaderBarDropdown(!config.show_headerbar_dropdown),
+        )));
+    } else {
+        rows.push(Element::from(menu_checkbox(
+            fl!("show-headerbar"),
+            config.show_headerbar,
+            Action::ShowHeaderBar(!config.show_headerbar),
+        )));
+    }
 
     //If we have a link
     //prepend the Open Link item

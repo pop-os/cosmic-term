@@ -8,11 +8,10 @@ rust-version = "1.93"
 
 [dependencies]
 alacritty_terminal = "0.25.1"
-dirs = "5.0"
 hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
 log = "0.4"
-nix = { version = "0.31.3", features = ["signal", "process", "fs"] }
+libc = "0.2"
 open = "5.3.2"
 paste = "1.0"
 regex = "1"

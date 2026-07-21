@@ -63,6 +63,7 @@ focus-follow-mouse = Typing focus follows mouse
 advanced = Advanced
 show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu
+show-headerbar-dropdown = Show header in dropdown
 tab-new-inherit-working-directory = New tabs and windows use current directory
 tab-new-inherit-working-directory-description = Open new tabs and windows in the active tab's working directory
 
@@ -97,8 +98,7 @@ type-to-search = Type to search...
 
 # Drop-down
 dropdown = Drop-down
-dropdown-height = Drop-down height
-dropdown-height-description = Height of the drop-down terminal in pixels
+dropdown-height = Height
 
 # Find
 find-placeholder = Find...

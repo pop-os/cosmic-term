@@ -231,6 +231,8 @@ pub struct Config {
     pub opacity: u8,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
+    #[serde(default)]
+    pub show_headerbar_dropdown: bool,
     pub use_bright_bold: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
@@ -261,6 +263,7 @@ impl Default for Config {
             opacity: 100,
             profiles: BTreeMap::new(),
             show_headerbar: true,
+            show_headerbar_dropdown: true,
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
