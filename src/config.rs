@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use alacritty_terminal::{term::color::Colors, vte::ansi::Rgb};
 use cosmic::{
     cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry},
     theme,
@@ -11,9 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use crate::{fl, localize::LANGUAGE_SORTER, shortcuts::Shortcuts};
+use crate::{cursor::CursorSettings, fl, localize::LANGUAGE_SORTER, shortcuts::Shortcuts};
 
-pub const CONFIG_VERSION: u64 = 1;
+pub const CONFIG_VERSION: u64 = 2;
 pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
 pub const COSMIC_THEME_LIGHT: &str = "COSMIC Light";
 
@@ -216,6 +217,31 @@ impl Default for Profile {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum CursorColorSource {
+    #[default]
+    ColorScheme,
+    Custom,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum CursorStyleSetting {
+    #[default]
+    FollowTerminal,
+    Block,
+    Beam,
+    Underline,
+    HollowBlock,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum CursorBlinkSetting {
+    #[default]
+    RespectTerminal,
+    Always,
+    Never,
+}
+
 #[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Config {
     pub app_theme: AppTheme,
@@ -240,6 +266,26 @@ pub struct Config {
     pub default_profile: Option<ProfileId>,
     #[serde(default)]
     pub shortcuts_custom: Shortcuts,
+    #[serde(default)]
+    pub cursor_color_source: CursorColorSource,
+    #[serde(default)]
+    pub cursor_color_custom: Option<HexColor>,
+    #[serde(default)]
+    pub cursor_style: CursorStyleSetting,
+    #[serde(default = "default_cursor_unfocused_style")]
+    pub cursor_unfocused_style: CursorStyleSetting,
+    #[serde(default)]
+    pub cursor_blink: CursorBlinkSetting,
+    #[serde(default = "default_cursor_blink_interval_ms")]
+    pub cursor_blink_interval_ms: u16,
+}
+
+fn default_cursor_unfocused_style() -> CursorStyleSetting {
+    CursorStyleSetting::HollowBlock
+}
+
+fn default_cursor_blink_interval_ms() -> u16 {
+    500
 }
 
 impl Default for Config {
@@ -265,6 +311,12 @@ impl Default for Config {
             use_bright_bold: false,
             default_profile: None,
             shortcuts_custom: Shortcuts::default(),
+            cursor_color_source: CursorColorSource::ColorScheme,
+            cursor_color_custom: None,
+            cursor_style: CursorStyleSetting::FollowTerminal,
+            cursor_unfocused_style: CursorStyleSetting::HollowBlock,
+            cursor_blink: CursorBlinkSetting::RespectTerminal,
+            cursor_blink_interval_ms: 500,
         }
     }
 }
@@ -343,6 +395,14 @@ impl Config {
 
     pub fn opacity_ratio(&self) -> f32 {
         f32::from(self.opacity) / 100.0
+    }
+
+    pub fn cursor_settings(&self) -> CursorSettings {
+        CursorSettings::from(self)
+    }
+
+    pub fn effective_cursor_rgb(&self, colors: &Colors) -> Option<Rgb> {
+        crate::cursor::effective_cursor_rgb(&self.cursor_settings(), colors)
     }
 
     // Get a sorted and adjusted for duplicates list of profile names and ids

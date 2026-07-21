@@ -49,6 +49,27 @@ syntax-dark = Ciemny schemat kolorów
 syntax-light = Jasny schemat kolorów
 default-zoom-step = Stopniowanie powiększania
 opacity = Przejrzystość Tła
+cursor = Kursor
+cursor-color = Kolor kursora
+cursor-color-scheme = Użyj schematu kolorów
+cursor-color-custom = Niestandardowy kolor
+cursor-color-custom-description = Kolor szesnastkowy (np. #ff0000)
+cursor-style = Styl kursora
+cursor-style-follow-terminal = Zgodnie z terminalem
+cursor-style-block = Blok
+cursor-style-beam = Pasek
+cursor-style-underline = Podkreślenie
+cursor-style-hollow-block = Pusty blok
+cursor-unfocused-style = Styl kursora bez fokusu
+cursor-blink = Miganie kursora
+cursor-blink-respect-terminal = Zgodnie z terminalem
+cursor-blink-always = Zawsze migaj
+cursor-blink-never = Nigdy nie migaj
+cursor-blink-interval = Interwał migania
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } milisekunda
+   *[other] { $ms } milisekund
+}
 
 ### Font
 

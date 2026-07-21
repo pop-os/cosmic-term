@@ -29,6 +29,7 @@ use cosmic::{
 use cosmic::{Apply, surface};
 use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
 use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
+use hex_color::HexColor;
 use localize::LANGUAGE_SORTER;
 use std::{
     any::TypeId,
@@ -42,14 +43,16 @@ use std::{
     process,
     rc::Rc,
     sync::{LazyLock, Mutex, atomic::Ordering},
+    time::Duration,
 };
 use tokio::sync::mpsc;
 
 use config::{
-    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile,
-    ProfileId,
+    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config,
+    CursorBlinkSetting, CursorColorSource, CursorStyleSetting, Profile, ProfileId,
 };
 mod config;
+mod cursor;
 mod mouse_reporter;
 
 use icon_cache::IconCache;
@@ -455,6 +458,13 @@ pub enum Message {
     ZoomOut,
     ZoomReset,
     ContextMenuPopupClosed(window::Id),
+    CursorBlinkTick,
+    CursorBlinkInterval(u16),
+    CursorBlinkSetting(CursorBlinkSetting),
+    CursorColorCustom(String),
+    CursorColorSource(CursorColorSource),
+    CursorStyle(CursorStyleSetting),
+    CursorUnfocusedStyle(CursorStyleSetting),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -497,6 +507,9 @@ pub struct App {
     curr_font_stretches: Vec<Stretch>,
     zoom_step_names: Vec<String>,
     zoom_steps: Vec<u16>,
+    cursor_color_names: Vec<String>,
+    cursor_style_names: Vec<String>,
+    cursor_blink_names: Vec<String>,
     theme_names_dark: Vec<String>,
     theme_names_light: Vec<String>,
     themes: HashMap<(String, ColorSchemeKind), TermColors>,
@@ -524,6 +537,11 @@ pub struct App {
     shortcut_search_id: widget::Id,
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
+    cursor_color_custom_input: String,
+    cursor_color_dropdown_id: widget::Id,
+    cursor_style_dropdown_id: widget::Id,
+    cursor_unfocused_style_dropdown_id: widget::Id,
+    cursor_blink_dropdown_id: widget::Id,
     modifiers: Modifiers,
     context_menu_popup: Option<(
         window::Id,
@@ -703,6 +721,12 @@ impl App {
 
         // Update application theme
         cosmic::command::set_theme(theme)
+    }
+
+    fn update_cursor_config(&mut self) -> Task<Message> {
+        let task = self.update_config();
+        self.pane_model.refresh_all_cursor_displays();
+        task
     }
 
     fn update_render_active_pane_zoom(&mut self, zoom_message: Message) -> Task<Message> {
@@ -1372,6 +1396,23 @@ impl App {
             .iter()
             .position(|zoom_step| zoom_step == &self.config.font_size_zoom_step_mul_100);
 
+        let cursor_color_selected = match self.config.cursor_color_source {
+            CursorColorSource::ColorScheme => 0,
+            CursorColorSource::Custom => 1,
+        };
+        let cursor_style_selected = |style: CursorStyleSetting| match style {
+            CursorStyleSetting::FollowTerminal => 0,
+            CursorStyleSetting::Block => 1,
+            CursorStyleSetting::Beam => 2,
+            CursorStyleSetting::Underline => 3,
+            CursorStyleSetting::HollowBlock => 4,
+        };
+        let cursor_blink_selected = match self.config.cursor_blink {
+            CursorBlinkSetting::RespectTerminal => 0,
+            CursorBlinkSetting::Always => 1,
+            CursorBlinkSetting::Never => 2,
+        };
+
         let appearance_section = widget::settings::section()
             .title(fl!("appearance"))
             .add(
@@ -1416,7 +1457,98 @@ impl App {
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
                     }))
-            }));
+            }))
+            .add(
+                widget::settings::item::builder(fl!("cursor-color")).control(
+                    widget::dropdown(
+                        &self.cursor_color_names,
+                        Some(cursor_color_selected),
+                        |index| {
+                            Message::CursorColorSource(match index {
+                                1 => CursorColorSource::Custom,
+                                _ => CursorColorSource::ColorScheme,
+                            })
+                        },
+                    )
+                    .id(self.cursor_color_dropdown_id.clone()),
+                ),
+            )
+            .add_maybe(
+                (self.config.cursor_color_source == CursorColorSource::Custom).then(|| {
+                    widget::settings::item::builder(fl!("cursor-color-custom"))
+                        .description(fl!("cursor-color-custom-description"))
+                        .control(
+                            widget::text_input("", &self.cursor_color_custom_input)
+                                .on_input(Message::CursorColorCustom),
+                        )
+                }),
+            )
+            .add(
+                widget::settings::item::builder(fl!("cursor-style")).control(
+                    widget::dropdown(
+                        &self.cursor_style_names,
+                        Some(cursor_style_selected(self.config.cursor_style)),
+                        |index| {
+                            Message::CursorStyle(match index {
+                                1 => CursorStyleSetting::Block,
+                                2 => CursorStyleSetting::Beam,
+                                3 => CursorStyleSetting::Underline,
+                                4 => CursorStyleSetting::HollowBlock,
+                                _ => CursorStyleSetting::FollowTerminal,
+                            })
+                        },
+                    )
+                    .id(self.cursor_style_dropdown_id.clone()),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("cursor-unfocused-style")).control(
+                    widget::dropdown(
+                        &self.cursor_style_names,
+                        Some(cursor_style_selected(self.config.cursor_unfocused_style)),
+                        |index| {
+                            Message::CursorUnfocusedStyle(match index {
+                                1 => CursorStyleSetting::Block,
+                                2 => CursorStyleSetting::Beam,
+                                3 => CursorStyleSetting::Underline,
+                                4 => CursorStyleSetting::HollowBlock,
+                                _ => CursorStyleSetting::FollowTerminal,
+                            })
+                        },
+                    )
+                    .id(self.cursor_unfocused_style_dropdown_id.clone()),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("cursor-blink")).control(
+                    widget::dropdown(
+                        &self.cursor_blink_names,
+                        Some(cursor_blink_selected),
+                        |index| {
+                            Message::CursorBlinkSetting(match index {
+                                1 => CursorBlinkSetting::Always,
+                                2 => CursorBlinkSetting::Never,
+                                _ => CursorBlinkSetting::RespectTerminal,
+                            })
+                        },
+                    )
+                    .id(self.cursor_blink_dropdown_id.clone()),
+                ),
+            )
+            .add_maybe(
+                (self.config.cursor_blink != CursorBlinkSetting::Never).then(|| {
+                    widget::settings::item::builder(fl!("cursor-blink-interval"))
+                        .description(fl!(
+                            "cursor-blink-interval-description",
+                            ms = self.config.cursor_blink_interval_ms
+                        ))
+                        .control(widget::slider(
+                            100..=2000,
+                            self.config.cursor_blink_interval_ms,
+                            Message::CursorBlinkInterval,
+                        ))
+                }),
+            );
 
         let mut font_section = widget::settings::section()
             .title(fl!("font"))
@@ -1541,6 +1673,43 @@ impl App {
         let terminal = tab_model.data::<Mutex<Terminal>>(entity)?;
         let terminal = terminal.lock().unwrap();
         terminal.working_directory()
+    }
+
+    /// Default hex color when the user switches to a custom cursor color.
+    /// Seeds from the active color scheme rather than a hardcoded value.
+    fn default_custom_cursor_hex(&self) -> HexColor {
+        // Prefer the focused terminal's palette (may differ from the global scheme).
+        if let Some(tab_model) = self.pane_model.active() {
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let terminal = terminal.lock().unwrap();
+                if let Some(hex) = cursor::scheme_cursor_hex(terminal.colors()) {
+                    return hex;
+                }
+                // Fall back to the live terminal state (e.g. OSC color overrides).
+                let term = terminal.term.lock();
+                if let Some(hex) = cursor::scheme_cursor_hex(term.colors()) {
+                    return hex;
+                }
+            }
+        }
+
+        // No open terminal: use the configured syntax theme.
+        let color_scheme_kind = self.config.color_scheme_kind(self.core.system_theme());
+        let scheme_key = self.config.syntax_theme(color_scheme_kind, None);
+        if let Some(colors) = self.themes.get(&scheme_key)
+            && let Some(hex) = cursor::scheme_cursor_hex(colors)
+        {
+            return hex;
+        }
+
+        // Last resort: built-in COSMIC dark/light themes always define a cursor color.
+        let fallback_colors = match color_scheme_kind {
+            ColorSchemeKind::Dark => terminal_theme::cosmic_dark(),
+            ColorSchemeKind::Light => terminal_theme::cosmic_light(),
+        };
+        cursor::scheme_cursor_hex(&fallback_colors)
+            .expect("builtin color scheme defines a cursor color")
     }
 
     fn create_and_focus_new_terminal(
@@ -1826,6 +1995,35 @@ impl Application for App {
             zoom_steps.push(zoom_step);
         }
 
+        let cursor_color_names = vec![fl!("cursor-color-scheme"), fl!("cursor-color-custom")];
+        let cursor_style_names = vec![
+            fl!("cursor-style-follow-terminal"),
+            fl!("cursor-style-block"),
+            fl!("cursor-style-beam"),
+            fl!("cursor-style-underline"),
+            fl!("cursor-style-hollow-block"),
+        ];
+        let cursor_blink_names = vec![
+            fl!("cursor-blink-respect-terminal"),
+            fl!("cursor-blink-always"),
+            fl!("cursor-blink-never"),
+        ];
+
+        let color_scheme_kind = flags.config.color_scheme_kind(core.system_theme());
+        let fallback_colors = match color_scheme_kind {
+            ColorSchemeKind::Dark => terminal_theme::cosmic_dark(),
+            ColorSchemeKind::Light => terminal_theme::cosmic_light(),
+        };
+        let cursor_color_custom_input = flags
+            .config
+            .cursor_color_custom
+            .map(|hex| hex.display_rgb().to_string())
+            .unwrap_or_else(|| {
+                cursor::scheme_cursor_hex(&fallback_colors)
+                    .map(|hex| hex.display_rgb().to_string())
+                    .unwrap_or_default()
+            });
+
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focused(), widget::Id::unique());
@@ -1869,6 +2067,9 @@ impl Application for App {
             curr_font_stretches: Vec::new(),
             zoom_step_names,
             zoom_steps,
+            cursor_color_names,
+            cursor_style_names,
+            cursor_blink_names,
             theme_names_dark: Vec::new(),
             theme_names_light: Vec::new(),
             themes: HashMap::new(),
@@ -1895,6 +2096,11 @@ impl Application for App {
             shortcut_search_id: widget::Id::unique(),
             shortcut_search_regex: None,
             shortcut_search_value: String::new(),
+            cursor_color_custom_input,
+            cursor_color_dropdown_id: widget::Id::unique(),
+            cursor_style_dropdown_id: widget::Id::unique(),
+            cursor_unfocused_style_dropdown_id: widget::Id::unique(),
+            cursor_blink_dropdown_id: widget::Id::unique(),
             modifiers: Modifiers::empty(),
             context_menu_popup: None,
             #[cfg(feature = "password_manager")]
@@ -2186,6 +2392,13 @@ impl Application for App {
                     log::info!("update config");
                     //TODO: update syntax theme by clearing tabs, only if needed
                     self.config = *config;
+                    self.cursor_color_custom_input = self
+                        .config
+                        .cursor_color_custom
+                        .map(|hex| hex.display_rgb().to_string())
+                        .unwrap_or_else(|| {
+                            self.default_custom_cursor_hex().display_rgb().to_string()
+                        });
                     if shortcuts_changed {
                         self.shortcuts_config =
                             shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
@@ -2579,6 +2792,48 @@ impl Application for App {
             }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
+            }
+            Message::CursorBlinkTick => {
+                self.pane_model.toggle_focused_cursor_blink();
+            }
+            Message::CursorBlinkInterval(interval_ms) => {
+                config_set!(cursor_blink_interval_ms, interval_ms.clamp(100, 2000));
+                return self.update_cursor_config();
+            }
+            Message::CursorBlinkSetting(blink) => {
+                config_set!(cursor_blink, blink);
+                return self.update_cursor_config();
+            }
+            Message::CursorColorCustom(value) => {
+                self.cursor_color_custom_input = value.clone();
+                let value = value.trim();
+                let parse_value = if value.starts_with('#') {
+                    value.to_string()
+                } else {
+                    format!("#{value}")
+                };
+                if let Ok(hex) = parse_value.parse::<HexColor>() {
+                    config_set!(cursor_color_custom, Some(hex));
+                    return self.update_cursor_config();
+                }
+            }
+            Message::CursorColorSource(source) => {
+                config_set!(cursor_color_source, source);
+                if source == CursorColorSource::Custom && self.config.cursor_color_custom.is_none()
+                {
+                    let hex = self.default_custom_cursor_hex();
+                    config_set!(cursor_color_custom, Some(hex));
+                    self.cursor_color_custom_input = hex.display_rgb().to_string();
+                }
+                return self.update_cursor_config();
+            }
+            Message::CursorStyle(style) => {
+                config_set!(cursor_style, style);
+                return self.update_cursor_config();
+            }
+            Message::CursorUnfocusedStyle(style) => {
+                config_set!(cursor_unfocused_style, style);
+                return self.update_cursor_config();
             }
             Message::PaneClicked(pane) => {
                 self.pane_model.set_focus(pane);
@@ -3076,7 +3331,14 @@ impl Application for App {
                         }
                     }
                     TermEvent::CursorBlinkingChange => {
-                        //TODO: should we blink the cursor?
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.cursor_blink_visible = true;
+                            terminal.needs_update = true;
+                            terminal.update();
+                        }
                     }
                     TermEvent::Exit => {
                         return self.update(Message::TabClose(Some(entity)));
@@ -3193,7 +3455,14 @@ impl Application for App {
                 } else {
                     self.context_page = context_page;
                     self.core.window.show_context = true;
-                    self.pane_model.unfocus_all_terminals();
+                    match context_page {
+                        ContextPage::KeyboardShortcuts => {
+                            self.pane_model.unfocus_all_terminals();
+                        }
+                        _ => {
+                            self.pane_model.update_terminal_focus();
+                        }
+                    }
                 }
 
                 // Extra work to do to prepare context pages
@@ -3637,6 +3906,17 @@ impl Application for App {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
 
+        let cursor_blink_sub = if self.config.cursor_blink != CursorBlinkSetting::Never
+            && self.pane_model.any_focused_terminal_should_blink()
+        {
+            cosmic::iced::time::every(Duration::from_millis(
+                self.config.cursor_blink_interval_ms as u64,
+            ))
+            .map(|_| Message::CursorBlinkTick)
+        } else {
+            Subscription::none()
+        };
+
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed {
@@ -3690,6 +3970,7 @@ impl Application for App {
                 Some(dialog) => dialog.subscription(),
                 None => Subscription::none(),
             },
+            cursor_blink_sub,
         ])
     }
 }

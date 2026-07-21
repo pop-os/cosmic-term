@@ -45,6 +45,27 @@ syntax-dark = Dunkles Farbschema
 syntax-light = Helles Farbschema
 default-zoom-step = Zoomstufen
 opacity = Hintergrunddeckkraft
+cursor = Cursor
+cursor-color = Cursorfarbe
+cursor-color-scheme = Farbschema verwenden
+cursor-color-custom = Benutzerdefinierte Farbe
+cursor-color-custom-description = Hex-Farbe (z. B. #ff0000)
+cursor-style = Cursorstil
+cursor-style-follow-terminal = Terminal folgen
+cursor-style-block = Block
+cursor-style-beam = Strich
+cursor-style-underline = Unterstrichen
+cursor-style-hollow-block = Hohler Block
+cursor-unfocused-style = Cursorstil ohne Fokus
+cursor-blink = Cursor blinkt
+cursor-blink-respect-terminal = Terminal folgen
+cursor-blink-always = Immer blinken
+cursor-blink-never = Nie blinken
+cursor-blink-interval = Blinkintervall
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } Millisekunde
+   *[other] { $ms } Millisekunden
+}
 
 ### Schriftart
 
