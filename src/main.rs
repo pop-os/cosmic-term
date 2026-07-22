@@ -21,6 +21,7 @@ use cosmic::{
         futures::SinkExt,
         keyboard::{Event as KeyEvent, Key, Modifiers},
         mouse::{Button as MouseButton, Event as MouseEvent},
+        platform_specific::shell::commands::layer_surface::destroy_layer_surface,
         stream, window,
     },
     style,
@@ -79,6 +80,7 @@ mod password_manager;
 mod terminal_theme;
 
 mod dnd;
+mod dropdown;
 
 use clap_lex::RawArgs;
 
@@ -98,6 +100,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
     let mut daemonize = true;
+    let mut drop_down = false;
     let mut working_directory = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
@@ -123,6 +126,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             Some("--no-daemon") => {
                 daemonize = false;
+            }
+            Some("--drop-down") => {
+                drop_down = true;
             }
             Some("-e") | Some("--command") | Some("--") => {
                 // Handle the '--command' or '-e' flag
@@ -158,6 +164,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     localize::localize();
+
+    // Drop-down mode single-instance handling:
+    // scan /proc for an existing cosmic-term --drop-down process.
+    if drop_down {
+        // Look for a running cosmic-term --drop-down process.
+        if let Some(pid) = dropdown::find_existing_dropdown_pid() {
+            log::info!(
+                "Found existing drop-down instance (PID {}), sending toggle signal and exiting",
+                pid
+            );
+            let _ = std::process::Command::new("kill")
+                .arg("-USR1")
+                .arg(pid.to_string())
+                .spawn();
+            return Ok(());
+        }
+    }
 
     let (config_handler, config) = match cosmic_config::Config::new(App::APP_ID, CONFIG_VERSION) {
         Ok(config_handler) => {
@@ -202,6 +225,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
 
+    if drop_down {
+        settings = settings.no_main_window(true);
+    }
+
     // Flags
     let flags = Flags {
         config_handler,
@@ -209,6 +236,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         shortcuts_config,
         startup_options,
         term_config,
+        drop_down,
     };
 
     // Run the cosmic app
@@ -237,6 +265,7 @@ pub struct Flags {
     shortcuts_config: shortcuts::ShortcutsConfig,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
+    drop_down: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -267,6 +296,7 @@ pub enum Action {
     #[cfg(feature = "password_manager")]
     PasswordManager,
     ShowHeaderBar(bool),
+    ShowHeaderBarDropdown(bool),
     TabActivate0,
     TabActivate1,
     TabActivate2,
@@ -281,6 +311,7 @@ pub enum Action {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    ToggleDropDown,
     ToggleFullscreen,
     WindowClose,
     WindowNew,
@@ -320,6 +351,9 @@ impl Action {
             Self::SelectAll => Message::SelectAll(entity_opt),
             Self::Settings => Message::ToggleContextPage(ContextPage::Settings),
             Self::ShowHeaderBar(show_headerbar) => Message::ShowHeaderBar(*show_headerbar),
+            Self::ShowHeaderBarDropdown(show_headerbar) => {
+                Message::ShowHeaderBarDropdown(*show_headerbar)
+            }
             Self::TabActivate0 => Message::TabActivateJump(0),
             Self::TabActivate1 => Message::TabActivateJump(1),
             Self::TabActivate2 => Message::TabActivateJump(2),
@@ -334,6 +368,7 @@ impl Action {
             Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
+            Self::ToggleDropDown => Message::ToggleDropDown,
             Self::ToggleFullscreen => Message::ToggleFullscreen,
             Self::WindowClose => Message::WindowClose,
             Self::WindowNew => Message::WindowNew,
@@ -381,6 +416,7 @@ pub enum Message {
     DefaultZoomStep(usize),
     DialogMessage(Box<DialogMessage>), // DialogMessage is huge, so we use a box to make the size of this enum smaller on the stack
     Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
+    DropdownHeight(u32),
     Find(bool),
     FindNext,
     FindPrevious,
@@ -429,6 +465,7 @@ pub enum Message {
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
+    ShowHeaderBarDropdown(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabNewInheritWorkingDirectory(bool),
@@ -443,6 +480,7 @@ pub enum Message {
     TabPrev,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
+    ToggleDropDown,
     ToggleFullscreen,
     ToggleContextPage(ContextPage),
     UpdateDefaultProfile((bool, ProfileId)),
@@ -533,6 +571,8 @@ pub struct App {
         widget::Id,
         cosmic::iced::Point,
     )>,
+    is_dropdown: bool,
+    dropdown_surface: Option<window::Id>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -1254,7 +1294,7 @@ impl App {
                                             theme_i,
                                         )
                                     },
-                                    self.core.main_window_id().unwrap_or(window::Id::RESERVED),
+                                    self.popup_parent_id().unwrap_or(window::Id::RESERVED),
                                     Message::Surface,
                                     |a| a,
                                 ),
@@ -1507,23 +1547,48 @@ impl App {
                 .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
         );
 
-        let advanced_section = widget::settings::section()
-            .title(fl!("advanced"))
-            .add(
-                widget::settings::item::builder(fl!("show-headerbar"))
-                    .description(fl!("show-header-description"))
-                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-            )
-            .add(
-                widget::settings::item::builder(fl!("tab-new-inherit-working-directory"))
-                    .description(fl!("tab-new-inherit-working-directory-description"))
-                    .toggler(
-                        self.config.tab_new_inherit_working_directory,
-                        Message::TabNewInheritWorkingDirectory,
-                    ),
+        let mut dropdown_section = widget::settings::section().title(fl!("dropdown")).add(
+            widget::settings::item::builder(fl!("dropdown-height")).control(
+                widget::row::with_children(vec![
+                    // under 300, we the resize-slider is hard to access in spacious mode, so that should be the lower bound
+                    widget::slider(300..=1300, self.config.dropdown_height, |value| {
+                        Message::DropdownHeight(value)
+                    })
+                    .width(Length::Fill)
+                    .into(),
+                    widget::text(format!("{}px", self.config.dropdown_height))
+                        .width(Length::Shrink)
+                        .into(),
+                ]),
+            ),
+        );
+
+        if self.is_dropdown {
+            dropdown_section = dropdown_section.add(
+                widget::settings::item::builder(fl!("show-headerbar-dropdown")).toggler(
+                    self.config.show_headerbar_dropdown,
+                    Message::ShowHeaderBarDropdown,
+                ),
             );
+        }
+
+        let mut advanced_section = widget::settings::section().title(fl!("advanced"));
+        if !self.is_dropdown {
+            advanced_section = advanced_section.add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            );
+        }
+        advanced_section = advanced_section.add(
+            widget::settings::item::builder(fl!("tab-new-inherit-working-directory")).toggler(
+                self.config.tab_new_inherit_working_directory,
+                Message::TabNewInheritWorkingDirectory,
+            ),
+        );
 
         widget::settings::view_column(vec![
+            // dropdown section is first, as we don't want to resize away the resize-slider
+            dropdown_section.into(),
             appearance_section.into(),
             font_section.into(),
             splits_section.into(),
@@ -1899,12 +1964,23 @@ impl Application for App {
             context_menu_popup: None,
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
+            is_dropdown: flags.drop_down,
+            dropdown_surface: None,
         };
 
         app.set_curr_font_weights_and_stretches();
-        let command = Task::batch([app.update_config(), app.update_title(None)]);
 
-        (app, command)
+        let mut commands = vec![app.update_config(), app.update_title(None)];
+        // on initial drop-down mode launch, if we instantly toggle the drop-down, the transparency is not yet frosted
+        // it's fine on later launches and delaying it just 1ms fixes it too
+        if app.is_dropdown {
+            commands.push(cosmic::task::future(async {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                Message::ToggleDropDown
+            }));
+        }
+
+        (app, Task::batch(commands))
     }
 
     //TODO: currently the first escape unfocuses, and the second calls this function
@@ -2239,6 +2315,23 @@ impl Application for App {
                 if let Some(window_id) = self.core.main_window_id() {
                     return cosmic::command::toggle_maximize(window_id);
                 }
+            }
+            Message::ToggleDropDown => {
+                if !self.is_dropdown {
+                    return Task::none();
+                }
+                if let Some(id) = self.dropdown_surface.take() {
+                    // Hide the layer surface
+                    return destroy_layer_surface(id);
+                }
+                // Show the layer surface
+                let id = window::Id::unique();
+                self.dropdown_surface = Some(id);
+                return Self::create_dropdown_layer_surface(id, self.config.dropdown_height);
+            }
+            Message::DropdownHeight(height) => {
+                config_set!(dropdown_height, height);
+                return self.recreate_dropdown_surface(Some(height));
             }
             Message::CopyPrimary(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2773,7 +2866,14 @@ impl Application for App {
             Message::ShowHeaderBar(show_headerbar) => {
                 if show_headerbar != self.config.show_headerbar {
                     config_set!(show_headerbar, show_headerbar);
-                    return self.update_config();
+                    let config_task = self.update_config();
+                    return Task::batch([config_task, self.recreate_dropdown_surface(None)]);
+                }
+            }
+            Message::ShowHeaderBarDropdown(show_headerbar) => {
+                if show_headerbar != self.config.show_headerbar_dropdown {
+                    config_set!(show_headerbar_dropdown, show_headerbar);
+                    return self.recreate_dropdown_surface(None);
                 }
             }
             Message::TabNewInheritWorkingDirectory(tab_new_inherit_working_directory) => {
@@ -2864,6 +2964,9 @@ impl Application for App {
                             //Last pane, closing window
                             if let Some(window_id) = self.core.main_window_id() {
                                 return window::close(window_id);
+                            } else if self.is_dropdown {
+                                // In drop-down mode with no_main_window, exit directly
+                                std::process::exit(0);
                             }
                         }
                     }
@@ -2951,7 +3054,9 @@ impl Application for App {
 
                             #[cfg(feature = "wayland")]
                             if is_wayland() {
-                                let main_window = self.core.main_window_id().unwrap();
+                                let Some(main_window) = self.popup_parent_id() else {
+                                    return Task::none();
+                                };
                                 let pos_x = _position.x as i32;
                                 let pos_y = _position.y as i32;
 
@@ -3411,12 +3516,24 @@ impl Application for App {
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
+        // Handle layer surface window for drop-down mode
+        if self.dropdown_surface == Some(window_id) {
+            return self.view();
+        }
+
+        // Handle dialog windows
         if let Some((popup_id, _pane, entity, ref link, ref autosize_id, _)) =
             self.context_menu_popup
             && window_id == popup_id
         {
             return widget::autosize::autosize(
-                menu::context_menu(&self.config, &self.key_binds, entity, link.clone()),
+                menu::context_menu(
+                    &self.config,
+                    &self.key_binds,
+                    entity,
+                    link.clone(),
+                    self.is_dropdown,
+                ),
                 autosize_id.clone(),
             )
             .into();
@@ -3525,6 +3642,7 @@ impl Application for App {
                                     &self.key_binds,
                                     popup_entity,
                                     link.clone(),
+                                    self.is_dropdown,
                                 ))
                                 .position(widget::popover::Position::Point(point));
                             popover.into()
@@ -3622,7 +3740,13 @@ impl Application for App {
         .on_drag(Message::PaneDragged);
 
         //TODO: apply window border radius xs at bottom of window
-        pane_grid.into()
+        let mut view: Element<'_, Self::Message> = pane_grid.into();
+
+        if self.is_dropdown {
+            view = self.wrap_dropdown_view(view);
+        }
+
+        view
     }
 
     fn system_theme_update(
@@ -3636,8 +3760,7 @@ impl Application for App {
     fn subscription(&self) -> Subscription<Self::Message> {
         struct ConfigSubscription;
         struct TerminalEventSubscription;
-
-        Subscription::batch([
+        let mut subscriptions = vec![
             event::listen_with(|event, _status, _window_id| match event {
                 Event::Keyboard(KeyEvent::KeyPressed {
                     key,
@@ -3690,7 +3813,13 @@ impl Application for App {
                 Some(dialog) => dialog.subscription(),
                 None => Subscription::none(),
             },
-        ])
+        ];
+
+        if self.is_dropdown {
+            subscriptions.push(self.subscribe_dropdown_signals());
+        }
+
+        Subscription::batch(subscriptions)
     }
 }
 
