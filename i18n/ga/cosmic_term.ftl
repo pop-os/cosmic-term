@@ -147,5 +147,5 @@ type-to-search = Clóscríobh le cuardach a dhéanamh...
 comment = Aithriseoir teirminéal don deasc COSMIC
 keywords = Ordú;Blaosc;Teirminéal;CLI;
 copy-link = Cóipeáil Nasc
-tab-new-inherit-working-directory = Úsáideann cluaisíní nua an eolaire reatha
-tab-new-inherit-working-directory-description = Oscail cluaisíní nua in eolaire oibre an chluaisín ghníomhaigh
+tab-new-inherit-working-directory = Úsáideann cluaisíní agus fuinneoga nua an t-eolaire reatha
+tab-new-inherit-working-directory-description = Oscail cluaisíní agus fuinneoga nua in eolaire oibre an chluaisín ghníomhaigh

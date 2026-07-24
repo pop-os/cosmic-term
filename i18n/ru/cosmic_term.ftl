@@ -1,5 +1,5 @@
 cosmic-terminal = Терминал
-comment = Эмулятор терминала для рабочей среды COSMIC
+comment = Эмулятор терминала для среды COSMIC
 keywords = Команда;Оболочка;Терминал;Консоль;
 new-terminal = Новый терминал
 
@@ -86,7 +86,7 @@ new-window = Новое окно
 profile = Профиль
 menu-profiles = Профили...
 close-tab = Закрыть вкладку
-quit = Выйти
+quit = Завершить
 
 ## Edit
 
