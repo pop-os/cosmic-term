@@ -41,7 +41,7 @@ settings = الإعدادات
 ### Appearance
 
 appearance = المظهر
-theme = النسق
+theme = السمة
 match-desktop = طابق سطح المكتب
 dark = داكن
 light = فاتح
@@ -88,7 +88,7 @@ new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...
 close-tab = أغلق اللسان
-quit = أنهِ
+quit = إنهِ
 
 ## Edit
 
