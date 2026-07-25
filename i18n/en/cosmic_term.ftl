@@ -69,6 +69,7 @@ tab-new-inherit-working-directory-description = Open new tabs and windows in the
 ### Keyboard shortcuts
 add-another-keybinding = Add another keybinding
 cancel = Cancel
+pane-close = Close split pane
 close-window = Close window
 copy-or-sigint = Copy or SIGINT
 disable = Disable

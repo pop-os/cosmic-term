@@ -258,6 +258,7 @@ pub enum Action {
     PaneSplitHorizontal,
     PaneSplitVertical,
     PaneToggleMaximized,
+    PaneClose,
     Paste,
     PastePrimary,
     ProfileOpen(ProfileId),
@@ -311,6 +312,7 @@ impl Action {
             Self::PaneSplitHorizontal => Message::PaneSplit(pane_grid::Axis::Horizontal),
             Self::PaneSplitVertical => Message::PaneSplit(pane_grid::Axis::Vertical),
             Self::PaneToggleMaximized => Message::PaneToggleMaximized,
+            Self::PaneClose => Message::PaneClose,
             #[cfg(feature = "password_manager")]
             Self::PasswordManager => Message::ToggleContextPage(ContextPage::PasswordManager),
             Self::Paste => Message::Paste(entity_opt),
@@ -405,6 +407,7 @@ pub enum Message {
     PaneFocusAdjacent(pane_grid::Direction),
     PaneResized(pane_grid::ResizeEvent),
     PaneSplit(pane_grid::Axis),
+    PaneClose,
     PaneToggleMaximized,
     #[cfg(feature = "password_manager")]
     PasswordManager(password_manager::PasswordManagerMessage),
@@ -2606,6 +2609,21 @@ impl Application for App {
                     self.pane_model.panes.maximize(self.pane_model.focused());
                 }
                 return self.update_focus();
+            }
+            Message::PaneClose => {
+                let pane = self.pane_model.focused();
+
+                // closes current pane, if no sibling was returned, closes the window
+                if let Some((_, sibling)) = self.pane_model.panes.close(pane) {
+                    self.terminal_ids.remove(&pane);
+                    self.pane_model.set_focus(sibling);
+
+                    return self.update_title(Some(sibling));
+                } else {
+                    if let Some(window_id) = self.core.main_window_id() {
+                        return window::close(window_id);
+                    }
+                }
             }
             Message::PaneFocusAdjacent(direction) => {
                 if let Some(adjacent) = self
