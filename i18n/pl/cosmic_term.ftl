@@ -88,7 +88,7 @@ new-window = Nowe okno
 profile = Profil
 menu-profiles = Profile...
 close-tab = Zamknij kartę
-quit = Zamknij
+quit = Zakończ
 
 ## Edit
 
