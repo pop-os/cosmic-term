@@ -24,7 +24,7 @@ command-line = 命令列
 tab-title = 分頁標題
 tab-title-description = 覆寫預設分頁標題
 add-profile = 新增設定檔
-new-profile = 新建設定檔
+new-profile = 新增設定檔
 make-default = 設為預設值
 working-directory = 工作目錄
 hold = 保留
@@ -79,12 +79,12 @@ find-next = 下一個
 ## File
 
 file = 檔案
-new-tab = 新建分頁
-new-window = 新建視窗
+new-tab = 新增分頁
+new-window = 新增視窗
 profile = 設定檔案
 menu-profiles = 設定檔案...
 close-tab = 關閉分頁
-quit = 退出
+quit = 結束
 
 ## Edit
 
@@ -109,11 +109,11 @@ menu-color-schemes = 配色方案...
 menu-settings = 設定...
 menu-about = 關於 COSMIC 終端機…
 cancel = 取消
-repository = 軟體庫源
+repository = 軟體庫
 support = 支援
 keyboard-shortcuts = 鍵盤快速鍵
 keywords = 指令;殼層;終端;指令行介面CLI;
-add-another-keybinding = 添加另一個按鍵組合
+add-another-keybinding = 新增另一個鍵盤快速鍵
 close-window = 關閉視窗
 copy-or-sigint = 複製或 SIGINT
 disable = 停用
@@ -136,7 +136,7 @@ focus-pane-up = 聚焦上方窗格
 open-link = 開啟連結
 menu-password-manager = 密碼…
 passwords-title = 密碼
-add-password = 添增密碼
+add-password = 新增密碼
 password-input = 密碼
 password-input-description = 描述
 shortcut-replace-title = 取代快速鍵？

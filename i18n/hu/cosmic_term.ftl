@@ -88,7 +88,7 @@ new-window = Új ablak
 profile = Profil
 menu-profiles = Profilok…
 close-tab = Lap bezárása
-quit = Kilépés
+quit = Leállítás
 
 ## Edit
 
