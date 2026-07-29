@@ -3514,7 +3514,8 @@ impl Application for App {
                     .padding(space_xxs)
                     .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar)
-                    .pane_border_radius(show_pane_borders.then_some(pane_corner_radius));
+                    .pane_border_radius(show_pane_borders.then_some(pane_corner_radius))
+                    .border(pane_border(cosmic, t.transparent, show_pane_borders));
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
@@ -3649,17 +3650,10 @@ impl Application for App {
 
         //TODO: apply window border radius xs at bottom of window
         if show_pane_borders {
-            let bg_divider = Color::from(cosmic.bg_divider());
-            let pane_grid = pane_grid.spacing(space_xxxs);
-            widget::container(pane_grid)
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .padding(space_xxxs)
-                .style(move |_theme| widget::container::Style {
-                    background: Some(bg_divider.into()),
-                    ..Default::default()
-                })
-                .into()
+            // Each pane draws its own border stroke. Painting a filled
+            // container behind the grid instead would stack its alpha with the
+            // translucent panes and wash out the blurred backdrop.
+            pane_grid.spacing(space_xxxs).into()
         } else {
             pane_grid.into()
         }
@@ -3740,4 +3734,81 @@ fn is_wayland() -> bool {
         cosmic::app::cosmic::windowing_system(),
         Some(cosmic::app::cosmic::WindowingSystem::Wayland)
     )
+}
+
+/// Divider color painted behind the pane grid to form pane borders.
+///
+/// When blur is active the transparent container must be used, otherwise the
+/// fill is opaque and hides the blurred desktop behind the window.
+fn pane_divider_color(
+    cosmic: &cosmic_theme::Theme,
+    transparent: bool,
+) -> cosmic::cosmic_theme::palette::Srgba {
+    cosmic.background(transparent).divider
+}
+
+/// Border stroke drawn around each terminal pane.
+///
+/// The stroke sits on the pane edge rather than behind it, so the pane
+/// interior keeps its own opacity and the blurred desktop stays visible.
+fn pane_border(cosmic: &cosmic_theme::Theme, transparent: bool, show: bool) -> iced::Border {
+    if show {
+        iced::Border {
+            color: Color::from(pane_divider_color(cosmic, transparent)),
+            width: 1.0,
+            ..Default::default()
+        }
+    } else {
+        iced::Border::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pane_border, pane_divider_color};
+
+    #[test]
+    fn pane_border_is_drawn_only_when_enabled() {
+        // With borders off the pane must render exactly as before, so the
+        // stroke has to be zero width rather than a transparent hairline.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        assert_eq!(pane_border(&theme, true, false).width, 0.0);
+        assert!(pane_border(&theme, true, true).width > 0.0);
+    }
+
+    #[test]
+    fn pane_border_uses_the_divider_color() {
+        // The stroke is the only thing marking the pane edge now that nothing
+        // is painted behind the grid, so it must match the theme divider.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        let expected = cosmic::iced::Color::from(pane_divider_color(&theme, true));
+        assert_eq!(pane_border(&theme, true, true).color, expected);
+    }
+
+    #[test]
+    fn pane_divider_is_translucent_when_blur_is_active() {
+        // The divider is painted as a full-window container behind the pane
+        // grid. With blur active it must keep alpha < 1 so the frosted
+        // backdrop still shows through instead of a flat opaque fill.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        let color = pane_divider_color(&theme, true);
+        assert!(
+            color.alpha < 1.0,
+            "expected translucent divider, got alpha {}",
+            color.alpha
+        );
+    }
+
+    #[test]
+    fn pane_divider_is_opaque_without_blur() {
+        // Without blur there is nothing to show through, so the divider keeps
+        // the fully opaque background color.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        let color = pane_divider_color(&theme, false);
+        assert!(
+            (color.alpha - 1.0).abs() < f32::EPSILON,
+            "expected opaque divider, got alpha {}",
+            color.alpha
+        );
+    }
 }

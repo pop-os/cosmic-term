@@ -11,7 +11,8 @@ use cosmic::{
     Renderer,
     cosmic_theme::palette::{WithAlpha, blend::Compose},
     iced::core::{
-        Border, Shell, border::Radius,
+        Border, Shell,
+        border::Radius,
         clipboard::Clipboard,
         input_method::{self, InputMethod},
         keyboard::key::Named,
