@@ -3505,7 +3505,7 @@ impl Application for App {
     }
 
     fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
-        vec![menu_bar(&self.core, &self.config, &self.key_binds)]
+        vec![menu_bar(&self.core, &self.config, &self.key_binds, None)]
     }
 
     fn header_end(&self) -> Vec<Element<'_, Self::Message>> {

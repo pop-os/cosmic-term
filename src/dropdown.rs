@@ -140,8 +140,13 @@ impl App {
 
         if self.config.show_headerbar_dropdown {
             let mut header = widget::header_bar();
-            for el in self.header_start() {
-                header = header.start(el);
+            if let Some(parent_id) = self.dropdown_surface {
+                header = header.start(crate::menu::menu_bar(
+                    &self.core,
+                    &self.config,
+                    &self.key_binds,
+                    Some(parent_id),
+                ));
             }
             for el in self.header_end() {
                 header = header.end(el);
