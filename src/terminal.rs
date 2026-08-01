@@ -41,6 +41,7 @@ pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 
 use crate::{
     config::{ColorSchemeKind, Config as AppConfig, ProfileId},
+    cursor::{CursorSettings, effective_shape, should_blink},
     menu::MenuState,
     mouse_reporter::MouseReporter,
 };
@@ -196,12 +197,58 @@ impl TerminalPaneGrid {
         }
     }
     pub fn unfocus_all_terminals(&self) {
-        for (_pane, tab_model) in self.panes.panes.iter() {
+        for tab_model in self.panes.panes.values() {
             let entity = tab_model.active();
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
                 terminal.set_focused(false);
                 terminal.update();
+            }
+        }
+    }
+
+    pub fn any_focused_terminal_should_blink(&self) -> bool {
+        for (pane, tab_model) in self.panes.panes.iter() {
+            if self.focus != *pane {
+                continue;
+            }
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let terminal = terminal.lock().unwrap();
+                if terminal.should_blink() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn refresh_all_cursor_displays(&self) {
+        for tab_model in self.panes.panes.values() {
+            for entity in tab_model.iter() {
+                if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                    let mut terminal = terminal.lock().unwrap();
+                    terminal.refresh_cursor_display();
+                }
+            }
+        }
+    }
+
+    pub fn toggle_focused_cursor_blink(&self) {
+        for (pane, tab_model) in self.panes.panes.iter() {
+            if self.focus != *pane {
+                continue;
+            }
+            let entity = tab_model.active();
+            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                let mut terminal = terminal.lock().unwrap();
+                if terminal.should_blink() {
+                    let visible = !terminal.cursor_blink_visible;
+                    terminal.set_cursor_blink_visible(visible);
+                    if terminal.needs_update {
+                        terminal.update();
+                    }
+                }
             }
         }
     }
@@ -261,6 +308,8 @@ pub struct Terminal {
     size: Size,
     use_bright_bold: bool,
     zoom_adj: i8,
+    pub cursor_blink_visible: bool,
+    cursor_settings: CursorSettings,
 }
 
 impl Terminal {
@@ -365,6 +414,8 @@ impl Terminal {
             use_bright_bold,
             zoom_adj: Default::default(),
             is_focused: true,
+            cursor_blink_visible: true,
+            cursor_settings: CursorSettings::from(app_config),
         })
     }
 
@@ -420,6 +471,9 @@ impl Terminal {
         self.is_focused = is_focused;
 
         if focus_changed {
+            self.cursor_blink_visible = true;
+            self.needs_update = true;
+
             let report_focus = self.term.lock().mode().contains(TermMode::FOCUS_IN_OUT);
             if report_focus {
                 const FOCUS_IN: &[u8] = b"\x1b[I";
@@ -428,6 +482,44 @@ impl Terminal {
                 let input = if is_focused { FOCUS_IN } else { FOCUS_OUT };
                 self.input_no_scroll(input);
             }
+        }
+    }
+
+    pub fn cursor_settings(&self) -> CursorSettings {
+        self.cursor_settings
+    }
+
+    pub fn should_blink(&self) -> bool {
+        let term = self.term.lock();
+        should_blink(
+            &self.cursor_settings,
+            self.is_focused,
+            term.cursor_style().blinking,
+        )
+    }
+
+    pub fn is_focused(&self) -> bool {
+        self.is_focused
+    }
+
+    pub fn refresh_cursor_display(&mut self) {
+        self.cursor_blink_visible = true;
+        self.set_redraw(true);
+        self.needs_update = true;
+        self.update();
+    }
+
+    pub fn set_cursor_blink_visible(&mut self, visible: bool) {
+        if self.cursor_blink_visible == visible {
+            return;
+        }
+        self.cursor_blink_visible = visible;
+        let term = self.term.lock();
+        let terminal_shape = term.renderable_content().cursor.shape;
+        drop(term);
+        let shape = effective_shape(&self.cursor_settings, self.is_focused, terminal_shape);
+        if shape == CursorShape::Block {
+            self.needs_update = true;
         }
     }
 
@@ -695,9 +787,22 @@ impl Terminal {
                     changed = true;
                 }
             }
+            if config.cursor_color_source == crate::config::CursorColorSource::Custom {
+                let cursor_rgb = config.effective_cursor_rgb(&self.colors);
+                if self.colors[NamedColor::Cursor] != cursor_rgb {
+                    self.colors[NamedColor::Cursor] = cursor_rgb;
+                    changed = true;
+                }
+            }
             if changed {
                 update = true;
             }
+        }
+
+        let changed_cursor_settings = self.cursor_settings != CursorSettings::from(config);
+        self.cursor_settings = CursorSettings::from(config);
+        if changed_cursor_settings {
+            update = true;
         }
 
         // NOTE: this is done on every set_config because the changed boolean above does not capture
@@ -804,6 +909,9 @@ impl Terminal {
                 }
 
                 let grid = term.grid();
+                let terminal_shape = term.renderable_content().cursor.shape;
+                let effective_cursor_shape =
+                    effective_shape(&self.cursor_settings, self.is_focused, terminal_shape);
                 for indexed in grid.display_iter() {
                     if indexed.point.line != last_point.unwrap_or(indexed.point).line {
                         while line_i >= buffer.lines.len() {
@@ -878,8 +986,9 @@ impl Terminal {
 
                     // Change color if cursor
                     if indexed.point == grid.cursor.point
-                        && term.renderable_content().cursor.shape == CursorShape::Block
+                        && effective_cursor_shape == CursorShape::Block
                         && self.is_focused
+                        && self.cursor_blink_visible
                     {
                         //Use specific cursor color if requested
                         if term.colors()[NamedColor::Cursor].is_some() {

@@ -45,6 +45,27 @@ syntax-dark = Tumma väriteema
 syntax-light = Vaalea väriteema
 default-zoom-step = Zoomauksen askeleet
 opacity = Taustan peittävyys
+cursor = Cursor
+cursor-color = Cursor color
+cursor-color-scheme = Use color scheme
+cursor-color-custom = Custom color
+cursor-color-custom-description = Hex color (e.g. #ff0000)
+cursor-style = Cursor style
+cursor-style-follow-terminal = Follow terminal
+cursor-style-block = Block
+cursor-style-beam = Beam
+cursor-style-underline = Underline
+cursor-style-hollow-block = Hollow block
+cursor-unfocused-style = Unfocused cursor style
+cursor-blink = Cursor blink
+cursor-blink-respect-terminal = Respect terminal
+cursor-blink-always = Always blink
+cursor-blink-never = Never blink
+cursor-blink-interval = Blink interval
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } millisecond
+   *[other] { $ms } milliseconds
+}
 
 ### Font
 

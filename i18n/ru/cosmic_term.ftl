@@ -47,6 +47,27 @@ syntax-dark = Тёмная цветовая схема
 syntax-light = Светлая цветовая схема
 default-zoom-step = Шаг масштабирования
 opacity = Прозрачность фона
+cursor = Курсор
+cursor-color = Цвет курсора
+cursor-color-scheme = Использовать цветовую схему
+cursor-color-custom = Пользовательский цвет
+cursor-color-custom-description = Шестнадцатеричный цвет (напр. #ff0000)
+cursor-style = Стиль курсора
+cursor-style-follow-terminal = Как в терминале
+cursor-style-block = Блок
+cursor-style-beam = Линия
+cursor-style-underline = Подчёркивание
+cursor-style-hollow-block = Полый блок
+cursor-unfocused-style = Стиль курсора без фокуса
+cursor-blink = Мигание курсора
+cursor-blink-respect-terminal = Как в терминале
+cursor-blink-always = Всегда мигать
+cursor-blink-never = Никогда не мигать
+cursor-blink-interval = Интервал мигания
+cursor-blink-interval-description = { $ms ->
+    [one] { $ms } миллисекунда
+   *[other] { $ms } миллисекунд
+}
 
 ### Font
 
