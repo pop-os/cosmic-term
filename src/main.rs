@@ -99,6 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut shell_args = Vec::new();
     let mut daemonize = true;
     let mut working_directory = None;
+    let mut window_size = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
@@ -119,6 +120,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                 } else {
                     eprintln!("Missing argument for {arg_str}");
                     process::exit(1);
+                }
+            }
+            Some(arg_str @ "--window-size") => {
+                let value = match raw_args.next_os(&mut cursor) {
+                    Some(v) => v,
+                    None => {
+                        eprintln!("Missing argument for {arg_str}");
+                        process::exit(1);
+                    }
+                };
+                match parse_window_size(&value.to_string_lossy()) {
+                    Ok(size) => window_size = Some(size),
+                    Err(err) => {
+                        eprintln!("Invalid argument for {arg_str}: {err}");
+                        process::exit(1);
+                    }
                 }
             }
             Some("--no-daemon") => {
@@ -201,6 +218,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
+    if let Some((width, height)) = window_size {
+        settings = settings.size(iced::Size::new(width, height));
+    }
 
     // Flags
     let flags = Flags {
@@ -226,8 +246,63 @@ Project home page: https://github.com/pop-os/cosmic-term
 Options:
   --help                          Show this message
   --version                       Show the version of cosmic-term
-  -w, --working-directory <dir>   Set the working directory for the terminal"#
+  -w, --working-directory <dir>   Set the working directory for the terminal
+  --window-size <WxH>             Set the initial window size in logical pixels (e.g. 1280x720)"#
     );
+}
+
+/// Parses a `WxH` window-size argument (e.g. `1280x720`) into logical pixels.
+fn parse_window_size(value: &str) -> Result<(f32, f32), String> {
+    let (w_str, h_str) = value
+        .split_once(['x', 'X'])
+        .ok_or_else(|| format!("expected WxH, got {value:?}"))?;
+    let width: f32 = w_str
+        .parse()
+        .map_err(|_| format!("width {w_str:?} is not a number"))?;
+    let height: f32 = h_str
+        .parse()
+        .map_err(|_| format!("height {h_str:?} is not a number"))?;
+    if width <= 0.0 || height <= 0.0 {
+        return Err(format!("dimensions must be positive, got {width}x{height}"));
+    }
+    Ok((width, height))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_window_size;
+
+    #[test]
+    fn parses_lowercase_x() {
+        assert_eq!(parse_window_size("1280x720").unwrap(), (1280.0, 720.0));
+    }
+
+    #[test]
+    fn parses_uppercase_x() {
+        assert_eq!(parse_window_size("800X600").unwrap(), (800.0, 600.0));
+    }
+
+    #[test]
+    fn parses_floats() {
+        assert_eq!(parse_window_size("1024.5x768.5").unwrap(), (1024.5, 768.5));
+    }
+
+    #[test]
+    fn rejects_missing_separator() {
+        assert!(parse_window_size("1280").is_err());
+    }
+
+    #[test]
+    fn rejects_non_numeric() {
+        assert!(parse_window_size("widexheight").is_err());
+    }
+
+    #[test]
+    fn rejects_zero_or_negative() {
+        assert!(parse_window_size("0x100").is_err());
+        assert!(parse_window_size("100x0").is_err());
+        assert!(parse_window_size("-1x100").is_err());
+    }
 }
 
 #[derive(Clone, Debug)]
