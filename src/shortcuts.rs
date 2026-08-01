@@ -57,6 +57,7 @@ impl Binding {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum KeyBindAction {
     Disable,
+    ClearBuffer,
     ClearScrollback,
     Copy,
     CopyOrSigint,
@@ -99,6 +100,7 @@ impl KeyBindAction {
     fn to_action(self) -> Option<Action> {
         match self {
             Self::Disable => None,
+            Self::ClearBuffer => Some(Action::ClearBuffer),
             Self::ClearScrollback => Some(Action::ClearScrollback),
             Self::Copy => Some(Action::Copy),
             Self::CopyOrSigint => Some(Action::CopyOrSigint),
@@ -259,6 +261,7 @@ impl ShortcutsConfig {
 pub fn action_label(action: KeyBindAction) -> String {
     match action {
         KeyBindAction::Disable => fl!("disable"),
+        KeyBindAction::ClearBuffer => fl!("clear-buffer"),
         KeyBindAction::ClearScrollback => fl!("clear-scrollback"),
         KeyBindAction::Copy => fl!("copy"),
         KeyBindAction::CopyOrSigint => fl!("copy-or-sigint"),
@@ -362,7 +365,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
             KeyBindAction::ZoomReset,
         ],
     });
-    let mut other_actions = vec![KeyBindAction::ClearScrollback];
+    let mut other_actions = vec![KeyBindAction::ClearBuffer, KeyBindAction::ClearScrollback];
     #[cfg(feature = "password_manager")]
     other_actions.push(KeyBindAction::PasswordManager);
     groups.push(ShortcutGroup {
@@ -497,6 +500,8 @@ fn fallback_shortcuts() -> Shortcuts {
     bind!([Ctrl, Shift], "ArrowRight", PaneFocusRight);
     bind!([Ctrl, Shift], "L", PaneFocusRight);
 
+    // CTRL+Alt+K clears the screen and entire buffer.
+    bind!([Ctrl, Alt], "K", ClearBuffer);
     // CTRL+Alt+L clears the scrollback.
     bind!([Ctrl, Alt], "L", ClearScrollback);
 
