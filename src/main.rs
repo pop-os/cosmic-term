@@ -1758,18 +1758,6 @@ impl Application for App {
                 }
             }
 
-            // only keep fonts that have both NORMAL and BOLD weights with both having
-            // a `Stretch::Normal` face.
-            // This is important for fallbacks.
-            font_name_faces_map.retain(|_, v| {
-                let has_normal = v
-                    .iter()
-                    .any(|face| face.weight == Weight::NORMAL && face.stretch == Stretch::Normal);
-                let has_bold = v
-                    .iter()
-                    .any(|face| face.weight == Weight::BOLD && face.stretch == Stretch::Normal);
-                has_normal && has_bold
-            });
             font_name_faces_map
         };
 
