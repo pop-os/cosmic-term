@@ -1615,6 +1615,10 @@ where
             }
             _ => (),
         }
+
+        if terminal.needs_update {
+            shell.request_redraw();
+        }
     }
 }
 
