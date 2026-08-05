@@ -196,7 +196,7 @@ impl TerminalPaneGrid {
         }
     }
     pub fn unfocus_all_terminals(&self) {
-        for (_pane, tab_model) in self.panes.panes.iter() {
+        for tab_model in self.panes.panes.values() {
             let entity = tab_model.active();
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
