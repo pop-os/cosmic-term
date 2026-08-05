@@ -71,3 +71,51 @@ clear-scrollback = Hreinsa afturrakningu
 split-horizontal = Kljúfa lárétt
 split-vertical = Kljúfa lóðrétt
 pane-toggle-maximize = Fullstækkað af/á
+
+comment = Skjáhermir fyrir COSMIC skjáborðið
+keywords = Command;Shell;Terminal;CLI;Skipun;Skel;Skjáhermir;
+show-pane-borders = Sýna útlínur rúða
+
+### Advanced
+tab-new-inherit-working-directory = Nýir flipar og gluggar nota núverandi möppu
+tab-new-inherit-working-directory-description = Opna nýja flipa og glugga í vinnumöppu virka flipans
+
+### Keyboard shortcuts
+add-another-keybinding = Bæta við annarri lyklabindingu
+cancel = Hætta við
+close-window = Loka glugga
+copy-or-sigint = Afrita eða SIGINT
+disable = Gera óvirkt
+focus-pane-down = Fókus á rúðu fyrir neðan
+focus-pane-left = Fókus á rúðu til vinstri
+focus-pane-right = Fókus á rúðu til hægri
+focus-pane-up = Fókus á rúðu fyrir ofan
+keyboard-shortcuts = Flýtilyklar
+menu-keyboard-shortcuts = Flýtilyklar...
+no-shortcuts = Engir flýtilyklar
+password-manager = Lykilorðastjóri
+paste-primary = Líma aðalval
+replace = Skipta út
+reset-to-default = Endurstilla á sjálfgildi
+shortcut-capture-hint = Ýttu á lyklasamsetninguna
+shortcut-group-clipboard = Klippiborð
+shortcut-group-other = Annað
+shortcut-group-tabs = Flipar
+shortcut-group-window = Gluggi
+shortcut-group-zoom = Aðdráttur
+shortcut-replace-body = { $binding } er nú þegar úthlutað á { $existing }. Skipta því út fyrir { $new_action }?
+shortcut-replace-title = Skipta út flýtilykli?
+tab-activate = Virkja flipa { $number }
+toggle-fullscreen = Heilskjár af/á
+type-to-search = Skrifaðu til að leita...
+
+# Find
+open-link = Opna tengil
+copy-link = Afrita tengil
+
+## View
+menu-password-manager = Lykilorð...
+passwords-title = Lykilorð
+add-password = Bæta við lykilorði
+password-input = Lykilorð
+password-input-description = Lýsing
