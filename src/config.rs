@@ -216,6 +216,10 @@ impl Default for Profile {
     }
 }
 
+fn default_line_height_mul_100() -> u16 {
+    140
+}
+
 #[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Config {
     pub app_theme: AppTheme,
@@ -223,6 +227,8 @@ pub struct Config {
     pub color_schemes_light: BTreeMap<ColorSchemeId, ColorScheme>,
     pub font_name: String,
     pub font_size: u16,
+    #[serde(default = "default_line_height_mul_100")]
+    pub line_height_mul_100: u16,
     pub font_weight: u16,
     pub dim_font_weight: u16,
     pub bold_font_weight: u16,
@@ -255,6 +261,7 @@ impl Default for Config {
             tab_new_inherit_working_directory: false,
             font_name: "Noto Sans Mono".to_string(),
             font_size: 14,
+            line_height_mul_100: 140,
             font_size_zoom_step_mul_100: 100,
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
@@ -339,7 +346,8 @@ impl Config {
     // Calculate metrics from font size
     pub fn metrics(&self, zoom_adj: i8) -> Metrics {
         let font_size = self.font_size_adjusted(zoom_adj);
-        let line_height = (font_size * 1.4).ceil();
+        let line_height_factor = f32::from(self.line_height_mul_100.max(50)) / 100.0;
+        let line_height = (font_size * line_height_factor).ceil();
         Metrics::new(font_size, line_height)
     }
 
