@@ -201,6 +201,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
+    settings = settings.exit_on_close(false);
 
     // Flags
     let flags = Flags {
@@ -452,6 +453,7 @@ pub enum Message {
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
     WindowClose,
+    WindowCloseRequested(window::Id),
     WindowNew,
     WindowFocused,
     WindowUnfocused,
@@ -1550,6 +1552,18 @@ impl App {
         ])
         .into()
     }
+
+    fn request_close_window(&mut self) -> Task<Message> {
+        if self.config.confirm_on_close {
+            self.show_confirm_close_dialog = true;
+            Task::none()
+        } else if let Some(window_id) = self.core.main_window_id() {
+            window::close(window_id)
+        } else {
+            Task::none()
+        }
+    }
+
     fn get_default_profile(&self) -> Option<ProfileId> {
         self.config.default_profile
     }
@@ -2905,10 +2919,8 @@ impl Application for App {
                             self.terminal_ids.remove(&self.pane_model.focused());
                             self.pane_model.set_focus(sibling);
                         } else {
-                            //Last pane, closing window
-                            if let Some(window_id) = self.core.main_window_id() {
-                                return window::close(window_id);
-                            }
+                            // Last pane, closing window
+                            return self.request_close_window();
                         }
                     }
                 }
@@ -3280,13 +3292,13 @@ impl Application for App {
                 config_set!(default_profile, default.then_some(profile_id));
             }
             Message::WindowClose => {
-                if self.config.confirm_on_close {
-                    self.show_confirm_close_dialog = true;
-                    return Task::none();
+                return self.request_close_window();
+            }
+            Message::WindowCloseRequested(id) => {
+                if self.core.main_window_id() == Some(id) {
+                    return self.request_close_window();
                 }
-                if let Some(window_id) = self.core.main_window_id() {
-                    return window::close(window_id);
-                }
+                return Task::none();
             }
             Message::WindowNew => match env::current_exe() {
                 Ok(exe) => {
@@ -3466,6 +3478,10 @@ impl Application for App {
         ]
     }
 
+    fn on_app_exit(&mut self) -> Option<Self::Message> {
+        Some(Message::WindowClose)
+    }
+
     fn on_close_requested(&self, id: window::Id) -> Option<Self::Message> {
         if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup
             && id == *popup_id
@@ -3473,7 +3489,7 @@ impl Application for App {
             return Some(Message::ContextMenuPopupClosed(id));
         }
         if self.core.main_window_id() == Some(id) {
-            return Some(Message::WindowClose);
+            return Some(Message::WindowCloseRequested(id));
         }
         None
     }
