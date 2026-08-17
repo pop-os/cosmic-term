@@ -3867,4 +3867,20 @@ mod tests {
             color.alpha
         );
     }
+
+    #[test]
+    fn config_confirm_on_close_defaults_to_false() {
+        let config = crate::config::Config::default();
+        assert!(!config.confirm_on_close);
+    }
+
+    #[test]
+    fn config_confirm_on_close_serde() {
+        let mut config = crate::config::Config::default();
+        config.confirm_on_close = true;
+        let serialized = ron::to_string(&config).expect("failed to serialize");
+        let deserialized: crate::config::Config =
+            ron::from_str(&serialized).expect("failed to deserialize");
+        assert!(deserialized.confirm_on_close);
+    }
 }
