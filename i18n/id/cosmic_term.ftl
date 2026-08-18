@@ -109,3 +109,4 @@ keywords = Perintah;Shell;Terminal;CLI;
 copy-link = Salin Tautan
 tab-new-inherit-working-directory = Tab dan jendela baru menggunakan direktori saat ini
 tab-new-inherit-working-directory-description = Buka tab dan jendela baru di direktori pekerjaan tab aktif
+show-pane-borders = Tampilkan batas panel

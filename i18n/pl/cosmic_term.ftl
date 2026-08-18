@@ -149,3 +149,4 @@ focus-pane-up = Aktywuj panel wyżej
 copy-link = Skopiuj Odnośnik
 tab-new-inherit-working-directory = Nowe karty i okna użyją obecnego katalogu
 tab-new-inherit-working-directory-description = Otwieraj nowe karty i okna w katalogu roboczym aktywnej karty
+show-pane-borders = Pokaż obramowania paneli
