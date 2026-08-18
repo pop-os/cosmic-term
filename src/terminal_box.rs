@@ -543,7 +543,7 @@ where
                     fn fill<Renderer: renderer::Renderer>(
                         &mut self,
                         renderer: &mut Renderer,
-                        is_focused: bool,
+                        _is_focused: bool,
                     ) {
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::from_rgba(
@@ -1614,6 +1614,10 @@ where
                 }
             }
             _ => (),
+        }
+
+        if terminal.needs_update {
+            shell.request_redraw();
         }
     }
 }
