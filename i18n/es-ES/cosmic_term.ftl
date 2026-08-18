@@ -69,9 +69,13 @@ focus-follow-mouse = Enfoque del tecleo sigue el ratón
 
 advanced = Avanzado
 show-headerbar = Mostrar encabezado
-show-header-description = Mostrar encabezado desde el menú del clic secundario.
+show-header-description = Mostrar el encabezado desde el menú contextual.
 tab-new-inherit-working-directory = Las pestañas nuevas usan el directorio actual
 tab-new-inherit-working-directory-description = Abrir pestañas nuevas en el directorio de trabajo de la pestaña activa
+confirm-on-close = Confirmar antes de cerrar
+confirm-on-close-description = Pedir confirmación antes de cerrar la ventana de la terminal
+confirm-close-title = ¿Cerrar terminal?
+confirm-close-body = ¿Estás seguro de que deseas cerrar esta terminal? Los procesos en ejecución se detendrán.
 # Find
 find-placeholder = Buscar...
 find-previous = Buscar previo

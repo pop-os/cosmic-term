@@ -66,6 +66,10 @@ show-headerbar = Show header
 show-header-description = Reveal the header from the right-click menu
 tab-new-inherit-working-directory = New tabs and windows use current directory
 tab-new-inherit-working-directory-description = Open new tabs and windows in the active tab's working directory
+confirm-on-close = Confirm before closing
+confirm-on-close-description = Ask for confirmation before closing the terminal window
+confirm-close-title = Close Terminal?
+confirm-close-body = Are you sure you want to close this terminal? Any running processes will be terminated.
 
 ### Keyboard shortcuts
 add-another-keybinding = Add another keybinding
