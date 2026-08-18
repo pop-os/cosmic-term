@@ -38,7 +38,7 @@ settings = Asetukset
 
 appearance = Ulkoasu
 theme = Teema
-match-desktop = Sovita työpöytään
+match-desktop = Sama kuin työpöytä
 dark = Tumma
 light = Vaalea
 syntax-dark = Tumma väriteema
@@ -151,3 +151,4 @@ toggle-fullscreen = Koko näyttö päällä tai pois
 shortcut-group-other = Muut
 tab-new-inherit-working-directory = Uudet välilehdet käyttävät nykyistä hakemistoa
 tab-new-inherit-working-directory-description = Avaa uudet välilehdet aktiivisen välilehden työskentelyhakemistossa
+show-pane-borders = Näytä paneelin rajat

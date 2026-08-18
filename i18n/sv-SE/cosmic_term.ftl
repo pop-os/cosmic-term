@@ -153,3 +153,4 @@ shortcut-group-zoom = Zooma
 copy-link = Kopiera länk
 tab-new-inherit-working-directory-description = Öppna nya flikar och fönster i den aktiva flikens arbetskatalog
 tab-new-inherit-working-directory = Nya flikar och fönster använder aktuell katalog
+show-pane-borders = Visa ram runt fält

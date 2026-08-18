@@ -88,7 +88,7 @@ new-window = Új ablak
 profile = Profil
 menu-profiles = Profilok…
 close-tab = Lap bezárása
-quit = Leállítás
+quit = Kilépés
 
 ## Edit
 
@@ -149,3 +149,4 @@ type-to-search = Gépelj a kereséshez…
 copy-link = Hivatkozás másolása
 tab-new-inherit-working-directory = Az új lapok és ablakok az aktuális könyvtárat használják
 tab-new-inherit-working-directory-description = Az új lapok és ablakok az aktív lap munkakönyvtárában nyílnak meg
+show-pane-borders = Ablaktábla-szegélyek megjelenítése
