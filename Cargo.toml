@@ -17,7 +17,7 @@ regex = "1"
 ron = "0.11"
 serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "signal", "time"] }
 # CLI arguments
 clap_lex = "0.7"
 # Internationalization

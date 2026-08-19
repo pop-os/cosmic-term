@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use cosmic::iced::Point;
+use cosmic::widget::menu;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
 use cosmic::widget::space;
@@ -12,7 +13,7 @@ use cosmic::{
     theme,
     widget::{
         self, divider,
-        menu::{ItemHeight, ItemWidth},
+        menu::{ItemHeight, ItemWidth, Tree},
         responsive_menu_bar, segmented_button,
     },
 };
@@ -35,6 +36,7 @@ pub fn context_menu<'a>(
     key_binds: &HashMap<KeyBind, Action>,
     entity: segmented_button::Entity,
     link: Option<String>,
+    is_drop_down: bool,
 ) -> Element<'a, Message> {
     let find_key = |action: &Action| -> String {
         for (key_bind, key_action) in key_binds {
@@ -89,14 +91,21 @@ pub fn context_menu<'a>(
             Action::PaneSplitHorizontal,
         )),
         Element::from(menu_item(fl!("split-vertical"), Action::PaneSplitVertical)),
-        Element::from(menu_item(
+    ];
+
+    if !is_drop_down {
+        rows.push(Element::from(menu_item(
             fl!("pane-toggle-maximize"),
             Action::PaneToggleMaximized,
-        )),
-        Element::from(divider::horizontal::light()),
-        Element::from(menu_item(fl!("new-tab"), Action::TabNew)),
-        Element::from(menu_item(fl!("menu-settings"), Action::Settings)),
-    ];
+        )));
+        rows.push(Element::from(divider::horizontal::light()));
+    }
+    rows.push(Element::from(menu_item(fl!("new-tab"), Action::TabNew)));
+    rows.push(Element::from(menu_item(
+        fl!("menu-settings"),
+        Action::Settings,
+    )));
+
     #[cfg(feature = "password_manager")]
     {
         rows.push(Element::from(menu_item(
@@ -104,11 +113,19 @@ pub fn context_menu<'a>(
             Action::PasswordManager,
         )));
     }
-    rows.push(Element::from(menu_checkbox(
-        fl!("show-headerbar"),
-        config.show_headerbar,
-        Action::ShowHeaderBar(!config.show_headerbar),
-    )));
+    if is_drop_down {
+        rows.push(Element::from(menu_checkbox(
+            fl!("show-headerbar-dropdown"),
+            config.show_headerbar_dropdown,
+            Action::ShowHeaderBarDropdown(!config.show_headerbar_dropdown),
+        )));
+    } else {
+        rows.push(Element::from(menu_checkbox(
+            fl!("show-headerbar"),
+            config.show_headerbar,
+            Action::ShowHeaderBar(!config.show_headerbar),
+        )));
+    }
 
     //If we have a link
     //prepend the Open Link item
@@ -199,6 +216,7 @@ pub fn menu_bar<'a>(
     core: &Core,
     config: &Config,
     key_binds: &HashMap<KeyBind, Action>,
+    parent_window_id: Option<cosmic::iced::window::Id>,
 ) -> Element<'a, Message> {
     let mut profile_items = Vec::with_capacity(config.profiles.len());
     for (name, id) in config.profile_names() {
@@ -208,86 +226,101 @@ pub fn menu_bar<'a>(
     //TODO: what to do if there are no profiles?
 
     let color_scheme_kind = config.color_scheme_kind(core.system_theme());
+    let item_width = ItemWidth::Uniform(320);
+    let item_height = ItemHeight::Dynamic(40);
+    let spacing = 4.0;
 
-    responsive_menu_bar()
-        .item_height(ItemHeight::Dynamic(40))
-        .item_width(ItemWidth::Uniform(320))
-        .spacing(4.0)
-        .into_element(
-            core,
-            key_binds,
-            MENU_ID.clone(),
-            Message::Surface,
+    let items: Vec<(String, Vec<MenuItem<Action, String>>)> = vec![
+        (
+            fl!("file"),
             vec![
-                (
-                    fl!("file"),
-                    vec![
-                        MenuItem::Button(fl!("new-tab"), None, Action::TabNew),
-                        MenuItem::Button(fl!("new-window"), None, Action::WindowNew),
-                        MenuItem::Divider,
-                        MenuItem::Folder(fl!("profile"), profile_items),
-                        MenuItem::Button(fl!("menu-profiles"), None, Action::Profiles),
-                        MenuItem::Divider,
-                        MenuItem::Button(fl!("close-tab"), None, Action::TabClose),
-                        MenuItem::Divider,
-                        MenuItem::Button(fl!("quit"), None, Action::WindowClose),
-                    ],
-                ),
-                (
-                    fl!("edit"),
-                    vec![
-                        MenuItem::Button(fl!("copy"), None, Action::Copy),
-                        MenuItem::Button(fl!("paste"), None, Action::Paste),
-                        MenuItem::Button(fl!("select-all"), None, Action::SelectAll),
-                        MenuItem::Divider,
-                        MenuItem::Button(fl!("clear-scrollback"), None, Action::ClearScrollback),
-                        MenuItem::Divider,
-                        MenuItem::Button(fl!("find"), None, Action::Find),
-                    ],
-                ),
-                (
-                    fl!("view"),
-                    vec![
-                        MenuItem::Button(fl!("zoom-in"), None, Action::ZoomIn),
-                        MenuItem::Button(fl!("zoom-reset"), None, Action::ZoomReset),
-                        MenuItem::Button(fl!("zoom-out"), None, Action::ZoomOut),
-                        MenuItem::Divider,
-                        MenuItem::Button(fl!("next-tab"), None, Action::TabNext),
-                        MenuItem::Button(fl!("previous-tab"), None, Action::TabPrev),
-                        MenuItem::Divider,
-                        MenuItem::Button(
-                            fl!("split-horizontal"),
-                            None,
-                            Action::PaneSplitHorizontal,
-                        ),
-                        MenuItem::Button(fl!("split-vertical"), None, Action::PaneSplitVertical),
-                        MenuItem::Button(
-                            fl!("pane-toggle-maximize"),
-                            None,
-                            Action::PaneToggleMaximized,
-                        ),
-                        MenuItem::Divider,
-                        MenuItem::Button(
-                            fl!("menu-color-schemes"),
-                            None,
-                            Action::ColorSchemes(color_scheme_kind),
-                        ),
-                        MenuItem::Button(
-                            fl!("menu-keyboard-shortcuts"),
-                            None,
-                            Action::KeyboardShortcuts,
-                        ),
-                        MenuItem::Button(fl!("menu-settings"), None, Action::Settings),
-                        #[cfg(feature = "password_manager")]
-                        MenuItem::Button(
-                            fl!("menu-password-manager"),
-                            None,
-                            Action::PasswordManager,
-                        ),
-                        MenuItem::Divider,
-                        MenuItem::Button(fl!("menu-about"), None, Action::About),
-                    ],
-                ),
+                MenuItem::Button(fl!("new-tab"), None, Action::TabNew),
+                MenuItem::Button(fl!("new-window"), None, Action::WindowNew),
+                MenuItem::Divider,
+                MenuItem::Folder(fl!("profile"), profile_items),
+                MenuItem::Button(fl!("menu-profiles"), None, Action::Profiles),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("close-tab"), None, Action::TabClose),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("quit"), None, Action::WindowClose),
             ],
-        )
+        ),
+        (
+            fl!("edit"),
+            vec![
+                MenuItem::Button(fl!("copy"), None, Action::Copy),
+                MenuItem::Button(fl!("paste"), None, Action::Paste),
+                MenuItem::Button(fl!("select-all"), None, Action::SelectAll),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("clear-scrollback"), None, Action::ClearScrollback),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("find"), None, Action::Find),
+            ],
+        ),
+        (
+            fl!("view"),
+            vec![
+                MenuItem::Button(fl!("zoom-in"), None, Action::ZoomIn),
+                MenuItem::Button(fl!("zoom-reset"), None, Action::ZoomReset),
+                MenuItem::Button(fl!("zoom-out"), None, Action::ZoomOut),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("next-tab"), None, Action::TabNext),
+                MenuItem::Button(fl!("previous-tab"), None, Action::TabPrev),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("split-horizontal"), None, Action::PaneSplitHorizontal),
+                MenuItem::Button(fl!("split-vertical"), None, Action::PaneSplitVertical),
+                MenuItem::Button(
+                    fl!("pane-toggle-maximize"),
+                    None,
+                    Action::PaneToggleMaximized,
+                ),
+                MenuItem::Divider,
+                MenuItem::Button(
+                    fl!("menu-color-schemes"),
+                    None,
+                    Action::ColorSchemes(color_scheme_kind),
+                ),
+                MenuItem::Button(
+                    fl!("menu-keyboard-shortcuts"),
+                    None,
+                    Action::KeyboardShortcuts,
+                ),
+                MenuItem::Button(fl!("menu-settings"), None, Action::Settings),
+                #[cfg(feature = "password_manager")]
+                MenuItem::Button(fl!("menu-password-manager"), None, Action::PasswordManager),
+                MenuItem::Divider,
+                MenuItem::Button(fl!("menu-about"), None, Action::About),
+            ],
+        ),
+    ];
+
+    if let Some(parent_id) = parent_window_id {
+        // Layer surface / --drop-down mode: must use menu::bar directly with explicit parent.
+        // responsive_menu_bar's into_element hardcodes core.main_window_id() = None
+        // in no_main_window / --drop-down mode.
+        let trees: Vec<Tree<Message>> = items
+            .into_iter()
+            .map(|(label, items)| {
+                Tree::<_>::with_children(
+                    Element::from(menu::root(label)),
+                    menu::items(key_binds, items),
+                )
+            })
+            .collect();
+
+        menu::bar(trees)
+            .item_width(item_width)
+            .item_height(item_height)
+            .spacing(spacing)
+            .on_surface_action(Message::Surface)
+            .window_id(parent_id)
+            .into()
+    } else {
+        // Regular window: use responsive_menu_bar (handles collapse on narrow bars).
+        responsive_menu_bar()
+            .item_height(item_height)
+            .item_width(item_width)
+            .spacing(spacing)
+            .into_element(core, key_binds, MENU_ID.clone(), Message::Surface, items)
+    }
 }
