@@ -1,7 +1,7 @@
 rename = Omdøb
 delete = Slet
 name = Navn
-cancel = Annuller
+cancel = Afbryd
 quit = Afslut
 find-next = Find næste
 select-all = Vælg alle
