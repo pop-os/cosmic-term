@@ -49,6 +49,7 @@ font = Font
 advanced-font-settings = Advanced font settings
 default-font = Font
 default-font-size = Font size
+default-line-height = Line height
 default-font-stretch = Font stretch
 default-font-weight = Normal font weight
 default-dim-font-weight = Dim font weight
