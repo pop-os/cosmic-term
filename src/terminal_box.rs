@@ -433,12 +433,13 @@ where
         } else {
             corner_radius.into()
         };
-        let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
+        //let scrollbar_w = f32::from(cosmic_theme.spacing.space_xxs);
+        let scrollbar_w = 0.0;
 
         let view_position = layout.position() + [self.padding.left, self.padding.top].into();
-        let view_w = cmp::min(viewport.width as i32, layout.bounds().width as i32)
-            - self.padding.x() as i32
-            - scrollbar_w as i32;
+        let background_end_x = viewport.width.min(layout.bounds().width) - self.padding.x();
+        let view_w =
+            cmp::min(viewport.width as i32, layout.bounds().width as i32) - self.padding.x() as i32;
         let view_h = cmp::min(viewport.height as i32, layout.bounds().height as i32)
             - self.padding.y() as i32;
 
@@ -532,7 +533,7 @@ where
                         if glyph.metadata == self.metadata {
                             self.end_x = glyph.x + glyph.w;
                         } else {
-                            self.fill(renderer, is_focused);
+                            self.fill(renderer, is_focused, None);
                             self.metadata = glyph.metadata;
                             self.glyph_font_size = glyph.font_size;
                             self.start_x = glyph.x;
@@ -544,6 +545,7 @@ where
                         &mut self,
                         renderer: &mut Renderer,
                         _is_focused: bool,
+                        background_end_x: Option<f32>,
                     ) {
                         let cosmic_text_to_iced_color = |color: cosmic_text::Color| {
                             Color::from_rgba(
@@ -584,8 +586,14 @@ where
 
                         let metadata = &self.metadata_set[self.metadata];
                         if metadata.bg != self.metadata_set[self.default_metadata].bg {
+                            let width =
+                                (background_end_x.unwrap_or(self.end_x) - self.start_x).ceil();
                             renderer.fill_quad(
-                                mk_quad!(mk_pos_offset!(0.0, self.line_height), self.line_height),
+                                mk_quad!(
+                                    mk_pos_offset!(0.0, self.line_height),
+                                    self.line_height,
+                                    width
+                                ),
                                 cosmic_text_to_iced_color(metadata.bg),
                             );
                         }
@@ -719,7 +727,7 @@ where
                 for glyph in run.glyphs {
                     bg_rect.update(glyph, renderer, state.is_focused);
                 }
-                bg_rect.fill(renderer, state.is_focused);
+                bg_rect.fill(renderer, state.is_focused, Some(background_end_x));
             }
         });
 
@@ -735,7 +743,7 @@ where
             let scrollbar_y = start * view_h as f32;
             let scrollbar_h = end * view_h as f32 - scrollbar_y;
             let scrollbar_rect = Rectangle::new(
-                [view_w as f32, scrollbar_y].into(),
+                [background_end_x - scrollbar_w, scrollbar_y].into(),
                 Size::new(scrollbar_w, scrollbar_h),
             );
 
