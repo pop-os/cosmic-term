@@ -119,6 +119,10 @@ paste = Paste
 select-all = Select all
 find = Find
 clear-scrollback = Clear scrollback
+scroll-to-top = Scroll to top
+scroll-to-bottom = Scroll to bottom
+scroll-page-up = Scroll page up
+scroll-page-down = Scroll page down
 
 ## Open
 open-link = Open Link
