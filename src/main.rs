@@ -46,8 +46,8 @@ use std::{
 use tokio::sync::mpsc;
 
 use config::{
-    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config, Profile,
-    ProfileId,
+    AppTheme, CONFIG_VERSION, ColorScheme, ColorSchemeId, ColorSchemeKind, Config,
+    MAX_BLUR_POSITION, Profile, ProfileId,
 };
 mod config;
 mod mouse_reporter;
@@ -356,6 +356,7 @@ impl MenuAction for Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
+    BlurOpacity(u8),
     ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
@@ -1417,6 +1418,16 @@ impl App {
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
                     }))
+            }))
+            // Under frosted glass the opacity is a level in the theme's alpha
+            // map rather than a percentage, so the slider steps through those
+            // and carries no value label.
+            .add_maybe(t.transparent.then(|| {
+                widget::settings::item::builder(fl!("opacity")).control(widget::slider(
+                    0..=MAX_BLUR_POSITION,
+                    self.config.blur_opacity_position(),
+                    Message::BlurOpacity,
+                ))
             }));
 
         let mut font_section = widget::settings::section()
@@ -1980,6 +1991,9 @@ impl Application for App {
             Message::AppTheme(app_theme) => {
                 config_set!(app_theme, app_theme);
                 return self.update_config();
+            }
+            Message::BlurOpacity(position) => {
+                config_set!(blur_opacity, Config::blur_strength_at(position));
             }
             Message::ClearScrollback(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -3507,7 +3521,7 @@ impl Application for App {
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(if t.transparent {
-                        t.cosmic().alpha_map.blurred_alpha(t.cosmic().frosted)
+                        self.config.blur_opacity_ratio(t)
                     } else {
                         self.config.opacity_ratio()
                     })
