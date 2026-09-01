@@ -149,3 +149,4 @@ comment = Émulateur de terminal pour le bureau COSMIC
 keywords = Commande;Shell;Terminal;CLI;
 tab-new-inherit-working-directory = Les nouveaux onglets et fenêtres utilisent le répertoire actuel
 tab-new-inherit-working-directory-description = Ouvrir les nouveaux onglets et fenêtres dans le répertoire de travail de l'onglet actif
+show-pane-borders = Afficher les bordures des panneaux
