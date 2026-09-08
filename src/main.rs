@@ -425,7 +425,7 @@ pub enum Message {
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
     ReorderTab(Pane, ReorderEvent),
-    Surface(surface::Action),
+    Surface(surface::Action<Message>),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
@@ -455,7 +455,6 @@ pub enum Message {
     ZoomIn,
     ZoomOut,
     ZoomReset,
-    ContextMenuPopupClosed(window::Id),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -526,14 +525,6 @@ pub struct App {
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
     modifiers: Modifiers,
-    context_menu_popup: Option<(
-        window::Id,
-        pane_grid::Pane,
-        segmented_button::Entity,
-        Option<String>,
-        widget::Id,
-        cosmic::iced::Point,
-    )>,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
 }
@@ -1903,7 +1894,6 @@ impl Application for App {
             shortcut_search_regex: None,
             shortcut_search_value: String::new(),
             modifiers: Modifiers::empty(),
-            context_menu_popup: None,
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
         };
@@ -2884,16 +2874,7 @@ impl Application for App {
                 return self.update_title(None);
             }
             Message::TabContextAction(entity, action) => {
-                // Close context menu popup
                 let mut tasks = Vec::new();
-                if let Some((_popup_id, _, _, _, _, _)) = self.context_menu_popup.take() {
-                    #[cfg(feature = "wayland")]
-                    if is_wayland() {
-                        tasks.push(cosmic::task::message(Message::Surface(
-                            cosmic::surface::action::destroy_popup(_popup_id),
-                        )));
-                    }
-                }
                 // Close terminal context menu state
                 if let Some(tab_model) = self.pane_model.active()
                     && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
@@ -2902,11 +2883,8 @@ impl Application for App {
                     //Some actions need the menu_state,
                     //so only clear the position for them.
                     match action {
-                        Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {
-                            if let Some(context_menu) = terminal.context_menu.as_mut() {
-                                context_menu.position = None;
-                            }
-                        }
+                        // these read the link from the menu state and clear it themselves
+                        Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {}
                         _ => {
                             terminal.context_menu = None;
                         }
@@ -2916,94 +2894,29 @@ impl Application for App {
                 return cosmic::Task::batch(tasks);
             }
             Message::TabContextMenu(pane, menu_state) => {
-                #[allow(unused_mut)]
-                let mut tasks = Vec::new();
-
-                // Close existing context menu popup if any
-                if let Some((_popup_id, _, _, _, _, _)) = self.context_menu_popup.take() {
-                    #[cfg(feature = "wayland")]
-                    if is_wayland() {
-                        tasks.push(cosmic::task::message(Message::Surface(
-                            cosmic::surface::action::destroy_popup(_popup_id),
-                        )));
-                    }
-                }
-
                 // Clear all terminal context_menu state
                 for (_, tab_model) in self.pane_model.panes.iter() {
                     for entity in tab_model.iter() {
                         if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                             let mut terminal = terminal.lock().unwrap();
-                            terminal.context_menu = None;
+                            if terminal.context_menu.take().is_some() {
+                                terminal.active_regex_match = None;
+                                terminal.needs_update = true;
+                            }
                         }
                     }
                 }
 
-                if let Some(menu_state) = menu_state {
-                    if let Some(_position) = menu_state.position {
-                        let local_position = menu_state.local_position.unwrap_or(_position);
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            let entity = tab_model.active();
-                            let link = menu_state.link.clone();
-                            let popup_id = window::Id::unique();
-
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let mut terminal = terminal.lock().unwrap();
-                                terminal.context_menu = Some(menu_state);
-                            }
-
-                            self.context_menu_popup = Some((
-                                popup_id,
-                                pane,
-                                entity,
-                                link,
-                                widget::Id::unique(),
-                                local_position,
-                            ));
-
-                            #[cfg(feature = "wayland")]
-                            if is_wayland() {
-                                let main_window = self.core.main_window_id().unwrap();
-                                let pos_x = _position.x as i32;
-                                let pos_y = _position.y as i32;
-
-                                tasks.push(cosmic::task::message(Message::Surface(
-                                    cosmic::surface::action::app_popup(
-                                           |_| Default::default(),
-                                        move |_app: &mut Self| {
-                                        use cosmic::cctk::wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
-                                        use cosmic::iced::runtime::platform_specific::wayland::popup::{SctkPopupSettings, SctkPositioner};
-
-                                        SctkPopupSettings {
-                                            parent: main_window,
-                                            id: popup_id,
-                                            positioner: SctkPositioner {
-                                                size: None,
-                                                anchor_rect: cosmic::iced::Rectangle {
-                                                    x: pos_x,
-                                                    y: pos_y,
-                                                    width: 1,
-                                                    height: 1,
-                                                },
-                                                anchor: Anchor::None,
-                                                gravity: Gravity::BottomRight,
-                                                reactive: true,
-                                                ..Default::default()
-                                            },
-                                            parent_size: None,
-                                            grab: true,
-                                            close_with_children: false,
-                                            input_zone: None,
-                                        }
-                                    }, None),
-                                )));
-                            }
-                        }
+                // A right press records what is under the cursor
+                if let Some(menu_state) = menu_state
+                    && let Some(tab_model) = self.pane_model.panes.get(pane)
+                {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        terminal.lock().unwrap().context_menu = Some(menu_state);
                     }
                     self.pane_model.set_focus(pane);
                 }
-
-                return cosmic::Task::batch(tasks);
             }
             Message::TabNew => {
                 return self.create_and_focus_new_terminal(
@@ -3291,26 +3204,8 @@ impl Application for App {
                 self.reset_active_pane_zoom();
                 return self.update_config();
             }
-            Message::ContextMenuPopupClosed(id) => {
-                if let Some((popup_id, pane, entity, _, _, _)) = &self.context_menu_popup
-                    && id == *popup_id
-                {
-                    // Clear link underline on the terminal
-                    if let Some(tab_model) = self.pane_model.panes.get(*pane)
-                        && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(*entity)
-                    {
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = None;
-                        terminal.active_regex_match = None;
-                        terminal.needs_update = true;
-                    }
-                    self.context_menu_popup = None;
-                }
-            }
             Message::Surface(a) => {
-                return cosmic::task::message(cosmic::Action::Cosmic(
-                    cosmic::app::Action::Surface(a),
-                ));
+                return cosmic::task::message(cosmic::Action::Surface(a));
             }
             Message::ReorderTab(
                 pane,
@@ -3413,26 +3308,7 @@ impl Application for App {
         ]
     }
 
-    fn on_close_requested(&self, id: window::Id) -> Option<Self::Message> {
-        if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup
-            && id == *popup_id
-        {
-            return Some(Message::ContextMenuPopupClosed(id));
-        }
-        None
-    }
-
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
-        if let Some((popup_id, _pane, entity, ref link, ref autosize_id, _)) =
-            self.context_menu_popup
-            && window_id == popup_id
-        {
-            return widget::autosize::autosize(
-                menu::context_menu(&self.config, &self.key_binds, entity, link.clone()),
-                autosize_id.clone(),
-            )
-            .into();
-        }
         match &self.dialog_opt {
             Some(dialog) => dialog.view(window_id),
             None => widget::text("Unknown window ID").into(),
@@ -3521,50 +3397,30 @@ impl Application for App {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
 
-                // If a context menu popup is active for this pane, inform the
-                // terminal_box so it will emit on_context_menu(None) on click
-                // to dismiss the popup.
-                if self.context_menu_popup.is_some() {
-                    terminal_box = terminal_box.context_menu(cosmic::iced::Point::ORIGIN);
+                // The terminal records what was under the right press; the widget opens the
+                // menu on release, so build it from that state
+                let context_link = terminal
+                    .lock()
+                    .unwrap()
+                    .context_menu
+                    .as_ref()
+                    .map(|menu_state| menu_state.link.clone());
+                if context_link.is_some() {
+                    terminal_box = terminal_box.context_menu_open(true);
                 }
-
-                let use_wayland_popup = {
-                    #[cfg(feature = "wayland")]
-                    {
-                        is_wayland()
-                    }
-                    #[cfg(not(feature = "wayland"))]
-                    {
-                        false
-                    }
-                };
-
-                let tab_element: Element<'_, Message> = if !use_wayland_popup {
-                    // Fallback: render context menu as an inline popover
-                    if let Some((_, popup_pane, popup_entity, ref link, _, point)) =
-                        self.context_menu_popup
-                    {
-                        if pane == popup_pane {
-                            let mut popover = widget::popover(terminal_box.context_menu(point));
-                            popover = popover
-                                .popup(menu::context_menu(
-                                    &self.config,
-                                    &self.key_binds,
-                                    popup_entity,
-                                    link.clone(),
-                                ))
-                                .position(widget::popover::Position::Point(point));
-                            popover.into()
-                        } else {
-                            terminal_box.into()
-                        }
-                    } else {
-                        terminal_box.into()
-                    }
-                } else {
-                    terminal_box.into()
-                };
-                tab_column = tab_column.push(tab_element);
+                let mut context_menu = widget::context_menu(
+                    terminal_box,
+                    context_link.map(|link| {
+                        menu::context_menu(&self.config, &self.key_binds, entity, link)
+                    }),
+                )
+                .item_width(widget::menu::ItemWidth::Uniform(360))
+                .on_close(Message::TabContextMenu(pane, None))
+                .on_surface_action(Message::Surface);
+                if let Some(window_id) = self.core.main_window_id() {
+                    context_menu = context_menu.window_id(window_id);
+                }
+                tab_column = tab_column.push(context_menu);
             }
 
             //Only draw find in the currently focused pane
@@ -3726,14 +3582,6 @@ impl Application for App {
             },
         ])
     }
-}
-
-#[cfg(feature = "wayland")]
-fn is_wayland() -> bool {
-    matches!(
-        cosmic::app::cosmic::windowing_system(),
-        Some(cosmic::app::cosmic::WindowingSystem::Wayland)
-    )
 }
 
 /// Divider color painted behind the pane grid to form pane borders.

@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use cosmic::iced::Point;
+use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
 use cosmic::widget::menu::{Item as MenuItem, menu_button};
-use cosmic::widget::space;
 use cosmic::{
     Element,
     app::Core,
     iced::core::Border,
-    iced::{Background, Length, advanced::widget::text::Style as TextStyle},
-    theme,
+    iced::{Background, Length},
     widget::{
-        self, divider,
+        self,
         menu::{ItemHeight, ItemWidth},
         responsive_menu_bar, segmented_button,
     },
@@ -23,127 +21,68 @@ use crate::{Action, ColorSchemeId, ColorSchemeKind, Config, Message, fl};
 static MENU_ID: LazyLock<cosmic::widget::Id> =
     LazyLock::new(|| cosmic::widget::Id::new("responsive-menu"));
 
+/// What the terminal found under the right-click
 #[derive(Debug, Clone)]
 pub struct MenuState {
-    pub position: Option<Point>,
-    pub local_position: Option<Point>,
     pub link: Option<String>,
 }
 
-pub fn context_menu<'a>(
+/// A context menu action dispatched to the tab the menu was opened on.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TabAction(pub segmented_button::Entity, pub Action);
+
+impl MenuAction for TabAction {
+    type Message = Message;
+
+    fn message(&self) -> Message {
+        Message::TabContextAction(self.0, self.1)
+    }
+}
+
+pub fn context_menu(
     config: &Config,
     key_binds: &HashMap<KeyBind, Action>,
     entity: segmented_button::Entity,
     link: Option<String>,
-) -> Element<'a, Message> {
-    let find_key = |action: &Action| -> String {
-        for (key_bind, key_action) in key_binds {
-            if action == key_action {
-                return key_bind.to_string();
-            }
-        }
-        String::new()
-    };
-    fn key_style(theme: &cosmic::Theme) -> TextStyle {
-        let mut color = theme.cosmic().background(theme.transparent).component.on;
-        color.alpha *= 0.75;
-        TextStyle {
-            color: Some(color.into()),
-            ..Default::default()
-        }
-    }
+) -> Vec<widget::menu::Tree<Message>> {
+    let item =
+        |label: String, action: Action| MenuItem::Button(label, None, TabAction(entity, action));
 
-    let menu_item = |label, action| {
-        let key = find_key(&action);
-        menu_button(vec![
-            widget::text(label).into(),
-            space::horizontal().into(),
-            widget::text(key)
-                .class(theme::Text::Custom(key_style))
-                .into(),
-        ])
-        .on_press(Message::TabContextAction(entity, action))
-    };
-
-    let menu_checkbox = |label, value, action| {
-        menu_button(vec![
-            widget::text(label).into(),
-            widget::space::horizontal().into(),
-            widget::toggler(value)
-                .on_toggle(move |_| Message::TabContextAction(entity, action))
-                .size(16.0)
-                .into(),
-        ])
-        .on_press(Message::TabContextAction(entity, action))
-    };
-
-    let mut rows = vec![
-        Element::from(menu_item(fl!("copy"), Action::Copy)),
-        Element::from(menu_item(fl!("paste"), Action::Paste)),
-        Element::from(menu_item(fl!("select-all"), Action::SelectAll)),
-        Element::from(divider::horizontal::light()),
-        Element::from(menu_item(fl!("clear-scrollback"), Action::ClearScrollback)),
-        Element::from(divider::horizontal::light()),
-        Element::from(menu_item(
-            fl!("split-horizontal"),
-            Action::PaneSplitHorizontal,
-        )),
-        Element::from(menu_item(fl!("split-vertical"), Action::PaneSplitVertical)),
-        Element::from(menu_item(
-            fl!("pane-toggle-maximize"),
-            Action::PaneToggleMaximized,
-        )),
-        Element::from(divider::horizontal::light()),
-        Element::from(menu_item(fl!("new-tab"), Action::TabNew)),
-        Element::from(menu_item(fl!("menu-settings"), Action::Settings)),
+    let mut items = vec![
+        item(fl!("copy"), Action::Copy),
+        item(fl!("paste"), Action::Paste),
+        item(fl!("select-all"), Action::SelectAll),
+        MenuItem::Divider,
+        item(fl!("clear-scrollback"), Action::ClearScrollback),
+        MenuItem::Divider,
+        item(fl!("split-horizontal"), Action::PaneSplitHorizontal),
+        item(fl!("split-vertical"), Action::PaneSplitVertical),
+        item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
+        MenuItem::Divider,
+        item(fl!("new-tab"), Action::TabNew),
+        item(fl!("menu-settings"), Action::Settings),
     ];
     #[cfg(feature = "password_manager")]
-    {
-        rows.push(Element::from(menu_item(
-            fl!("menu-password-manager"),
-            Action::PasswordManager,
-        )));
-    }
-    rows.push(Element::from(menu_checkbox(
+    items.push(item(fl!("menu-password-manager"), Action::PasswordManager));
+    items.push(MenuItem::CheckBox(
         fl!("show-headerbar"),
+        None,
         config.show_headerbar,
-        Action::ShowHeaderBar(!config.show_headerbar),
-    )));
+        TabAction(entity, Action::ShowHeaderBar(!config.show_headerbar)),
+    ));
 
-    //If we have a link
-    //prepend the Open Link item
+    // If we have a link, prepend the link items
     if link.is_some() {
-        rows.insert(
-            0,
-            Element::from(menu_item(fl!("open-link"), Action::LaunchUrlByMenu)),
-        );
-        rows.insert(
-            1,
-            Element::from(menu_item(fl!("copy-link"), Action::CopyUrlByMenu)),
-        );
-        rows.insert(2, Element::from(divider::horizontal::light()));
+        items.insert(0, item(fl!("open-link"), Action::LaunchUrlByMenu));
+        items.insert(1, item(fl!("copy-link"), Action::CopyUrlByMenu));
+        items.insert(2, MenuItem::Divider);
     }
-    let content = widget::menu::menu_column::MenuColumn::with_children(rows);
-    widget::container(content)
-        .padding(1)
-        //TODO: move style to libcosmic
-        .style(|theme| {
-            let cosmic = theme.cosmic();
-            let component = &cosmic.background(theme.transparent).component;
-            widget::container::Style {
-                icon_color: Some(component.on.into()),
-                text_color: Some(component.on.into()),
-                background: Some(Background::Color(component.base.into())),
-                border: Border {
-                    radius: cosmic.radius_s().map(|x| x + 1.0).into(),
-                    width: 1.0,
-                    color: component.divider.into(),
-                },
-                ..Default::default()
-            }
-        })
-        .width(Length::Fixed(360.0))
-        .into()
+
+    let key_binds: HashMap<KeyBind, TabAction> = key_binds
+        .iter()
+        .map(|(key_bind, action)| (key_bind.clone(), TabAction(entity, *action)))
+        .collect();
+    widget::menu::items(&key_binds, items)
 }
 
 pub fn color_scheme_menu<'a>(
