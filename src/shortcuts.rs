@@ -58,6 +58,7 @@ impl Binding {
 pub enum KeyBindAction {
     Disable,
     ClearScrollback,
+    ClearAndReset,
     Copy,
     CopyOrSigint,
     Find,
@@ -100,6 +101,7 @@ impl KeyBindAction {
         match self {
             Self::Disable => None,
             Self::ClearScrollback => Some(Action::ClearScrollback),
+            Self::ClearAndReset => Some(Action::ClearAndReset),
             Self::Copy => Some(Action::Copy),
             Self::CopyOrSigint => Some(Action::CopyOrSigint),
             Self::Find => Some(Action::Find),
@@ -260,6 +262,7 @@ pub fn action_label(action: KeyBindAction) -> String {
     match action {
         KeyBindAction::Disable => fl!("disable"),
         KeyBindAction::ClearScrollback => fl!("clear-scrollback"),
+        KeyBindAction::ClearAndReset => fl!("clear-and-reset"),
         KeyBindAction::Copy => fl!("copy"),
         KeyBindAction::CopyOrSigint => fl!("copy-or-sigint"),
         KeyBindAction::Find => fl!("find"),
@@ -362,7 +365,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
             KeyBindAction::ZoomReset,
         ],
     });
-    let mut other_actions = vec![KeyBindAction::ClearScrollback];
+    let mut other_actions = vec![KeyBindAction::ClearScrollback, KeyBindAction::ClearAndReset];
     #[cfg(feature = "password_manager")]
     other_actions.push(KeyBindAction::PasswordManager);
     groups.push(ShortcutGroup {
@@ -499,6 +502,9 @@ fn fallback_shortcuts() -> Shortcuts {
 
     // CTRL+Alt+L clears the scrollback.
     bind!([Ctrl, Alt], "L", ClearScrollback);
+
+    // CTRL+Alt+K clears both the visible screen and scrollback.
+    bind!([Ctrl, Alt], "K", ClearAndReset);
 
     Shortcuts(shortcuts)
 }
