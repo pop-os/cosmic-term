@@ -398,6 +398,7 @@ pub enum Message {
     ShortcutRemove(shortcuts::Binding, shortcuts::BindingSource),
     ShortcutReset(shortcuts::KeyBindAction),
     ShortcutSearch(String),
+    ShortcutSearchFocused(bool),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
     PaneClicked(pane_grid::Pane),
@@ -525,6 +526,11 @@ pub struct App {
     shortcut_search_id: widget::Id,
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
+    // Set while the shortcuts search box is live-capturing a key combo (rather than keyword text)
+    shortcut_search_combo: Option<(Modifiers, Key, Physical)>,
+    // True until modifiers are fully released, so a settled combo isn't reclobbered by the live preview
+    shortcut_search_combo_settled: bool,
+    shortcut_search_input_focused: Cell<bool>,
     modifiers: Modifiers,
     context_menu_popup: Option<(
         window::Id,
@@ -669,6 +675,9 @@ impl App {
             .set(self.core.window.show_context);
         self.shortcut_search_regex = None;
         self.shortcut_search_value.clear();
+        self.shortcut_search_combo = None;
+        self.shortcut_search_combo_settled = false;
+        self.shortcut_search_input_focused.set(false);
     }
 
     fn update_config(&mut self) -> Task<Message> {
@@ -775,6 +784,8 @@ impl App {
                 && self.shortcut_search_focus.get()
             {
                 self.shortcut_search_focus.set(false);
+                // Programmatic focus() doesn't fire the on_focus message, so set this directly.
+                self.shortcut_search_input_focused.set(true);
                 return widget::text_input::focus(self.shortcut_search_id.clone());
             }
 
@@ -1028,10 +1039,36 @@ impl App {
         let mut groups = Vec::new();
         //TODO: fix text input focus going outside bounds
         groups.push(widget::space::horizontal().into());
+
+        // Preview modifiers held right now, live, while a combo is still being pressed
+        let search_value = if !self.shortcut_search_input_focused.get()
+            || self.modifiers.is_empty()
+            || self.shortcut_search_combo_settled
+        {
+            self.shortcut_search_value.clone()
+        } else {
+            let mut parts = Vec::new();
+            if self.modifiers.control() {
+                parts.push("Ctrl");
+            }
+            if self.modifiers.shift() {
+                parts.push("Shift");
+            }
+            if self.modifiers.alt() {
+                parts.push("Alt");
+            }
+            if self.modifiers.logo() {
+                parts.push("Super");
+            }
+            parts.push("...");
+            parts.join(" + ")
+        };
         groups.push(
-            widget::text_input::search_input(fl!("type-to-search"), &self.shortcut_search_value)
+            widget::text_input::search_input(fl!("type-to-search"), search_value)
                 .id(self.shortcut_search_id.clone())
                 .on_input(Message::ShortcutSearch)
+                .on_focus(Message::ShortcutSearchFocused(true))
+                .on_unfocus(Message::ShortcutSearchFocused(false))
                 .into(),
         );
 
@@ -1041,14 +1078,25 @@ impl App {
             let mut found_actions = false;
             for action in group.actions {
                 let action_label = shortcuts::action_label(action);
-                if let Some(regex) = &self.shortcut_search_regex
+                let (bindings, changed) = self.shortcuts_config.bindings_for_action(action);
+
+                if let Some((search_modifiers, search_key, search_physical)) =
+                    &self.shortcut_search_combo
+                {
+                    let matches_binding = bindings.iter().any(|resolved| {
+                        resolved.binding.to_key_bind().is_some_and(|key_bind| {
+                            key_bind.matches(*search_modifiers, search_key, Some(search_physical))
+                        })
+                    });
+                    if !matches_binding {
+                        continue;
+                    }
+                } else if let Some(regex) = &self.shortcut_search_regex
                     && regex.find(&action_label).is_none()
                 {
                     continue;
                 }
                 found_actions = true;
-
-                let (bindings, changed) = self.shortcuts_config.bindings_for_action(action);
 
                 let mut buttons = widget::row::with_capacity(2);
                 if changed {
@@ -1902,6 +1950,9 @@ impl Application for App {
             shortcut_search_id: widget::Id::unique(),
             shortcut_search_regex: None,
             shortcut_search_value: String::new(),
+            shortcut_search_combo: None,
+            shortcut_search_combo_settled: false,
+            shortcut_search_input_focused: Cell::new(false),
             modifiers: Modifiers::empty(),
             context_menu_popup: None,
             #[cfg(feature = "password_manager")]
@@ -2440,6 +2491,39 @@ impl Application for App {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
             Message::Key(modifiers, physical, key) => {
+                // Live-capture a key combo into the shortcuts search box while it's focused (issue #882).
+                // Bare function keys (e.g. F11) are bindable with no modifiers, unlike typed text,
+                // so they're fair game to capture even when nothing is held down.
+                let is_bare_function_key = matches!(
+                    key,
+                    Key::Named(
+                        Named::F1
+                            | Named::F2
+                            | Named::F3
+                            | Named::F4
+                            | Named::F5
+                            | Named::F6
+                            | Named::F7
+                            | Named::F8
+                            | Named::F9
+                            | Named::F10
+                            | Named::F11
+                            | Named::F12
+                    )
+                );
+                if self.shortcut_capture.is_none()
+                    && self.shortcut_search_input_focused.get()
+                    && self.core.window.show_context
+                    && self.context_page == ContextPage::KeyboardShortcuts
+                    && (!modifiers.is_empty() || is_bare_function_key)
+                    && let Some(binding) = shortcuts::binding_from_key(modifiers, key.clone())
+                {
+                    self.shortcut_search_value = shortcuts::binding_display(&binding);
+                    self.shortcut_search_combo = Some((modifiers, key.clone(), physical));
+                    self.shortcut_search_combo_settled = true;
+                    return Task::none();
+                }
+
                 // Hard-coded keys
                 match key {
                     Key::Named(Named::Copy) => {
@@ -2525,6 +2609,9 @@ impl Application for App {
                 }
             }
             Message::Modifiers(modifiers) => {
+                if modifiers.is_empty() {
+                    self.shortcut_search_combo_settled = false;
+                }
                 self.modifiers = modifiers;
             }
             Message::MouseEnter(pane) => {
@@ -2566,6 +2653,16 @@ impl Application for App {
             }
             Message::ShortcutSearch(search) => {
                 self.shortcut_search_focus.set(true);
+                let search = if self.shortcut_search_combo.take().is_some() {
+                    // Typing exits combo search; keep only what's typed past the stale combo text
+                    self.shortcut_search_combo_settled = false;
+                    search
+                        .strip_prefix(self.shortcut_search_value.as_str())
+                        .unwrap_or("")
+                        .to_string()
+                } else {
+                    search
+                };
                 self.shortcut_search_regex = None;
                 if !search.is_empty() {
                     let pattern = regex::escape(&search);
@@ -2583,6 +2680,9 @@ impl Application for App {
                 }
                 self.shortcut_search_value = search;
                 return self.update_focus();
+            }
+            Message::ShortcutSearchFocused(focused) => {
+                self.shortcut_search_input_focused.set(focused);
             }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
