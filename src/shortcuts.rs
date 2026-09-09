@@ -93,6 +93,10 @@ pub enum KeyBindAction {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    ScrollToTop,
+    ScrollToBottom,
+    ScrollPageUp,
+    ScrollPageDown,
 }
 
 impl KeyBindAction {
@@ -133,6 +137,10 @@ impl KeyBindAction {
             Self::ZoomIn => Some(Action::ZoomIn),
             Self::ZoomOut => Some(Action::ZoomOut),
             Self::ZoomReset => Some(Action::ZoomReset),
+            Self::ScrollToTop => Some(Action::ScrollToTop),
+            Self::ScrollToBottom => Some(Action::ScrollToBottom),
+            Self::ScrollPageUp => Some(Action::ScrollPageUp),
+            Self::ScrollPageDown => Some(Action::ScrollPageDown),
             Self::PasswordManager => {
                 #[cfg(feature = "password_manager")]
                 {
@@ -294,6 +302,10 @@ pub fn action_label(action: KeyBindAction) -> String {
         KeyBindAction::ZoomIn => fl!("zoom-in"),
         KeyBindAction::ZoomOut => fl!("zoom-out"),
         KeyBindAction::ZoomReset => fl!("zoom-reset"),
+        KeyBindAction::ScrollToTop => fl!("scroll-to-top"),
+        KeyBindAction::ScrollToBottom => fl!("scroll-to-bottom"),
+        KeyBindAction::ScrollPageUp => fl!("scroll-page-up"),
+        KeyBindAction::ScrollPageDown => fl!("scroll-page-down"),
     }
 }
 
@@ -362,7 +374,13 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
             KeyBindAction::ZoomReset,
         ],
     });
-    let mut other_actions = vec![KeyBindAction::ClearScrollback];
+    let mut other_actions = vec![
+        KeyBindAction::ClearScrollback,
+        KeyBindAction::ScrollToTop,
+        KeyBindAction::ScrollToBottom,
+        KeyBindAction::ScrollPageUp,
+        KeyBindAction::ScrollPageDown,
+    ];
     #[cfg(feature = "password_manager")]
     other_actions.push(KeyBindAction::PasswordManager);
     groups.push(ShortcutGroup {
@@ -499,6 +517,14 @@ fn fallback_shortcuts() -> Shortcuts {
 
     // CTRL+Alt+L clears the scrollback.
     bind!([Ctrl, Alt], "L", ClearScrollback);
+
+    // Shift+Home/End jump to the top/bottom of the scrollback.
+    bind!([Shift], "Home", ScrollToTop);
+    bind!([Shift], "End", ScrollToBottom);
+
+    // Shift+PageUp/PageDown scroll the scrollback by a page.
+    bind!([Shift], "PageUp", ScrollPageUp);
+    bind!([Shift], "PageDown", ScrollPageDown);
 
     Shortcuts(shortcuts)
 }

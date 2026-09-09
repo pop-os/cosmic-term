@@ -287,6 +287,10 @@ pub enum Action {
     ZoomIn,
     ZoomOut,
     ZoomReset,
+    ScrollToTop,
+    ScrollToBottom,
+    ScrollPageUp,
+    ScrollPageDown,
 }
 
 impl Action {
@@ -340,6 +344,10 @@ impl Action {
             Self::ZoomIn => Message::ZoomIn,
             Self::ZoomOut => Message::ZoomOut,
             Self::ZoomReset => Message::ZoomReset,
+            Self::ScrollToTop => Message::ScrollTerminal(TerminalScroll::Top, entity_opt),
+            Self::ScrollToBottom => Message::ScrollTerminal(TerminalScroll::Bottom, entity_opt),
+            Self::ScrollPageUp => Message::ScrollTerminal(TerminalScroll::PageUp, entity_opt),
+            Self::ScrollPageDown => Message::ScrollTerminal(TerminalScroll::PageDown, entity_opt),
         }
     }
 }
@@ -426,6 +434,7 @@ pub enum Message {
     ProfileTabTitle(ProfileId, String),
     ReorderTab(Pane, ReorderEvent),
     Surface(surface::Action),
+    ScrollTerminal(TerminalScroll, Option<segmented_button::Entity>),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
@@ -1988,6 +1997,15 @@ impl Application for App {
                         let terminal = terminal.lock().unwrap();
                         let mut term = terminal.term.lock();
                         term.grid_mut().clear_history();
+                    }
+                }
+            }
+            Message::ScrollTerminal(scroll, entity_opt) => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        terminal.scroll(scroll);
                     }
                 }
             }
