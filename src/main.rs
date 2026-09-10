@@ -26,8 +26,7 @@ use cosmic::{
     style,
     widget::{self, DndDestination, PaneGrid, about::About, button, pane_grid, segmented_button},
 };
-use cosmic::{Apply, surface};
-use cosmic_files::dialog::{Dialog, DialogKind, DialogMessage, DialogResult, DialogSettings};
+use cosmic::{Apply, dialog::file_chooser, surface};
 use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
 use localize::LANGUAGE_SORTER;
 use std::{
@@ -361,9 +360,9 @@ pub enum Message {
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
     ColorSchemeExpand(ColorSchemeKind, Option<ColorSchemeId>),
     ColorSchemeExport(ColorSchemeKind, Option<ColorSchemeId>),
-    ColorSchemeExportResult(ColorSchemeKind, Option<ColorSchemeId>, DialogResult),
+    ColorSchemeExportResult(ColorSchemeKind, Option<ColorSchemeId>, Option<PathBuf>),
     ColorSchemeImport(ColorSchemeKind),
-    ColorSchemeImportResult(ColorSchemeKind, DialogResult),
+    ColorSchemeImportResult(ColorSchemeKind, Vec<PathBuf>),
     ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
@@ -379,7 +378,6 @@ pub enum Message {
     DefaultFontStretch(usize),
     DefaultFontWeight(usize),
     DefaultZoomStep(usize),
-    DialogMessage(Box<DialogMessage>), // DialogMessage is huge, so we use a box to make the size of this enum smaller on the stack
     Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
     Find(bool),
     FindNext,
@@ -501,7 +499,6 @@ pub struct App {
     theme_names_light: Vec<String>,
     themes: HashMap<(String, ColorSchemeKind), TermColors>,
     context_page: ContextPage,
-    dialog_opt: Option<Dialog<Message>>,
     terminal_ids: HashMap<pane_grid::Pane, widget::Id>,
     find: bool,
     find_search_id: widget::Id,
@@ -1871,7 +1868,6 @@ impl Application for App {
             theme_names_light: Vec::new(),
             themes: HashMap::new(),
             context_page: ContextPage::Settings,
-            dialog_opt: None,
             terminal_ids,
             find: false,
             find_search_id: widget::Id::unique(),
@@ -2000,30 +1996,25 @@ impl Application for App {
                         .get(&color_scheme_id)
                         .map(|color_scheme| color_scheme.name.clone()),
                     None => Some(format!("COSMIC {:?}", color_scheme_kind)),
-                } && self.dialog_opt.is_none()
-                {
-                    let (dialog, command) = Dialog::new(
-                        DialogSettings::new().kind(DialogKind::SaveFile {
-                            filename: format!("{}.ron", color_scheme_name),
-                        }),
-                        |msg| Message::DialogMessage(Box::new(msg)),
-                        move |result| {
-                            Message::ColorSchemeExportResult(
-                                color_scheme_kind,
-                                color_scheme_id_opt,
-                                result,
-                            )
-                        },
-                    );
-                    self.dialog_opt = Some(dialog);
-                    return command;
+                } {
+                    return cosmic::task::future(async move {
+                        let path = file_chooser::save::Dialog::new()
+                            .file_name(format!("{}.ron", color_scheme_name))
+                            .save_file()
+                            .await
+                            .ok()
+                            .and_then(|response| response.url()?.to_file_path().ok());
+                        action::app(Message::ColorSchemeExportResult(
+                            color_scheme_kind,
+                            color_scheme_id_opt,
+                            path,
+                        ))
+                    });
                 }
             }
-            Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id_opt, result) => {
+            Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id_opt, path_opt) => {
                 //TODO: show errors in UI
-                self.dialog_opt = None;
-                if let DialogResult::Open(paths) = result {
-                    let path = &paths[0];
+                if let Some(path) = &path_opt {
                     match color_scheme_id_opt {
                         Some(color_scheme_id) => {
                             if let Some(color_scheme) = self
@@ -2100,51 +2091,53 @@ impl Application for App {
                 self.color_scheme_expanded = Some((color_scheme_kind, color_scheme_id_opt));
             }
             Message::ColorSchemeImport(color_scheme_kind) => {
-                if self.dialog_opt.is_none() {
-                    self.color_scheme_errors.clear();
-                    let (dialog, command) = Dialog::new(
-                        DialogSettings::new().kind(DialogKind::OpenMultipleFiles),
-                        |msg| Message::DialogMessage(Box::new(msg)),
-                        move |result| Message::ColorSchemeImportResult(color_scheme_kind, result),
-                    );
-                    self.dialog_opt = Some(dialog);
-                    return command;
-                }
+                self.color_scheme_errors.clear();
+                return cosmic::task::future(async move {
+                    let paths: Vec<PathBuf> = file_chooser::open::Dialog::new()
+                        .open_files()
+                        .await
+                        .map(|response| {
+                            response
+                                .urls()
+                                .iter()
+                                .filter_map(|url| url.to_file_path().ok())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    action::app(Message::ColorSchemeImportResult(color_scheme_kind, paths))
+                });
             }
-            Message::ColorSchemeImportResult(color_scheme_kind, result) => {
-                self.dialog_opt = None;
-                if let DialogResult::Open(paths) = result {
-                    self.color_scheme_errors.clear();
-                    for path in &paths {
-                        let mut file = match fs::File::open(path) {
-                            Ok(ok) => ok,
-                            Err(err) => {
-                                self.color_scheme_errors
-                                    .push(format!("Failed to open {path:?}: {err}"));
-                                continue;
-                            }
-                        };
-                        match ron::de::from_reader::<_, ColorScheme>(&mut file) {
-                            Ok(color_scheme) => {
-                                // Get next color_scheme ID
-                                let color_scheme_id = self
-                                    .config
-                                    .color_schemes(color_scheme_kind)
-                                    .last_key_value()
-                                    .map(|(id, _)| ColorSchemeId(id.0 + 1))
-                                    .unwrap_or_default();
-                                self.config
-                                    .color_schemes_mut(color_scheme_kind)
-                                    .insert(color_scheme_id, color_scheme);
-                            }
-                            Err(err) => {
-                                self.color_scheme_errors
-                                    .push(format!("Failed to parse {path:?}: {err}"));
-                            }
+            Message::ColorSchemeImportResult(color_scheme_kind, paths) => {
+                self.color_scheme_errors.clear();
+                for path in &paths {
+                    let mut file = match fs::File::open(path) {
+                        Ok(ok) => ok,
+                        Err(err) => {
+                            self.color_scheme_errors
+                                .push(format!("Failed to open {path:?}: {err}"));
+                            continue;
+                        }
+                    };
+                    match ron::de::from_reader::<_, ColorScheme>(&mut file) {
+                        Ok(color_scheme) => {
+                            // Get next color_scheme ID
+                            let color_scheme_id = self
+                                .config
+                                .color_schemes(color_scheme_kind)
+                                .last_key_value()
+                                .map(|(id, _)| ColorSchemeId(id.0 + 1))
+                                .unwrap_or_default();
+                            self.config
+                                .color_schemes_mut(color_scheme_kind)
+                                .insert(color_scheme_id, color_scheme);
+                        }
+                        Err(err) => {
+                            self.color_scheme_errors
+                                .push(format!("Failed to parse {path:?}: {err}"));
                         }
                     }
-                    return self.save_color_schemes(color_scheme_kind);
                 }
+                return self.save_color_schemes(color_scheme_kind);
             }
             Message::ColorSchemeRename(color_scheme_kind, color_scheme_id, color_scheme_name) => {
                 self.color_scheme_expanded = None;
@@ -2344,12 +2337,6 @@ impl Application for App {
                     log::warn!("failed to find zoom step with index {}", index);
                 }
             },
-            Message::DialogMessage(dialog_message) => {
-                if let Some(dialog) = &mut self.dialog_opt {
-                    // DialogMessage is boxed, so we need to dereference it before updating
-                    return dialog.update(*dialog_message);
-                }
-            }
             Message::Drop(Some((pane, entity, data))) => {
                 self.pane_model.set_focus(pane);
                 if let Ok(value) = shlex::try_join(data.paths.iter().filter_map(|p| p.to_str())) {
@@ -3308,13 +3295,6 @@ impl Application for App {
         ]
     }
 
-    fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
-        match &self.dialog_opt {
-            Some(dialog) => dialog.view(window_id),
-            None => widget::text("Unknown window ID").into(),
-        }
-    }
-
     /// Creates a view after each update.
     fn view(&self) -> Element<'_, Self::Message> {
         let t = self.core().system_theme();
@@ -3576,10 +3556,6 @@ impl Application for App {
                 }
                 Message::Config(Box::new(update.config))
             }),
-            match &self.dialog_opt {
-                Some(dialog) => dialog.subscription(),
-                None => Subscription::none(),
-            },
         ])
     }
 }
