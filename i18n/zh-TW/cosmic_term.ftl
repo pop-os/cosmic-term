@@ -10,7 +10,7 @@ new-terminal = 新建終端機
 ## Color schemes
 
 color-schemes = 配色方案
-rename = 重命名
+rename = 重新命名
 export = 匯出
 delete = 刪除
 import = 匯入

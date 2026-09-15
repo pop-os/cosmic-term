@@ -1,5 +1,5 @@
 cosmic-terminal = Terminal COSMIC
-comment = Emulator terminala dla pulpitu COSMIC
+comment = Emulator terminala dla środowiska COSMIC
 keywords = Cli;WierszPoleceń;Powłoka;Terminal;
 new-terminal = Nowy terminal
 
@@ -73,7 +73,7 @@ advanced = Zaawansowane
 show-headerbar = Pokaż pasek nagłówka
 show-header-description = Ukazuje pasek nagłówka z menu wybieranego prawym przyciskiem myszki
 # Find
-find-placeholder = Szukaj…
+find-placeholder = Wyszukaj…
 find-previous = Znajdź poprzedni
 find-next = Znajdź następny
 
@@ -96,7 +96,7 @@ edit = Edytuj
 copy = Kopiuj
 paste = Wklej
 select-all = Zaznacz wszystko
-find = Szukaj
+find = Wyszukaj
 clear-scrollback = Wyczyść przewijanie
 
 ## View
