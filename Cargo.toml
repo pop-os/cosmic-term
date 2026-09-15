@@ -35,10 +35,6 @@ secret-service = { version = "5.1.0", features = [
 thiserror = { version = "2.0", optional = true }
 secstr = { version = "0.5", optional = true }
 
-[dependencies.cosmic-files]
-git = "https://github.com/pop-os/cosmic-files.git"
-default-features = false
-
 [dependencies.cosmic-text]
 version = "0.19"
 features = ["monospace_fallback", "shape-run-cache"]
@@ -46,7 +42,6 @@ features = ["monospace_fallback", "shape-run-cache"]
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
-#TODO: a11y feature crashes file chooser dialog
 features = [
     "about",
     "autosize",
@@ -54,6 +49,7 @@ features = [
     "tokio",
     "winit",
     "surface-message",
+    "rfd",
 ]
 
 [target.'cfg(unix)'.dependencies]
@@ -65,8 +61,8 @@ xdgen = "0.1"
 [features]
 default = ["dbus-config", "wgpu", "wayland", "password_manager"]
 dbus-config = ["libcosmic/dbus-config"]
-wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
-wayland = ["libcosmic/wayland", "cosmic-files/wayland"]
+wgpu = ["libcosmic/wgpu"]
+wayland = ["libcosmic/wayland"]
 password_manager = ["secret-service", "thiserror", "secstr"]
 
 [profile.release-with-debug]
