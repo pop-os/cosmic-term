@@ -49,6 +49,8 @@ pub fn context_menu(
         |label: String, action: Action| MenuItem::Button(label, None, TabAction(entity, action));
 
     let mut items = vec![
+        item(fl!("new-tab"), Action::TabNew),
+        MenuItem::Divider,
         item(fl!("copy"), Action::Copy),
         item(fl!("paste"), Action::Paste),
         item(fl!("select-all"), Action::SelectAll),
@@ -59,18 +61,17 @@ pub fn context_menu(
         item(fl!("split-vertical"), Action::PaneSplitVertical),
         item(fl!("pane-toggle-maximize"), Action::PaneToggleMaximized),
         MenuItem::Divider,
-        item(fl!("new-tab"), Action::TabNew),
-        item(fl!("menu-settings"), Action::Settings),
+        MenuItem::CheckBox(
+            fl!("window-header"),
+            None,
+            config.show_headerbar,
+            TabAction(entity, Action::ShowHeaderBar(!config.show_headerbar)),
+        ),
+        MenuItem::Divider,
     ];
     #[cfg(feature = "password_manager")]
     items.push(item(fl!("menu-password-manager"), Action::PasswordManager));
-    items.push(MenuItem::CheckBox(
-        fl!("show-headerbar"),
-        None,
-        config.show_headerbar,
-        TabAction(entity, Action::ShowHeaderBar(!config.show_headerbar)),
-    ));
-
+    items.push(item(fl!("menu-settings"), Action::Settings));
     // If we have a link, prepend the link items
     if link.is_some() {
         items.insert(0, item(fl!("open-link"), Action::LaunchUrlByMenu));
