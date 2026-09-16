@@ -1,3 +1,27 @@
+cosmic-term (1.9.0) noble; urgency=medium
+
+  * Epoch 1.9.0 version update
+
+ -- Michael Murphy <michael@mmurphy.dev>  Mon, 14 Sep 2026 19:50:47 +0200
+
+cosmic-term (1.8.0) noble; urgency=medium
+
+  * Epoch 1.8.0 version update
+
+ -- Jeremy Soller <jeremy@system76.com>  Wed, 02 Sep 2026 08:15:55 -0600
+
+cosmic-term (1.7.0) noble; urgency=medium
+
+  * Epoch 1.7.0 version update
+
+ -- Jeremy Soller <jeremy@system76.com>  Tue, 25 Aug 2026 09:21:20 -0600
+
+cosmic-term (1.6.0) noble; urgency=medium
+
+  * Epoch 1.6.0 version update
+
+ -- Jeremy Soller <jeremy@system76.com>  Tue, 18 Aug 2026 07:15:01 -0600
+
 cosmic-term (1.5.0) noble; urgency=medium
 
   * Epoch 1.5.0 version update

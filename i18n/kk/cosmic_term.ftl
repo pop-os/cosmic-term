@@ -109,3 +109,4 @@ keywords = Command;Shell;Terminal;CLI;Команда;Қоршам;Термина
 copy-link = Сілтемені көшіру
 tab-new-inherit-working-directory = Жаңа беттерде және терезелерде ағымдағы буманы қолдану
 tab-new-inherit-working-directory-description = Жаңа беттерді және терезелерді белсенді беттің жұмыс бумасында ашу
+show-pane-borders = Панель жақтауларын көрсету

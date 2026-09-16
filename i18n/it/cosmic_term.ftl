@@ -40,7 +40,7 @@ settings = Impostazioni
 
 appearance = Aspetto
 theme = Tema
-match-desktop = Sistema
+match-desktop = Abbina al desktop
 dark = Scuro
 light = Chiaro
 syntax-dark = Schema colori scuro
@@ -116,3 +116,6 @@ menu-about = Informazioni su COSMIC Terminal...
 support = Supporto
 repository = Repository
 cancel = Annulla
+keyboard-shortcuts = Scorciatoie da tastiera
+replace = Sostituisci
+menu-keyboard-shortcuts = Scorciatoie da tastiera...

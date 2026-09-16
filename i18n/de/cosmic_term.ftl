@@ -149,3 +149,4 @@ shortcut-replace-body = { $binding } ist bereits { $existing } zugeordnet. Durch
 keywords = Befehl;Shell;Terminal;CLI;
 tab-new-inherit-working-directory = Neue Tabs und Fenster verwenden das aktuelle Verzeichnis
 tab-new-inherit-working-directory-description = Neue Tabs und Fenster im Arbeitsverzeichnis des aktiven Tabs öffnen
+show-pane-borders = Bereichsrahmen anzeigen
