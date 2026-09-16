@@ -2,6 +2,7 @@
 
 use cosmic::{
     cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry},
+    cosmic_theme::BlurStrength,
     theme,
 };
 use cosmic_text::{Metrics, Stretch, Weight};
@@ -16,6 +17,10 @@ use crate::{fl, localize::LANGUAGE_SORTER, shortcuts::Shortcuts};
 pub const CONFIG_VERSION: u64 = 1;
 pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
 pub const COSMIC_THEME_LIGHT: &str = "COSMIC Light";
+
+/// Highest position on the frosted glass opacity slider, one step per
+/// [`BlurStrength`].
+pub const MAX_BLUR_POSITION: u8 = BlurStrength::ExtremelyHigh2 as u8;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum AppTheme {
@@ -216,7 +221,7 @@ impl Default for Profile {
     }
 }
 
-#[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, CosmicConfigEntry, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Config {
     pub app_theme: AppTheme,
     pub color_schemes_dark: BTreeMap<ColorSchemeId, ColorScheme>,
@@ -229,6 +234,10 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub opacity: u8,
+    /// Opacity under the compositor's frosted glass effect, kept separate from
+    /// [`Self::opacity`] because it is a level in the theme's alpha map rather
+    /// than an absolute percentage.
+    pub blur_opacity: BlurStrength,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub show_pane_borders: bool,
@@ -259,6 +268,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
             opacity: 100,
+            blur_opacity: BlurStrength::VeryLow,
             profiles: BTreeMap::new(),
             show_headerbar: true,
             show_pane_borders: false,
@@ -347,6 +357,26 @@ impl Config {
         f32::from(self.opacity) / 100.0
     }
 
+    /// Background opacity under the compositor's frosted glass effect. Resolved
+    /// against the theme rather than stored, so it follows the system-wide blur
+    /// settings; both lookups are plain matches on borrowed data, cheap enough
+    /// to call while rendering.
+    pub fn blur_opacity_ratio(&self, theme: &theme::Theme) -> f32 {
+        theme.cosmic().alpha_map.blurred_alpha(self.blur_opacity)
+    }
+
+    /// Position of [`Self::blur_opacity`] on the settings slider. Blur strength
+    /// grows as opacity falls, so the positions are reversed to let the slider
+    /// run in the same direction as the plain opacity one.
+    pub fn blur_opacity_position(&self) -> u8 {
+        MAX_BLUR_POSITION - self.blur_opacity as u8
+    }
+
+    /// Inverse of [`Self::blur_opacity_position`].
+    pub fn blur_strength_at(position: u8) -> BlurStrength {
+        BlurStrength::try_from(MAX_BLUR_POSITION.saturating_sub(position)).unwrap_or_default()
+    }
+
     // Get a sorted and adjusted for duplicates list of profile names and ids
     pub fn profile_names(&self) -> Vec<(String, ProfileId)> {
         let mut profile_names = Vec::<(String, ProfileId)>::with_capacity(self.profiles.len());
@@ -402,5 +432,65 @@ impl Config {
                 Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
             }
         })[&self.font_stretch]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slider_position_round_trips_through_every_blur_strength() {
+        for position in 0..=MAX_BLUR_POSITION {
+            let config = Config {
+                blur_opacity: Config::blur_strength_at(position),
+                ..Config::default()
+            };
+            assert_eq!(config.blur_opacity_position(), position);
+        }
+    }
+
+    /// The slider has to run the same direction as the plain opacity one, even
+    /// though a higher blur strength means a lower alpha.
+    #[test]
+    fn a_higher_slider_position_is_more_opaque() {
+        let theme = theme::Theme::dark();
+        let ratio = |position| {
+            Config {
+                blur_opacity: Config::blur_strength_at(position),
+                ..Config::default()
+            }
+            .blur_opacity_ratio(&theme)
+        };
+
+        for position in 1..=MAX_BLUR_POSITION {
+            assert!(
+                ratio(position) > ratio(position - 1),
+                "position {position} is not more opaque than {}",
+                position - 1
+            );
+        }
+    }
+
+    /// Translucent, but more opaque than what the theme uses for its own
+    /// frosted containers: that alpha is tuned for containers behind other
+    /// content, and terminal text has to stay readable on top of it.
+    #[test]
+    fn default_blur_opacity_sits_above_the_theme_frosted_alpha() {
+        let theme = theme::Theme::dark();
+        let cosmic = theme.cosmic();
+        let default = Config::default().blur_opacity_ratio(&theme);
+
+        assert!(default < 1.0, "{default} is not translucent");
+        assert!(default > cosmic.alpha_map.blurred_alpha(cosmic.frosted));
+    }
+
+    #[test]
+    fn opacity_ratio_follows_the_configured_percentage() {
+        let config = Config {
+            opacity: 75,
+            ..Config::default()
+        };
+        assert!((config.opacity_ratio() - 0.75).abs() < f32::EPSILON);
     }
 }
