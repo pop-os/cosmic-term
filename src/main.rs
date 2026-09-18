@@ -376,6 +376,7 @@ pub enum Message {
     DefaultDimFontWeight(usize),
     DefaultFont(usize),
     DefaultFontSize(usize),
+    DefaultLineHeight(usize),
     DefaultFontStretch(usize),
     DefaultFontWeight(usize),
     DefaultZoomStep(usize),
@@ -488,6 +489,8 @@ pub struct App {
     font_names: Vec<String>,
     font_size_names: Vec<String>,
     font_sizes: Vec<u16>,
+    line_height_names: Vec<String>,
+    line_heights: Vec<u16>,
     font_name_faces_map: BTreeMap<String, Vec<FaceInfo>>,
     all_font_weights_vals_names_map: BTreeMap<u16, String>,
     all_font_stretches_vals_names_map: BTreeMap<Stretch, String>,
@@ -1343,6 +1346,10 @@ impl App {
             .font_sizes
             .iter()
             .position(|font_size| font_size == &self.config.font_size);
+        let line_height_selected = self
+            .line_heights
+            .iter()
+            .position(|line_height| line_height == &self.config.line_height_mul_100);
         let font_stretch_selected = self
             .curr_font_stretches
             .iter()
@@ -1423,6 +1430,13 @@ impl App {
                 widget::settings::item::builder(fl!("default-font-size")).control(
                     widget::dropdown(&self.font_size_names, font_size_selected, |index| {
                         Message::DefaultFontSize(index)
+                    }),
+                ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("default-line-height")).control(
+                    widget::dropdown(&self.line_height_names, line_height_selected, |index| {
+                        Message::DefaultLineHeight(index)
                     }),
                 ),
             )
@@ -1824,6 +1838,13 @@ impl Application for App {
             zoom_steps.push(zoom_step);
         }
 
+        let mut line_height_names = Vec::new();
+        let mut line_heights = Vec::new();
+        for line_height in (100..=300).step_by(10) {
+            line_height_names.push(format!("{:.1}x", f32::from(line_height) / 100.0));
+            line_heights.push(line_height);
+        }
+
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focused(), widget::Id::unique());
@@ -1858,6 +1879,8 @@ impl Application for App {
             font_names,
             font_size_names,
             font_sizes,
+            line_height_names,
+            line_heights,
             font_name_faces_map,
             all_font_weights_vals_names_map,
             all_font_stretches_vals_names_map,
@@ -2295,6 +2318,15 @@ impl Application for App {
                 }
                 None => {
                     log::warn!("failed to find font with index {}", index);
+                }
+            },
+            Message::DefaultLineHeight(index) => match self.line_heights.get(index) {
+                Some(line_height) => {
+                    config_set!(line_height_mul_100, *line_height);
+                    return self.update_config();
+                }
+                None => {
+                    log::warn!("failed to find line height with index {}", index);
                 }
             },
             Message::DefaultFontStretch(index) => match self.curr_font_stretches.get(index) {
