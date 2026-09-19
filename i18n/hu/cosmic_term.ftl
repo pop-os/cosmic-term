@@ -52,14 +52,14 @@ opacity = Háttér átlátszósága
 
 ### Font
 
-font = Betűtípus
-advanced-font-settings = Speciális betűtípus-beállítások
-default-font = Betűtípus
+font = Betűkészlet
+advanced-font-settings = Speciális betűkészlet-beállítások
+default-font = Betűkészlet
 default-font-size = Betűméret
 default-font-stretch = Betűszélesség
-default-font-weight = Normál betűsúly
-default-dim-font-weight = Vékony betűsúly
-default-bold-font-weight = Félkövér betűsúly
+default-font-weight = Normál betűvastagság
+default-dim-font-weight = Vékony betűvastagság
+default-bold-font-weight = Félkövér betűvastagság
 use-bright-bold = Félkövér szöveg világosítása
 
 ### Splits
