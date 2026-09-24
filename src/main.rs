@@ -1836,7 +1836,7 @@ impl Application for App {
             .comments(fl!("comment"))
             .license("GPL-3.0-only")
             .license_url("https://spdx.org/licenses/GPL-3.0-only")
-            .developers([("Jeremy Soller", "jeremy@system76.com")])
+            .developers([("System76", "info@system76.com")])
             .links([
                 (fl!("repository"), "https://github.com/pop-os/cosmic-term"),
                 (
