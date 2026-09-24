@@ -36,7 +36,7 @@ pub struct Binding {
 }
 
 impl Binding {
-    fn to_key_bind(&self) -> Option<KeyBind> {
+    pub fn to_key_bind(&self) -> Option<KeyBind> {
         let key = key_from_string(&self.key)?;
         let mut modifiers = Vec::new();
         for modifier in [
