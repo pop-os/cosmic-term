@@ -201,6 +201,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
+    settings = settings.exit_on_close(false);
 
     // Flags
     let flags = Flags {
@@ -368,6 +369,9 @@ pub enum Message {
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
     Config(Box<Config>),
+    ConfirmOnClose(bool),
+    ConfirmCloseConfirmed,
+    ConfirmCloseCanceled,
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
@@ -449,6 +453,7 @@ pub enum Message {
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
     WindowClose,
+    WindowCloseRequested(window::Id),
     WindowNew,
     WindowFocused,
     WindowUnfocused,
@@ -524,6 +529,7 @@ pub struct App {
     shortcut_search_id: widget::Id,
     shortcut_search_regex: Option<regex::Regex>,
     shortcut_search_value: String,
+    show_confirm_close_dialog: bool,
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
@@ -1519,6 +1525,14 @@ impl App {
                         self.config.tab_new_inherit_working_directory,
                         Message::TabNewInheritWorkingDirectory,
                     ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("confirm-on-close"))
+                    .description(fl!("confirm-on-close-description"))
+                    .toggler(
+                        self.config.confirm_on_close,
+                        Message::ConfirmOnClose,
+                    ),
             );
 
         widget::settings::view_column(vec![
@@ -1529,6 +1543,18 @@ impl App {
         ])
         .into()
     }
+
+    fn request_close_window(&mut self) -> Task<Message> {
+        if self.config.confirm_on_close {
+            self.show_confirm_close_dialog = true;
+            Task::none()
+        } else if let Some(window_id) = self.core.main_window_id() {
+            window::close(window_id)
+        } else {
+            Task::none()
+        }
+    }
+
     fn get_default_profile(&self) -> Option<ProfileId> {
         self.config.default_profile
     }
@@ -1893,6 +1919,7 @@ impl Application for App {
             shortcut_search_id: widget::Id::unique(),
             shortcut_search_regex: None,
             shortcut_search_value: String::new(),
+            show_confirm_close_dialog: false,
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
@@ -1906,6 +1933,11 @@ impl Application for App {
 
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
+        if self.show_confirm_close_dialog {
+            self.show_confirm_close_dialog = false;
+            return Task::none();
+        }
+
         if self.core.window.show_context {
             // Handle keyboard shortcut page escape
             if let ContextPage::KeyboardShortcuts = self.context_page {
@@ -2779,6 +2811,20 @@ impl Application for App {
                     tab_new_inherit_working_directory
                 );
             }
+            Message::ConfirmOnClose(confirm_on_close) => {
+                if confirm_on_close != self.config.confirm_on_close {
+                    config_set!(confirm_on_close, confirm_on_close);
+                }
+            }
+            Message::ConfirmCloseConfirmed => {
+                self.show_confirm_close_dialog = false;
+                if let Some(window_id) = self.core.main_window_id() {
+                    return window::close(window_id);
+                }
+            }
+            Message::ConfirmCloseCanceled => {
+                self.show_confirm_close_dialog = false;
+            }
             Message::ShowPaneBorders(show_pane_borders) => {
                 if show_pane_borders != self.config.show_pane_borders {
                     config_set!(show_pane_borders, show_pane_borders);
@@ -2863,10 +2909,8 @@ impl Application for App {
                             self.terminal_ids.remove(&self.pane_model.focused());
                             self.pane_model.set_focus(sibling);
                         } else {
-                            //Last pane, closing window
-                            if let Some(window_id) = self.core.main_window_id() {
-                                return window::close(window_id);
-                            }
+                            // Last pane, closing window
+                            return self.request_close_window();
                         }
                     }
                 }
@@ -3161,9 +3205,13 @@ impl Application for App {
                 config_set!(default_profile, default.then_some(profile_id));
             }
             Message::WindowClose => {
-                if let Some(window_id) = self.core.main_window_id() {
-                    return window::close(window_id);
+                return self.request_close_window();
+            }
+            Message::WindowCloseRequested(id) => {
+                if self.core.main_window_id() == Some(id) {
+                    return self.request_close_window();
                 }
+                return Task::none();
             }
             Message::WindowNew => match env::current_exe() {
                 Ok(exe) => {
@@ -3267,6 +3315,23 @@ impl Application for App {
     }
 
     fn dialog(&self) -> Option<Element<'_, Message>> {
+        if self.show_confirm_close_dialog {
+            return Some(
+                widget::dialog()
+                    .title(fl!("confirm-close-title"))
+                    .body(fl!("confirm-close-body"))
+                    .primary_action(
+                        widget::button::destructive(fl!("close-window"))
+                            .on_press(Message::ConfirmCloseConfirmed),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel"))
+                            .on_press(Message::ConfirmCloseCanceled),
+                    )
+                    .into(),
+            );
+        }
+
         let conflict = self.shortcut_conflict.as_ref()?;
         let binding = shortcuts::binding_display(&conflict.binding);
         let existing = shortcuts::action_label(conflict.existing_action);
@@ -3306,6 +3371,22 @@ impl Application for App {
                 .class(style::Button::Icon)
                 .into(),
         ]
+    }
+
+    fn on_app_exit(&mut self) -> Option<Self::Message> {
+        Some(Message::WindowClose)
+    }
+
+    fn on_close_requested(&self, id: window::Id) -> Option<Self::Message> {
+        if let Some((popup_id, _, _, _, _, _)) = &self.context_menu_popup
+            && id == *popup_id
+        {
+            return Some(Message::ContextMenuPopupClosed(id));
+        }
+        if self.core.main_window_id() == Some(id) {
+            return Some(Message::WindowCloseRequested(id));
+        }
+        None
     }
 
     fn view_window(&self, window_id: window::Id) -> Element<'_, Message> {
@@ -3658,5 +3739,21 @@ mod tests {
             "expected opaque divider, got alpha {}",
             color.alpha
         );
+    }
+
+    #[test]
+    fn config_confirm_on_close_defaults_to_false() {
+        let config = crate::config::Config::default();
+        assert!(!config.confirm_on_close);
+    }
+
+    #[test]
+    fn config_confirm_on_close_serde() {
+        let mut config = crate::config::Config::default();
+        config.confirm_on_close = true;
+        let serialized = ron::to_string(&config).expect("failed to serialize");
+        let deserialized: crate::config::Config =
+            ron::from_str(&serialized).expect("failed to deserialize");
+        assert!(deserialized.confirm_on_close);
     }
 }
