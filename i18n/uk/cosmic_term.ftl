@@ -150,3 +150,4 @@ copy-link = Копіювати ланку
 tab-new-inherit-working-directory = Нові вкладки та вікна відкривати в поточному каталозі
 tab-new-inherit-working-directory-description = Відкривати нові вкладки та вікна в робочому каталозі активної вкладки
 show-pane-borders = Показувати межі панелей
+window-header = Заголовок вікна

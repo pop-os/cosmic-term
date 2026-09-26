@@ -70,7 +70,7 @@ focus-follow-mouse = Foco de digitação segue o mouse
 ### Advanced
 
 advanced = Avançado
-show-headerbar = Mostrar a barra de título
+show-headerbar = Mostrar cabeçalho
 show-header-description = Mostrar o cabeçalho ao clicar no menu com o botão direito do mouse
 # Find
 find-placeholder = Localizar...
@@ -109,7 +109,7 @@ next-tab = Próxima aba
 previous-tab = Aba anterior
 split-horizontal = Dividir horizontalmente
 split-vertical = Dividir verticalmente
-pane-toggle-maximize = Alternar maximização
+pane-toggle-maximize = Maximizar ou restaurar o quadro
 menu-color-schemes = Esquemas de cores...
 menu-settings = Configurações...
 menu-about = Sobre o Terminal...
@@ -150,3 +150,4 @@ copy-link = Copiar link
 tab-new-inherit-working-directory = Novas abas e janelas usam o diretório atual
 tab-new-inherit-working-directory-description = Abrir novas abas e janelas no diretório de trabalho da aba ativa
 show-pane-borders = Mostrar bordas do quadro
+window-header = Cabeçalho da janela

@@ -110,3 +110,4 @@ toggle-fullscreen = Dîmendera tijî biguhêrîne
 type-to-search = Ji bo lêgerînê binivîse...
 copy-link = Girêdanê jê bigire
 show-pane-borders = Sînorên kilîtdankê nîşan bide
+window-header = Sernavê çarçoveyê

@@ -52,14 +52,14 @@ opacity = Háttér átlátszósága
 
 ### Font
 
-font = Betűtípus
-advanced-font-settings = Speciális betűtípus-beállítások
-default-font = Betűtípus
+font = Betűkészlet
+advanced-font-settings = Speciális betűkészlet-beállítások
+default-font = Betűkészlet
 default-font-size = Betűméret
 default-font-stretch = Betűszélesség
-default-font-weight = Normál betűsúly
-default-dim-font-weight = Vékony betűsúly
-default-bold-font-weight = Félkövér betűsúly
+default-font-weight = Normál betűvastagság
+default-dim-font-weight = Vékony betűvastagság
+default-bold-font-weight = Félkövér betűvastagság
 use-bright-bold = Félkövér szöveg világosítása
 
 ### Splits
@@ -109,7 +109,7 @@ next-tab = Következő lap
 previous-tab = Előző lap
 split-horizontal = Vízszintes felosztás
 split-vertical = Függőleges felosztás
-pane-toggle-maximize = Panel maximalizálása
+pane-toggle-maximize = Panel maximalizálása vagy visszaállítása
 menu-color-schemes = Színsémák…
 menu-settings = Beállítások…
 menu-about = A COSMIC Terminál névjegye…
@@ -150,3 +150,4 @@ copy-link = Hivatkozás másolása
 tab-new-inherit-working-directory = Az új lapok és ablakok az aktuális könyvtárat használják
 tab-new-inherit-working-directory-description = Az új lapok és ablakok az aktív lap munkakönyvtárában nyílnak meg
 show-pane-borders = Ablaktábla-szegélyek megjelenítése
+window-header = Ablakfejléc
