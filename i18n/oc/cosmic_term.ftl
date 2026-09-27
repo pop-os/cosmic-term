@@ -1,7 +1,14 @@
-settings = Paramètres
+settings = Configuracion
 appearance = Aparéncia
 theme = Tèma
 match-desktop = Assortir al burèu
-dark = Fosc
+dark = Escur
 light = Clar
 file = Fichièr
+name = Nom
+repository = Depaus
+cancel = Anullar
+menu-settings = Configuracion...
+quit = Quitar
+delete = Suprimir
+replace = Remplaçar

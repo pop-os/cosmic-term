@@ -63,6 +63,7 @@ show-pane-borders = Show pane borders
 ### Advanced
 advanced = Advanced
 show-headerbar = Show header
+window-header = Window header
 show-header-description = Reveal the header from the right-click menu
 tab-new-inherit-working-directory = New tabs and windows use current directory
 tab-new-inherit-working-directory-description = Open new tabs and windows in the active tab's working directory
@@ -133,7 +134,7 @@ next-tab = Next tab
 previous-tab = Previous tab
 split-horizontal = Split horizontal
 split-vertical = Split vertical
-pane-toggle-maximize = Toggle maximized
+pane-toggle-maximize = Maximize or restore pane
 menu-color-schemes = Color schemes...
 menu-settings = Settings...
 menu-about = About COSMIC Terminal...
