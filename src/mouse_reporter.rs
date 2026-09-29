@@ -3,6 +3,23 @@ use cosmic::{
     iced::{Event, keyboard::Modifiers, mouse::Button},
 };
 
+/// Mouse motion tracking mode requested by the terminal application.
+///
+/// Implemented according to
+/// <https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Mouse-Tracking>
+#[derive(Clone, Copy)]
+pub enum MotionTracking {
+    /// Normal tracking (DECSET 1000): report button press and release only,
+    /// no motion events.
+    Click,
+    /// Button-event tracking (DECSET 1002): additionally report motion events,
+    /// but only while a button is held down.
+    Button,
+    /// Any-event tracking (DECSET 1003): report all motion events, even with
+    /// no button held down.
+    Any,
+}
+
 #[derive(Default)]
 pub struct MouseReporter {
     last_movment_x: Option<u32>,
@@ -46,6 +63,24 @@ impl MouseReporter {
         }
     }
 
+    /// Resolve the button code for a motion event, or `None` if the tracking
+    /// mode does not report motion at all.
+    ///
+    /// xterm adds 32 to the button code to indicate motion. Normal tracking
+    /// (1000) reports no motion events, button-event tracking (1002) only
+    /// reports motion while a button is held down, and any-event tracking
+    /// (1003) reports all motion, using button 3 (no button) when no button
+    /// is held down, like alacritty does.
+    fn motion_button(&self, motion_tracking: MotionTracking) -> Option<u8> {
+        match motion_tracking {
+            MotionTracking::Any => {
+                Some(self.button.and_then(Self::button_number).unwrap_or(3) + 32)
+            }
+            MotionTracking::Button => self.button.and_then(Self::button_number).map(|b| b + 32),
+            MotionTracking::Click => None,
+        }
+    }
+
     //Implemented according to
     //https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Mouse-Tracking
     pub fn normal_mouse_code(
@@ -53,6 +88,7 @@ impl MouseReporter {
         event: Event,
         modifiers: &Modifiers,
         is_utf8: bool,
+        motion_tracking: MotionTracking,
         x: u32,
         y: u32,
     ) -> Option<Vec<u8>> {
@@ -68,20 +104,19 @@ impl MouseReporter {
                 Some(3)
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
-                //Button pressed is reported as button 32 + 0,1,2 and event code M
-                //And only reported if a button is previously pressed
                 if (self.last_movment_x, self.last_movment_y) == (Some(x), Some(y)) {
                     return None;
                 } else {
                     self.last_movment_x = Some(x);
                     self.last_movment_y = Some(y);
                 }
-                //It seems that we should add 32 to signal movement even for normal mode
                 //On button-motion events, xterm adds 32 to the event code (the third
                 //character, Cb).
                 //For example, motion into cell x,y with button 1 down is reported as
                 //CSI M @ CxCy ( @  = 32 + 0 (button 1) + 32 (motion indicator) ).
-                self.button.and_then(Self::button_number).map(|b| b + 32)
+                //Whether motion is reported at all, and with which button code,
+                //depends on the tracking mode, see `motion_button`
+                self.motion_button(motion_tracking)
             }
             _ => None,
         })?;
@@ -142,6 +177,7 @@ impl MouseReporter {
         &mut self,
         event: Event,
         modifiers: &Modifiers,
+        motion_tracking: MotionTracking,
         x: u32,
         y: u32,
     ) -> Option<Vec<u8>> {
@@ -157,16 +193,15 @@ impl MouseReporter {
                 Some((Self::button_number(button), "m"))
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
-                //Button pressed is reported as button 32 + 0,1,2 and event code M
-                //And only reported if a button is previously pressed
                 if (self.last_movment_x, self.last_movment_y) == (Some(x), Some(y)) {
                     return None;
                 } else {
                     self.last_movment_x = Some(x);
                     self.last_movment_y = Some(y);
                 }
-                self.button
-                    .map(|button| (Self::button_number(button).map(|b| b + 32), "M"))
+                //Whether motion is reported at all, and with which button code,
+                //depends on the tracking mode, see `motion_button`
+                self.motion_button(motion_tracking).map(|b| (Some(b), "M"))
             }
             _ => None,
         })?;

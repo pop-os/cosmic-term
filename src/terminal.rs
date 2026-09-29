@@ -42,7 +42,7 @@ pub use alacritty_terminal::grid::Scroll as TerminalScroll;
 use crate::{
     config::{ColorSchemeKind, Config as AppConfig, ProfileId},
     menu::MenuState,
-    mouse_reporter::MouseReporter,
+    mouse_reporter::{MotionTracking, MouseReporter},
 };
 
 /// Minimum contrast between a fixed cursor color and the cell's background.
@@ -1031,9 +1031,25 @@ impl Terminal {
         let term_lock = self.term.lock();
         let mode = term_lock.mode();
 
+        //Determine which mouse motion tracking mode the application requested,
+        //see https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h2-Mouse-Tracking
+        let motion_tracking = if mode.contains(TermMode::MOUSE_MOTION) {
+            //Any-event tracking (DECSET 1003), report all motion events
+            MotionTracking::Any
+        } else if mode.contains(TermMode::MOUSE_DRAG) {
+            //Button-event tracking (DECSET 1002), report motion while a button is held
+            MotionTracking::Button
+        } else {
+            //Normal tracking (DECSET 1000), report button press and release only
+            MotionTracking::Click
+        };
+
         #[allow(clippy::collapsible_else_if)]
         if mode.contains(TermMode::SGR_MOUSE) {
-            if let Some(code) = self.mouse_reporter.sgr_mouse_code(event, modifiers, x, y) {
+            if let Some(code) =
+                self.mouse_reporter
+                    .sgr_mouse_code(event, modifiers, motion_tracking, x, y)
+            {
                 self.input_no_scroll(code)
             }
         } else {
@@ -1041,6 +1057,7 @@ impl Terminal {
                 event,
                 modifiers,
                 mode.contains(TermMode::UTF8_MOUSE),
+                motion_tracking,
                 x,
                 y,
             ) {
