@@ -68,6 +68,7 @@ pub enum KeyBindAction {
     PaneSplitHorizontal,
     PaneSplitVertical,
     PaneToggleMaximized,
+    PaneClose,
     Paste,
     PastePrimary,
     #[cfg_attr(not(feature = "password_manager"), allow(dead_code))]
@@ -110,6 +111,7 @@ impl KeyBindAction {
             Self::PaneSplitHorizontal => Some(Action::PaneSplitHorizontal),
             Self::PaneSplitVertical => Some(Action::PaneSplitVertical),
             Self::PaneToggleMaximized => Some(Action::PaneToggleMaximized),
+            Self::PaneClose => Some(Action::PaneClose),
             Self::Paste => Some(Action::Paste),
             Self::PastePrimary => Some(Action::PastePrimary),
             Self::SelectAll => Some(Action::SelectAll),
@@ -270,6 +272,7 @@ pub fn action_label(action: KeyBindAction) -> String {
         KeyBindAction::PaneSplitHorizontal => fl!("split-horizontal"),
         KeyBindAction::PaneSplitVertical => fl!("split-vertical"),
         KeyBindAction::PaneToggleMaximized => fl!("pane-toggle-maximize"),
+        KeyBindAction::PaneClose => fl!("pane-close"),
         KeyBindAction::Paste => fl!("paste"),
         KeyBindAction::PastePrimary => fl!("paste-primary"),
         KeyBindAction::PasswordManager => fl!("password-manager"),
@@ -339,6 +342,7 @@ pub fn shortcut_groups() -> Vec<ShortcutGroup> {
             KeyBindAction::PaneSplitHorizontal,
             KeyBindAction::PaneSplitVertical,
             KeyBindAction::PaneToggleMaximized,
+            KeyBindAction::PaneClose,
             KeyBindAction::PaneFocusLeft,
             KeyBindAction::PaneFocusRight,
             KeyBindAction::PaneFocusUp,
@@ -462,6 +466,7 @@ fn fallback_shortcuts() -> Shortcuts {
     bind!([Ctrl, Alt], "d", PaneSplitHorizontal);
     bind!([Ctrl, Alt], "r", PaneSplitVertical);
     bind!([Ctrl, Shift], "X", PaneToggleMaximized);
+    bind!([Ctrl, Alt], "w", PaneClose);
     #[cfg(feature = "password_manager")]
     bind!([Ctrl, Alt], "p", PasswordManager);
 
