@@ -2249,6 +2249,7 @@ impl Application for App {
                 }
             }
             Message::DefaultFont(index) => {
+                font_system().write().unwrap().raw().shape_run_cache = Default::default();
                 match self.font_names.get(index) {
                     Some(font_name) => {
                         if font_name != &self.config.font_name {
