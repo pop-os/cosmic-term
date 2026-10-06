@@ -2439,10 +2439,16 @@ impl Application for App {
                 // Hard-coded keys
                 match key {
                     Key::Named(Named::Copy) => {
-                        return self.update(Message::Copy(None));
+                        if !self.find {
+                            return self.update(Message::Copy(None));
+                        }
+                        return Task::none();
                     }
                     Key::Named(Named::Paste) => {
-                        return self.update(Message::Paste(None));
+                        if !self.find {
+                            return self.update(Message::Paste(None));
+                        }
+                        return Task::none();
                     }
                     Key::Named(Named::Escape) => {
                         // Handled by on_escape
@@ -2476,6 +2482,18 @@ impl Application for App {
                 // Handle configurable keys
                 for (key_bind, action) in &self.key_binds {
                     if key_bind.matches(modifiers, &key, Some(&physical)) {
+                        if self.find
+                            && matches!(
+                                action,
+                                shortcuts::KeyBindAction::Paste
+                                    | shortcuts::KeyBindAction::PastePrimary
+                                    | shortcuts::KeyBindAction::Copy
+                                    | shortcuts::KeyBindAction::CopyOrSigint
+                                    | shortcuts::KeyBindAction::SelectAll
+                            )
+                        {
+                            return Task::none();
+                        }
                         return self.update(action.message(None));
                     }
                 }
@@ -2645,12 +2663,18 @@ impl Application for App {
                 }
             }
             Message::Paste(entity_opt) => {
+                if entity_opt.is_none() && self.find {
+                    return Task::none();
+                }
                 return clipboard::read().map(move |value_opt| match value_opt {
                     Some(value) => action::app(Message::PasteValue(entity_opt, value)),
                     None => action::none(),
                 });
             }
             Message::PastePrimary(entity_opt) => {
+                if entity_opt.is_none() && self.find {
+                    return Task::none();
+                }
                 return clipboard::read_primary().map(move |value_opt| match value_opt {
                     Some(value) => action::app(Message::PasteValue(entity_opt, value)),
                     None => action::none(),
