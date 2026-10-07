@@ -1029,6 +1029,7 @@ impl App {
             widget::text_input::search_input(fl!("type-to-search"), &self.shortcut_search_value)
                 .id(self.shortcut_search_id.clone())
                 .on_input(Message::ShortcutSearch)
+                .capture_escape(false)
                 .into(),
         );
 
@@ -3479,7 +3480,8 @@ impl Application for App {
                         .on_press(Message::FindSearchValueChanged(String::new()))
                         .class(style::Button::Icon)
                         .into(),
-                );
+                )
+                .capture_escape(false);
                 let find_widget = widget::row::with_children(vec![
                     find_input.into(),
                     widget::tooltip(
