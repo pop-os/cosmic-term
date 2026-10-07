@@ -2273,6 +2273,7 @@ impl Application for App {
                             }
 
                             config_set!(font_name, font_name.to_string());
+                            config_set!(font_weight, self.config.font_weight);
                             self.set_curr_font_weights_and_stretches();
 
                             return self.update_config();
