@@ -890,7 +890,7 @@ impl App {
             .curr_font_weights
             .contains(&self.config.bold_font_weight)
         {
-            self.config.bold_font_weight = Weight::BOLD.0;
+            self.config.bold_font_weight = Weight::NORMAL.0;
         }
     }
 
@@ -2182,6 +2182,7 @@ impl Application for App {
                             shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
                         self.key_binds = key_binds(&self.shortcuts_config);
                     }
+                    self.set_curr_font_weights_and_stretches();
                     return self.update_config();
                 }
             }
