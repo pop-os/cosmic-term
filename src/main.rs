@@ -3418,7 +3418,8 @@ impl Application for App {
             let text_input = widget::text_input("", &self.tab_rename_input)
                 .id(self.tab_rename_id.clone())
                 .on_input(Message::TabRenameInput)
-                .on_submit(|_| Message::TabRenameSubmit);
+                .on_submit(|_| Message::TabRenameSubmit)
+                .capture_escape(false);
             return Some(
                 widget::dialog()
                     .title(fl!("rename-tab"))
