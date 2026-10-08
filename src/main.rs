@@ -890,7 +890,7 @@ impl App {
             .curr_font_weights
             .contains(&self.config.bold_font_weight)
         {
-            self.config.bold_font_weight = Weight::BOLD.0;
+            self.config.bold_font_weight = Weight::NORMAL.0;
         }
     }
 
@@ -1755,18 +1755,6 @@ impl Application for App {
                 }
             }
 
-            // only keep fonts that have both NORMAL and BOLD weights with both having
-            // a `Stretch::Normal` face.
-            // This is important for fallbacks.
-            font_name_faces_map.retain(|_, v| {
-                let has_normal = v
-                    .iter()
-                    .any(|face| face.weight == Weight::NORMAL && face.stretch == Stretch::Normal);
-                let has_bold = v
-                    .iter()
-                    .any(|face| face.weight == Weight::BOLD && face.stretch == Stretch::Normal);
-                has_normal && has_bold
-            });
             font_name_faces_map
         };
 
@@ -2194,6 +2182,7 @@ impl Application for App {
                             shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
                         self.key_binds = key_binds(&self.shortcuts_config);
                     }
+                    self.set_curr_font_weights_and_stretches();
                     return self.update_config();
                 }
             }
@@ -2261,6 +2250,7 @@ impl Application for App {
                 }
             }
             Message::DefaultFont(index) => {
+                font_system().write().unwrap().raw().shape_run_cache.trim(0);
                 match self.font_names.get(index) {
                     Some(font_name) => {
                         if font_name != &self.config.font_name {
@@ -2283,6 +2273,7 @@ impl Application for App {
                             }
 
                             config_set!(font_name, font_name.to_string());
+                            config_set!(font_weight, self.config.font_weight);
                             self.set_curr_font_weights_and_stretches();
 
                             return self.update_config();
