@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
+use cosmic::cosmic_theme::BlurStrength;
 use cosmic::iced::clipboard::dnd::DndAction;
 use cosmic::iced::core::keyboard::key::Named;
 use cosmic::iced::keyboard::key::Physical;
@@ -360,6 +361,7 @@ impl MenuAction for Action {
 #[derive(Clone, Debug)]
 pub enum Message {
     AppTheme(AppTheme),
+    BlurOpacity(u8),
     ClearScrollback(Option<segmented_button::Entity>),
     ColorSchemeCollapse,
     ColorSchemeDelete(ColorSchemeKind, ColorSchemeId),
@@ -1414,6 +1416,13 @@ impl App {
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
                     }))
+            }))
+            .add_maybe((t.transparent).then(|| {
+                widget::settings::item::builder(fl!("opacity")).control(widget::slider(
+                    0..=BlurStrength::ExtremelyHigh2 as u8,
+                    BlurStrength::ExtremelyHigh2 as u8 - self.config.blur_opacity as u8,
+                    Message::BlurOpacity,
+                ))
             }));
 
         let mut font_section = widget::settings::section()
@@ -1976,6 +1985,15 @@ impl Application for App {
             Message::AppTheme(app_theme) => {
                 config_set!(app_theme, app_theme);
                 return self.update_config();
+            }
+            Message::BlurOpacity(pos) => {
+                config_set!(
+                    blur_opacity,
+                    BlurStrength::try_from(
+                        (BlurStrength::ExtremelyHigh2 as u8).saturating_sub(pos)
+                    )
+                    .unwrap_or(BlurStrength::VeryLow)
+                );
             }
             Message::ClearScrollback(entity_opt) => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -3416,7 +3434,7 @@ impl Application for App {
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
                     .opacity(if t.transparent {
-                        t.cosmic().alpha_map.blurred_alpha(t.cosmic().frosted)
+                        t.cosmic().alpha_map.blurred_alpha(self.config.blur_opacity)
                     } else {
                         self.config.opacity_ratio()
                     })
