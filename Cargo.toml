@@ -65,8 +65,8 @@ xdgen = "0.1"
 [features]
 default = ["dbus-config", "wgpu", "wayland", "password_manager"]
 dbus-config = ["libcosmic/dbus-config"]
-wgpu = ["libcosmic/wgpu", "cosmic-files/wgpu"]
-wayland = ["libcosmic/wayland", "cosmic-files/wayland"]
+wgpu = ["libcosmic/iced_wgpu"]
+wayland = ["libcosmic/wayland"]
 password_manager = ["secret-service", "thiserror", "secstr"]
 
 [profile.release-with-debug]
