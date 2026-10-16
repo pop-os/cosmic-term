@@ -2657,6 +2657,9 @@ impl Application for App {
                 });
             }
             Message::PasteValue(entity_opt, value) => {
+                if self.find || self.core.window.show_context {
+                    return Task::none();
+                }
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
