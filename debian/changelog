@@ -1,3 +1,9 @@
+cosmic-term (1.11.0) noble; urgency=medium
+
+  * Epoch 1.11.0 version update
+
+ -- Michael Murphy <michael@mmurphy.dev>  Tue, 20 Oct 2026 17:41:33 +0200
+
 cosmic-term (1.10.0) noble; urgency=medium
 
   * Epoch 1.10.0 version update
