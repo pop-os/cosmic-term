@@ -151,3 +151,5 @@ tab-new-inherit-working-directory = Nowe karty i okna użyją obecnego katalogu
 tab-new-inherit-working-directory-description = Otwieraj nowe karty i okna w katalogu roboczym aktywnej karty
 show-pane-borders = Pokaż obramowania paneli
 window-header = Nagłówek okna
+move-tab-left = Przesuń kartę w lewo
+move-tab-right = Przesuń kartę w prawo

@@ -36,9 +36,9 @@ settings = Socruithe
 
 ### Appearance
 
-appearance = Dealramh
+appearance = Cuma
 theme = Téama
-match-desktop = Meaitseáil deasc
+match-desktop = Meaitseáil leis an deasc
 dark = Dorcha
 light = Solas
 syntax-dark = Scéim dathanna dorcha
@@ -151,3 +151,5 @@ tab-new-inherit-working-directory = Úsáideann cluaisíní agus fuinneoga nua a
 tab-new-inherit-working-directory-description = Oscail cluaisíní agus fuinneoga nua in eolaire oibre an chluaisín ghníomhaigh
 show-pane-borders = Taispeáin teorainneacha na pána
 window-header = Ceanntásc na fuinneoige
+move-tab-left = Bog an cluaisín ar chlé
+move-tab-right = Bog an cluaisín ar dheis
