@@ -283,6 +283,7 @@ pub enum Action {
     TabPrev,
     TabMoveLeft,
     TabMoveRight,
+    TabRename,
     ToggleFullscreen,
     WindowClose,
     WindowNew,
@@ -338,6 +339,7 @@ impl Action {
             Self::TabPrev => Message::TabPrev,
             Self::TabMoveLeft => Message::TabMoveLeft,
             Self::TabMoveRight => Message::TabMoveRight,
+            Self::TabRename => Message::TabRename,
             Self::ToggleFullscreen => Message::ToggleFullscreen,
             Self::WindowClose => Message::WindowClose,
             Self::WindowNew => Message::WindowNew,
@@ -448,6 +450,10 @@ pub enum Message {
     TabPrev,
     TabMoveLeft,
     TabMoveRight,
+    TabRename,
+    TabRenameInput(String),
+    TabRenameSubmit,
+    TabRenameCancel,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleFullscreen,
@@ -533,6 +539,9 @@ pub struct App {
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
+    tab_rename_id: widget::Id,
+    tab_rename_pane: Option<pane_grid::Pane>,
+    tab_rename_input: String,
 }
 
 impl App {
@@ -776,6 +785,8 @@ impl App {
             }
 
             Task::none()
+        } else if self.tab_rename_pane.is_some() {
+            widget::text_input::focus(self.tab_rename_id.clone())
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
             widget::text_input::focus(terminal_id)
@@ -1695,6 +1706,10 @@ impl App {
         }
         self.update_title(Some(pane))
     }
+
+    fn block_changing_terminal(&self) -> bool {
+        self.tab_rename_pane.is_some()
+    }
 }
 
 /// Implement [`Application`] to integrate with COSMIC.
@@ -1902,6 +1917,9 @@ impl Application for App {
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
+            tab_rename_id: widget::Id::unique(),
+            tab_rename_pane: None,
+            tab_rename_input: String::new(),
         };
 
         app.set_curr_font_weights_and_stretches();
@@ -1912,7 +1930,9 @@ impl Application for App {
 
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
-        if self.core.window.show_context {
+        if self.tab_rename_pane.is_some() {
+            self.tab_rename_pane = None;
+        } else if self.core.window.show_context {
             // Handle keyboard shortcut page escape
             if let ContextPage::KeyboardShortcuts = self.context_page {
                 // Cancel shortcut capture
@@ -2589,6 +2609,10 @@ impl Application for App {
                 return Task::batch([self.update_focus(), title_task]);
             }
             Message::PaneSplit(axis) => {
+                if self.block_changing_terminal() {
+                    return Task::none();
+                }
+
                 let result = self.pane_model.panes.split(
                     axis,
                     self.pane_model.focused(),
@@ -2603,6 +2627,10 @@ impl Application for App {
                 }
             }
             Message::PaneToggleMaximized => {
+                if self.block_changing_terminal() {
+                    return Task::none();
+                }
+
                 if self.pane_model.panes.maximized().is_some() {
                     self.pane_model.panes.restore();
                 } else {
@@ -2611,6 +2639,10 @@ impl Application for App {
                 return self.update_focus();
             }
             Message::PaneFocusAdjacent(direction) => {
+                if self.block_changing_terminal() {
+                    return Task::none();
+                }
+
                 if let Some(adjacent) = self
                     .pane_model
                     .panes
@@ -2821,12 +2853,20 @@ impl Application for App {
                 }
             }
             Message::TabActivate(entity) => {
+                if self.block_changing_terminal() {
+                    return Task::none();
+                }
+
                 if let Some(tab_model) = self.pane_model.active_mut() {
                     tab_model.activate(entity);
                 }
                 return self.update_title(None);
             }
             Message::TabActivateJump(pos) => {
+                if self.block_changing_terminal() {
+                    return Task::none();
+                }
+
                 if let Some(tab_model) = self.pane_model.active() {
                     // Length is always at least one so there shouldn't be a division by zero
                     let len = tab_model.iter().count();
@@ -2844,6 +2884,10 @@ impl Application for App {
                 }
             }
             Message::TabClose(entity_opt) => {
+                if self.block_changing_terminal() {
+                    return Task::none();
+                }
+
                 if let Some(tab_model) = self.pane_model.active_mut() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
 
@@ -2992,6 +3036,49 @@ impl Application for App {
                         tab_model.reorder(dragged, target, InsertPosition::After);
                     }
                 }
+            }
+            Message::TabRename => {
+                self.tab_rename_pane = Some(self.pane_model.focused());
+                if let Some(pane) = self.tab_rename_pane
+                    && let Some(tab_model) = self.pane_model.panes.get_mut(pane)
+                {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        match terminal.tab_title_override.clone() {
+                            None => self.tab_rename_input.clear(),
+                            Some(title) => self.tab_rename_input = title.clone(),
+                        }
+                    };
+                }
+                return widget::text_input::focus(self.tab_rename_id.clone());
+            }
+            Message::TabRenameInput(input) => self.tab_rename_input = input,
+            Message::TabRenameSubmit => {
+                if let Some(pane) = self.tab_rename_pane {
+                    if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                        let entity = tab_model.active();
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            match self.tab_rename_input.is_empty() {
+                                true => {
+                                    terminal.tab_title_override = None;
+                                }
+                                false => {
+                                    terminal.tab_title_override =
+                                        Some(self.tab_rename_input.clone());
+                                }
+                            }
+                        };
+                        tab_model.text_set(entity, self.tab_rename_input.clone());
+                    }
+                    self.tab_rename_pane = None;
+                    return Task::batch([self.update_title(Some(pane)), self.update_focus()]);
+                }
+            }
+            Message::TabRenameCancel => {
+                self.tab_rename_pane = None;
+                return self.update_focus();
             }
             Message::TermEvent(pane, entity, event) => {
                 match event {
@@ -3300,31 +3387,53 @@ impl Application for App {
     }
 
     fn dialog(&self) -> Option<Element<'_, Message>> {
-        let conflict = self.shortcut_conflict.as_ref()?;
-        let binding = shortcuts::binding_display(&conflict.binding);
-        let existing = shortcuts::action_label(conflict.existing_action);
-        let new_action = shortcuts::action_label(conflict.new_action);
-        let body = fl!(
-            "shortcut-replace-body",
-            binding = binding.as_str(),
-            existing = existing.as_str(),
-            new_action = new_action.as_str()
-        );
+        if let Some(conflict) = self.shortcut_conflict.as_ref() {
+            let binding = shortcuts::binding_display(&conflict.binding);
+            let existing = shortcuts::action_label(conflict.existing_action);
+            let new_action = shortcuts::action_label(conflict.new_action);
+            let body = fl!(
+                "shortcut-replace-body",
+                binding = binding.as_str(),
+                existing = existing.as_str(),
+                new_action = new_action.as_str()
+            );
 
-        Some(
-            widget::dialog()
-                .title(fl!("shortcut-replace-title"))
-                .body(body)
-                .primary_action(
-                    widget::button::suggested(fl!("replace"))
-                        .on_press(Message::ShortcutConflictReplace),
-                )
-                .secondary_action(
-                    widget::button::standard(fl!("cancel"))
-                        .on_press(Message::ShortcutConflictCancel),
-                )
-                .into(),
-        )
+            return Some(
+                widget::dialog()
+                    .title(fl!("shortcut-replace-title"))
+                    .body(body)
+                    .primary_action(
+                        widget::button::suggested(fl!("replace"))
+                            .on_press(Message::ShortcutConflictReplace),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel"))
+                            .on_press(Message::ShortcutConflictCancel),
+                    )
+                    .into(),
+            );
+        }
+
+        if self.tab_rename_pane.is_some() {
+            let text_input = widget::text_input("", &self.tab_rename_input)
+                .id(self.tab_rename_id.clone())
+                .on_input(Message::TabRenameInput)
+                .on_submit(|_| Message::TabRenameSubmit);
+            return Some(
+                widget::dialog()
+                    .title(fl!("rename-tab"))
+                    .control(text_input)
+                    .primary_action(
+                        widget::button::suggested(fl!("rename")).on_press(Message::TabRenameSubmit),
+                    )
+                    .secondary_action(
+                        widget::button::standard(fl!("cancel")).on_press(Message::TabRenameCancel),
+                    )
+                    .into(),
+            );
+        };
+
+        None
     }
 
     fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
@@ -3424,7 +3533,8 @@ impl Application for App {
                     .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar)
                     .pane_border_radius(show_pane_borders.then_some(pane_corner_radius))
-                    .border(pane_border(cosmic, t.transparent, show_pane_borders));
+                    .border(pane_border(cosmic, t.transparent, show_pane_borders))
+                    .disabled(self.block_changing_terminal());
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
