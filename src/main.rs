@@ -438,6 +438,7 @@ pub enum Message {
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
     TabNewInheritWorkingDirectory(bool),
+    TabNewNextToActive(bool),
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
@@ -1526,6 +1527,14 @@ impl App {
                         self.config.tab_new_inherit_working_directory,
                         Message::TabNewInheritWorkingDirectory,
                     ),
+            )
+            .add(
+                widget::settings::item::builder(fl!("tab-new-next-to-active"))
+                    .description(fl!("tab-new-next-to-active-description"))
+                    .toggler(
+                        self.config.tab_new_next_to_active,
+                        Message::TabNewNextToActive,
+                    ),
             );
 
         widget::settings::view_column(vec![
@@ -1553,6 +1562,7 @@ impl App {
         pane: pane_grid::Pane,
         profile_id_opt: Option<ProfileId>,
         inherit_working_directory: bool,
+        next_to_current_active: bool,
     ) -> Task<Message> {
         let inherited_working_directory = inherit_working_directory
             .then(|| self.active_terminal_working_directory())
@@ -1577,6 +1587,7 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
+                            let current_active = tab_model.active();
                             let (options, tab_title_override) = if let Some(profile) =
                                 profile_id_opt
                                     .and_then(|profile_id| self.config.profiles.get(&profile_id))
@@ -1629,6 +1640,9 @@ impl App {
                                 .closable()
                                 .activate()
                                 .id();
+                            if next_to_current_active {
+                                tab_model.reorder(entity, current_active, InsertPosition::After);
+                            }
                             match Terminal::new(
                                 current_pane,
                                 entity,
@@ -2597,8 +2611,12 @@ impl Application for App {
                 );
                 if let Some((pane, _)) = result {
                     self.terminal_ids.insert(pane, widget::Id::unique());
-                    let command =
-                        self.create_and_focus_new_terminal(pane, self.get_default_profile(), false);
+                    let command = self.create_and_focus_new_terminal(
+                        pane,
+                        self.get_default_profile(),
+                        false,
+                        false,
+                    );
                     self.pane_model.panes_created += 1;
                     return command;
                 }
@@ -2717,6 +2735,7 @@ impl Application for App {
                     self.pane_model.focused(),
                     Some(profile_id),
                     false,
+                    self.config.tab_new_next_to_active,
                 );
             }
             Message::ProfileRemove(profile_id) => {
@@ -2788,6 +2807,9 @@ impl Application for App {
                     tab_new_inherit_working_directory,
                     tab_new_inherit_working_directory
                 );
+            }
+            Message::TabNewNextToActive(tab_new_next_to_active) => {
+                config_set!(tab_new_next_to_active, tab_new_next_to_active);
             }
             Message::ShowPaneBorders(show_pane_borders) => {
                 if show_pane_borders != self.config.show_pane_borders {
@@ -2933,6 +2955,7 @@ impl Application for App {
                     self.pane_model.focused(),
                     self.get_default_profile(),
                     self.config.tab_new_inherit_working_directory,
+                    self.config.tab_new_next_to_active,
                 );
             }
             Message::TabNewNoProfile => {
@@ -2940,6 +2963,7 @@ impl Application for App {
                     self.pane_model.focused(),
                     None,
                     self.config.tab_new_inherit_working_directory,
+                    self.config.tab_new_next_to_active,
                 );
             }
             Message::TabNext => {

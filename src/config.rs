@@ -238,6 +238,7 @@ pub struct Config {
     pub focus_follow_mouse: bool,
     #[serde(default)]
     pub tab_new_inherit_working_directory: bool,
+    pub tab_new_next_to_active: bool,
     pub default_profile: Option<ProfileId>,
     #[serde(default)]
     pub shortcuts_custom: Shortcuts,
@@ -253,6 +254,7 @@ impl Default for Config {
             dim_font_weight: Weight::NORMAL.0,
             focus_follow_mouse: false,
             tab_new_inherit_working_directory: false,
+            tab_new_next_to_active: false,
             font_name: "Noto Sans Mono".to_string(),
             font_size: 14,
             font_size_zoom_step_mul_100: 100,
