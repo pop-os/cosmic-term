@@ -12,7 +12,7 @@ use cosmic::widget::segmented_button::{InsertPosition, ReorderEvent};
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
-    cosmic_config::{self, ConfigSet, CosmicConfigEntry},
+    cosmic_config::{self, ConfigGet, ConfigSet, CosmicConfigEntry},
     cosmic_theme, executor,
     iced::{
         self, Alignment, Color, Event, Length, Limits, Padding, Subscription,
@@ -71,6 +71,9 @@ mod terminal;
 
 use terminal_box::terminal_box;
 
+use session::{PaneSession, SESSION_KEY, SESSION_VERSION, Session, TabSession};
+mod session;
+
 use crate::dnd::DndDrop;
 use crate::menu::MenuState;
 mod terminal_box;
@@ -100,6 +103,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut shell_args = Vec::new();
     let mut daemonize = std::io::stdin().is_terminal();
     let mut working_directory = None;
+    let mut restore_session = true;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
@@ -125,6 +129,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some("--no-daemon") => {
                 daemonize = false;
             }
+            Some("--no-restore") => {
+                restore_session = false;
+            }
             Some("-e") | Some("--command") | Some("--") => {
                 // Handle the '--command' or '-e' flag
                 break;
@@ -142,6 +149,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         } else {
             shell_program_opt = Some(arg.to_string_lossy().to_string());
         }
+    }
+
+    // A command or working directory is a one-off launch, so do not replace
+    // the saved layout with it.
+    if shell_program_opt.is_some() || working_directory.is_some() {
+        restore_session = false;
     }
 
     // Platform-specific daemonization logic
@@ -202,6 +215,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut settings = Settings::default();
     settings = settings.theme(config.app_theme.theme());
     settings = settings.size_limits(Limits::NONE.min_width(360.0).min_height(180.0));
+    // Handle close requests in the app so the layout can be saved first.
+    settings = settings.exit_on_close(false);
 
     // Flags
     let flags = Flags {
@@ -210,6 +225,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         shortcuts_config,
         startup_options,
         term_config,
+        restore_session,
     };
 
     // Run the cosmic app
@@ -227,7 +243,9 @@ Project home page: https://github.com/pop-os/cosmic-term
 Options:
   --help                          Show this message
   --version                       Show the version of cosmic-term
-  -w, --working-directory <dir>   Set the working directory for the terminal"#
+  -w, --working-directory <dir>   Set the working directory for the terminal
+  --no-restore                    Do not restore the previous terminal layout
+  --no-daemon                     Run in the foreground instead of daemonizing"#
     );
 }
 
@@ -238,6 +256,7 @@ pub struct Flags {
     shortcuts_config: shortcuts::ShortcutsConfig,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
+    restore_session: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -456,6 +475,7 @@ pub enum Message {
     UpdateDefaultProfile((bool, ProfileId)),
     UseBrightBold(bool),
     WindowClose,
+    WindowCloseRequested(window::Id),
     WindowNew,
     WindowFocused,
     WindowUnfocused,
@@ -517,6 +537,9 @@ pub struct App {
         Option<mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>>,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
+    session_handler: Option<cosmic_config::Config>,
+    pending_session: Option<Session>,
+    restore_session: bool,
     color_scheme_errors: Vec<String>,
     color_scheme_expanded: Option<(ColorSchemeKind, Option<ColorSchemeId>)>,
     color_scheme_renaming: Option<(ColorSchemeKind, ColorSchemeId, String)>,
@@ -1548,11 +1571,144 @@ impl App {
         terminal.working_directory()
     }
 
+    fn restore_saved_session(&mut self, session: Session) -> Task<Message> {
+        let Some((configuration, focused, maximized)) = session.into_pane_configuration() else {
+            return self.update(Message::TabNew);
+        };
+
+        let (configuration, pane_sessions) = pane_configuration_with_tab_models(configuration);
+        let panes = pane_grid::State::with_configuration(configuration);
+        let pane_ids: Vec<_> = panes.panes.keys().copied().collect();
+        if pane_ids.is_empty() {
+            return self.update(Message::TabNew);
+        }
+
+        let focus = pane_ids.get(focused).copied().unwrap_or(pane_ids[0]);
+        self.pane_model = TerminalPaneGrid::from_panes(panes, focus);
+        self.terminal_ids = pane_ids
+            .iter()
+            .map(|pane| (*pane, widget::Id::unique()))
+            .collect();
+
+        let mut tasks = Vec::new();
+        for (pane, pane_session) in pane_ids.iter().copied().zip(pane_sessions) {
+            self.pane_model.set_focus(pane);
+            let PaneSession { active_tab, tabs } = pane_session;
+            for tab in tabs {
+                let profile_id = tab
+                    .profile_id
+                    .filter(|profile_id| self.config.profiles.contains_key(profile_id));
+                let working_directory = tab.working_directory.filter(|path| path.is_dir());
+                tasks.push(self.create_terminal_in_pane(
+                    pane,
+                    profile_id,
+                    working_directory,
+                    false,
+                    false,
+                ));
+            }
+
+            if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+                let tab_count = tab_model.iter().count();
+                if tab_count > 0 {
+                    let active_tab = active_tab.min(tab_count - 1) as u16;
+                    tab_model.activate_position(active_tab);
+                }
+            }
+        }
+
+        self.startup_options = None;
+        self.pane_model.set_focus(focus);
+        if let Some(maximized) = maximized.and_then(|index| pane_ids.get(index)).copied() {
+            self.pane_model.panes.maximize(maximized);
+        }
+        self.pane_model.update_terminal_focus();
+        tasks.push(self.update_title(Some(focus)));
+        Task::batch(tasks)
+    }
+
+    fn current_session(&mut self) -> Session {
+        if !self.restore_session {
+            return Session::default();
+        }
+
+        let mut pane_sessions = HashMap::new();
+        let mut pane_indices = HashMap::new();
+        for (index, (pane, tab_model)) in self.pane_model.panes.panes.iter().enumerate() {
+            pane_indices.insert(*pane, index);
+
+            let active_tab = tab_model.position(tab_model.active()).unwrap_or_default() as usize;
+            let mut tabs = Vec::new();
+            for entity in tab_model.iter() {
+                let (profile_id, working_directory) =
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let terminal = terminal.lock().unwrap();
+                        (terminal.profile_id_opt, terminal.working_directory())
+                    } else {
+                        (None, None)
+                    };
+                tabs.push(TabSession {
+                    profile_id,
+                    working_directory,
+                });
+            }
+
+            if tabs.is_empty() {
+                return Session::default();
+            }
+
+            pane_sessions.insert(*pane, PaneSession { active_tab, tabs });
+        }
+
+        let focused = pane_indices
+            .get(&self.pane_model.focused())
+            .copied()
+            .unwrap_or(0);
+        let maximized_pane = self.pane_model.panes.maximized();
+        if maximized_pane.is_some() {
+            self.pane_model.panes.restore();
+        }
+        let layout = session::layout_from_node(self.pane_model.panes.layout(), &pane_sessions);
+        if let Some(pane) = maximized_pane {
+            self.pane_model.panes.maximize(pane);
+        }
+
+        Session {
+            layout,
+            focused,
+            maximized: maximized_pane.and_then(|pane| pane_indices.get(&pane).copied()),
+        }
+    }
+
+    fn save_session(&mut self) {
+        if !self.restore_session {
+            return;
+        }
+        let Some(session_handler) = self.session_handler.clone() else {
+            return;
+        };
+        let session = self.current_session();
+        if let Err(err) = session_handler.set(SESSION_KEY, &session) {
+            log::warn!("failed to save terminal session: {}", err);
+        }
+    }
+
     fn create_and_focus_new_terminal(
         &mut self,
         pane: pane_grid::Pane,
         profile_id_opt: Option<ProfileId>,
         inherit_working_directory: bool,
+    ) -> Task<Message> {
+        self.create_terminal_in_pane(pane, profile_id_opt, None, inherit_working_directory, true)
+    }
+
+    fn create_terminal_in_pane(
+        &mut self,
+        pane: pane_grid::Pane,
+        profile_id_opt: Option<ProfileId>,
+        working_directory_override: Option<PathBuf>,
+        inherit_working_directory: bool,
+        activate: bool,
     ) -> Task<Message> {
         let inherited_working_directory = inherit_working_directory
             .then(|| self.active_terminal_working_directory())
@@ -1594,8 +1750,9 @@ impl App {
                                         }
                                         None
                                     }),
-                                    working_directory: startup_options
-                                        .working_directory
+                                    working_directory: working_directory_override
+                                        .clone()
+                                        .or(startup_options.working_directory)
                                         .or_else(|| inherited_working_directory.clone())
                                         .or_else(|| {
                                             (!profile.working_directory.is_empty())
@@ -1613,22 +1770,28 @@ impl App {
                                 (options, tab_title_override)
                             } else {
                                 let mut options = self.startup_options.take().unwrap_or_default();
-                                if options.working_directory.is_none() {
+                                if let Some(working_directory) = working_directory_override.clone()
+                                {
+                                    options.working_directory = Some(working_directory);
+                                } else if options.working_directory.is_none() {
                                     options.working_directory = inherited_working_directory.clone();
                                 }
                                 (options, None)
                             };
 
-                            let entity = tab_model
-                                .insert()
-                                .text(
-                                    tab_title_override
-                                        .clone()
-                                        .unwrap_or_else(|| fl!("new-terminal")),
-                                )
-                                .closable()
-                                .activate()
-                                .id();
+                            let tab_title = tab_title_override
+                                .clone()
+                                .unwrap_or_else(|| fl!("new-terminal"));
+                            let entity = if activate {
+                                tab_model
+                                    .insert()
+                                    .text(tab_title)
+                                    .closable()
+                                    .activate()
+                                    .id()
+                            } else {
+                                tab_model.insert().text(tab_title).closable().id()
+                            };
                             match Terminal::new(
                                 current_pane,
                                 entity,
@@ -1695,6 +1858,34 @@ impl App {
             }
         }
         self.update_title(Some(pane))
+    }
+}
+
+fn pane_configuration_with_tab_models(
+    configuration: pane_grid::Configuration<PaneSession>,
+) -> (
+    pane_grid::Configuration<widget::segmented_button::SingleSelectModel>,
+    Vec<PaneSession>,
+) {
+    match configuration {
+        pane_grid::Configuration::Split { axis, ratio, a, b } => {
+            let (a, mut sessions) = pane_configuration_with_tab_models(*a);
+            let (b, b_sessions) = pane_configuration_with_tab_models(*b);
+            sessions.extend(b_sessions);
+            (
+                pane_grid::Configuration::Split {
+                    axis,
+                    ratio,
+                    a: Box::new(a),
+                    b: Box::new(b),
+                },
+                sessions,
+            )
+        }
+        pane_grid::Configuration::Pane(session) => (
+            pane_grid::Configuration::Pane(segmented_button::ModelBuilder::default().build()),
+            vec![session],
+        ),
     }
 }
 
@@ -1831,6 +2022,24 @@ impl Application for App {
             zoom_steps.push(zoom_step);
         }
 
+        let session_handler = cosmic_config::Config::new_state(Self::APP_ID, SESSION_VERSION).ok();
+        let pending_session = flags
+            .restore_session
+            .then(|| {
+                session_handler.as_ref().and_then(|handler| {
+                    match handler.get::<Session>(SESSION_KEY) {
+                        Ok(session) if session.is_restorable() => Some(session),
+                        Ok(_) => None,
+                        Err(cosmic_config::Error::NotFound) => None,
+                        Err(err) => {
+                            log::warn!("failed to load terminal session: {}", err);
+                            None
+                        }
+                    }
+                })
+            })
+            .flatten();
+
         let pane_model = TerminalPaneGrid::new(segmented_button::ModelBuilder::default().build());
         let mut terminal_ids = HashMap::new();
         terminal_ids.insert(pane_model.focused(), widget::Id::unique());
@@ -1885,6 +2094,9 @@ impl Application for App {
             find_search_value: String::new(),
             startup_options: flags.startup_options,
             term_config: flags.term_config,
+            session_handler,
+            pending_session,
+            restore_session: flags.restore_session,
             term_event_tx_opt: None,
             color_scheme_errors: Vec::new(),
             color_scheme_expanded: None,
@@ -1936,6 +2148,11 @@ impl Application for App {
 
         // Focus correct widget
         self.update_focus()
+    }
+
+    fn on_app_exit(&mut self) -> Option<Self::Message> {
+        self.save_session();
+        None
     }
 
     fn on_context_drawer(&mut self) -> Task<Message> {
@@ -2875,6 +3092,7 @@ impl Application for App {
                         } else {
                             //Last pane, closing window
                             if let Some(window_id) = self.core.main_window_id() {
+                                self.save_session();
                                 return window::close(window_id);
                             }
                         }
@@ -3130,6 +3348,10 @@ impl Application for App {
                 // Set new terminal event channel
                 self.term_event_tx_opt = Some(term_event_tx);
 
+                if let Some(session) = self.pending_session.take() {
+                    return self.restore_saved_session(session);
+                }
+
                 // Spawn first tab
                 return self.update(Message::TabNew);
             }
@@ -3197,7 +3419,12 @@ impl Application for App {
             Message::UpdateDefaultProfile((default, profile_id)) => {
                 config_set!(default_profile, default.then_some(profile_id));
             }
+            Message::WindowCloseRequested(window_id) => {
+                self.save_session();
+                return window::close(window_id);
+            }
             Message::WindowClose => {
+                self.save_session();
                 if let Some(window_id) = self.core.main_window_id() {
                     return window::close(window_id);
                 }
@@ -3205,6 +3432,7 @@ impl Application for App {
             Message::WindowNew => match env::current_exe() {
                 Ok(exe) => {
                     let mut command = process::Command::new(&exe);
+                    command.arg("--no-restore");
                     if self.config.tab_new_inherit_working_directory
                         && let Some(dir) = self.active_terminal_working_directory()
                     {
@@ -3598,6 +3826,7 @@ impl Application for App {
                     },
                 )
             }),
+            window::close_requests().map(Message::WindowCloseRequested),
             cosmic_config::config_subscription(
                 TypeId::of::<ConfigSubscription>(),
                 Self::APP_ID.into(),
