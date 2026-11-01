@@ -116,3 +116,5 @@ keyboard-shortcuts = Keyboard shortcuts
 replace = Replace
 menu-keyboard-shortcuts = Keyboard shortcuts...
 window-header = Window header
+move-tab-left = Move tab left
+move-tab-right = Move tab right
