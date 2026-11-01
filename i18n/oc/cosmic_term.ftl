@@ -18,3 +18,6 @@ find-placeholder = Cercar...
 edit = Edicion
 select-all = O seleccionar tot
 find = Recercar
+rename = Renomenar
+export = Exportar
+import = Importar
