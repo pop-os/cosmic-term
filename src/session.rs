@@ -57,6 +57,7 @@ impl SessionLayout {
         }
     }
 
+    #[cfg(test)]
     pub fn pane_count(&self) -> usize {
         match self {
             Self::Split { first, second, .. } => first.pane_count() + second.pane_count(),
