@@ -762,6 +762,48 @@ impl App {
         Task::none()
     }
 
+    //close pane's own tab only
+    fn close_tab(
+        &mut self,
+        pane: pane_grid::Pane,
+        entity_opt: Option<segmented_button::Entity>,
+    ) -> Task<Message> {
+        if let Some(tab_model) = self.pane_model.panes.get_mut(pane) {
+            let entity = entity_opt.unwrap_or_else(|| tab_model.active());
+
+            // Activate closest item if closing active tab
+            if entity == tab_model.active()
+                && let Some(position) = tab_model.position(entity)
+            {
+                if position > 0 {
+                    tab_model.activate_position(position - 1);
+                } else {
+                    tab_model.activate_position(position + 1);
+                }
+            }
+
+            // Remove item
+            tab_model.remove(entity);
+
+            // If that was the last tab, close its pane
+            if tab_model.iter().next().is_none() {
+                if let Some((_state, sibling)) = self.pane_model.panes.close(pane) {
+                    self.terminal_ids.remove(&pane);
+                    if self.pane_model.focused() == pane {
+                        self.pane_model.set_focus(sibling);
+                    }
+                } else {
+                    //Last pane, closing window
+                    if let Some(window_id) = self.core.main_window_id() {
+                        return window::close(window_id);
+                    }
+                }
+            }
+        }
+
+        self.update_title(None)
+    }
+
     fn update_focus(&self) -> Task<Message> {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
@@ -2848,40 +2890,7 @@ impl Application for App {
                 }
             }
             Message::TabClose(entity_opt) => {
-                if let Some(tab_model) = self.pane_model.active_mut() {
-                    let entity = entity_opt.unwrap_or_else(|| tab_model.active());
-
-                    // Activate closest item if closing active tab
-                    if entity == tab_model.active()
-                        && let Some(position) = tab_model.position(entity)
-                    {
-                        if position > 0 {
-                            tab_model.activate_position(position - 1);
-                        } else {
-                            tab_model.activate_position(position + 1);
-                        }
-                    }
-
-                    // Remove item
-                    tab_model.remove(entity);
-
-                    // If that was the last tab, close current pane
-                    if tab_model.iter().next().is_none() {
-                        if let Some((_state, sibling)) =
-                            self.pane_model.panes.close(self.pane_model.focused())
-                        {
-                            self.terminal_ids.remove(&self.pane_model.focused());
-                            self.pane_model.set_focus(sibling);
-                        } else {
-                            //Last pane, closing window
-                            if let Some(window_id) = self.core.main_window_id() {
-                                return window::close(window_id);
-                            }
-                        }
-                    }
-                }
-
-                return self.update_title(None);
+                return self.close_tab(self.pane_model.focused(), entity_opt);
             }
             Message::TabContextAction(entity, action) => {
                 let mut tasks = Vec::new();
@@ -3041,7 +3050,7 @@ impl Application for App {
                         //TODO: should we blink the cursor?
                     }
                     TermEvent::Exit => {
-                        return self.update(Message::TabClose(Some(entity)));
+                        return self.close_tab(pane, Some(entity));
                     }
                     TermEvent::PtyWrite(text) => {
                         if let Some(tab_model) = self.pane_model.panes.get(pane)
