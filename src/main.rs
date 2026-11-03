@@ -38,6 +38,7 @@ use std::{
     env,
     error::Error,
     fs,
+    io::IsTerminal,
     path::PathBuf,
     process,
     rc::Rc,
@@ -97,7 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
-    let mut daemonize = true;
+    let mut daemonize = std::io::stdin().is_terminal();
     let mut working_directory = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
