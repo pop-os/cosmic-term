@@ -454,7 +454,7 @@ fn fallback_shortcuts() -> Shortcuts {
     // Standard key bindings
     bind!([Ctrl, Shift], "A", SelectAll);
     bind!([Ctrl, Shift], "C", Copy);
-    bind!([Ctrl], "c", CopyOrSigint);
+    bind!([Ctrl], "C", CopyOrSigint);
     bind!([Ctrl, Shift], "F", Find);
     bind!([Ctrl, Shift], "N", WindowNew);
     bind!([Ctrl, Shift], "Q", WindowClose);
@@ -467,11 +467,11 @@ fn fallback_shortcuts() -> Shortcuts {
 
     // Ctrl+Alt+D splits horizontally, Ctrl+Alt+R splits vertically, Ctrl+Shift+X maximizes split
     //TODO: Adjust bindings as desired by UX
-    bind!([Ctrl, Alt], "d", PaneSplitHorizontal);
-    bind!([Ctrl, Alt], "r", PaneSplitVertical);
+    bind!([Ctrl, Alt], "D", PaneSplitHorizontal);
+    bind!([Ctrl, Alt], "R", PaneSplitVertical);
     bind!([Ctrl, Shift], "X", PaneToggleMaximized);
     #[cfg(feature = "password_manager")]
-    bind!([Ctrl, Alt], "p", PasswordManager);
+    bind!([Ctrl, Alt], "P", PasswordManager);
 
     // Ctrl+Tab and Ctrl+Shift+Tab cycle through tabs
     // Ctrl+Tab is not a special key for terminals and is free to use
