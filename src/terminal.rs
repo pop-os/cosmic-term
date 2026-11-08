@@ -31,7 +31,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     time::Instant,
 };
@@ -99,10 +99,16 @@ pub struct EventProxy(
     pane_grid::Pane,
     segmented_button::Entity,
     mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, Event)>,
+    Arc<AtomicBool>,
 );
 
 impl EventListener for EventProxy {
     fn send_event(&self, event: Event) {
+        if matches!(&event, Event::Wakeup | Event::MouseCursorDirty)
+            && self.3.swap(true, Ordering::AcqRel)
+        {
+            return;
+        }
         //TODO: handle error
         let _ = self.2.send((self.0, self.1, event));
     }
@@ -255,6 +261,7 @@ pub struct Terminal {
     dim_font_weight: Weight,
     mouse_reporter: MouseReporter,
     notifier: Notifier,
+    wakeup_pending: Arc<AtomicBool>,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
     shell_pid: Option<u32>,
@@ -321,7 +328,8 @@ impl Terminal {
             cell_width,
             cell_height,
         };
-        let event_proxy = EventProxy(pane, entity, event_tx);
+        let wakeup_pending = Arc::new(AtomicBool::new(false));
+        let event_proxy = EventProxy(pane, entity, event_tx, wakeup_pending.clone());
         let term = Arc::new(FairMutex::new(Term::new(
             config,
             &size,
@@ -355,6 +363,7 @@ impl Terminal {
             mouse_reporter: Default::default(),
             needs_update: true,
             notifier,
+            wakeup_pending,
             profile_id_opt,
             search_regex_opt: None,
             search_value: String::new(),
@@ -437,6 +446,10 @@ impl Terminal {
 
     pub fn set_redraw(&mut self, redraw: bool) {
         self.with_buffer_mut(|buffer| buffer.set_redraw(redraw));
+    }
+
+    pub fn ack_wakeup(&self) {
+        self.wakeup_pending.store(false, Ordering::Release)
     }
 
     pub fn input_no_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
@@ -764,6 +777,7 @@ impl Terminal {
     }
 
     pub fn update(&mut self) -> bool {
+        self.ack_wakeup();
         // LEFT‑TO‑RIGHT ISOLATE character.
         // This will be added to the beginning of lines to force the shaper to treat detected RTL
         // lines as LTR. RTL text would still be rendered correctly. But this fixes the wrong
