@@ -134,6 +134,7 @@ next-tab = Next tab
 previous-tab = Previous tab
 move-tab-left = Move tab left
 move-tab-right = Move tab right
+rename-tab = Rename tab
 split-horizontal = Split horizontal
 split-vertical = Split vertical
 pane-toggle-maximize = Maximize or restore pane
