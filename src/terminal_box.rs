@@ -570,6 +570,7 @@ where
                                         self.view_position + $pos_offset,
                                         Size::new($width, $style_line_height),
                                     ),
+                                    snap: true,
                                     ..Default::default()
                                 }
                             };
