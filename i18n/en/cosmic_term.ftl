@@ -67,6 +67,8 @@ window-header = Window header
 show-header-description = Reveal the header from the right-click menu
 tab-new-inherit-working-directory = New tabs and windows use current directory
 tab-new-inherit-working-directory-description = Open new tabs and windows in the active tab's working directory
+tab-new-next-to-active = New tabs are opened next to active
+tab-new-next-to-active-description = New tabs are opened next to current active tab
 
 ### Keyboard shortcuts
 add-another-keybinding = Add another keybinding
