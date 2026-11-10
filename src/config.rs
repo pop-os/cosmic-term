@@ -2,6 +2,7 @@
 
 use cosmic::{
     cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry},
+    cosmic_theme::BlurStrength,
     theme,
 };
 use cosmic_text::{Metrics, Stretch, Weight};
@@ -216,7 +217,7 @@ impl Default for Profile {
     }
 }
 
-#[derive(Clone, CosmicConfigEntry, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, CosmicConfigEntry, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Config {
     pub app_theme: AppTheme,
     pub color_schemes_dark: BTreeMap<ColorSchemeId, ColorScheme>,
@@ -229,6 +230,7 @@ pub struct Config {
     pub font_stretch: u16,
     pub font_size_zoom_step_mul_100: u16,
     pub opacity: u8,
+    pub blur_opacity: BlurStrength,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
     pub show_pane_borders: bool,
@@ -259,6 +261,7 @@ impl Default for Config {
             font_stretch: Stretch::Normal.to_number(),
             font_weight: Weight::NORMAL.0,
             opacity: 100,
+            blur_opacity: BlurStrength::VeryLow,
             profiles: BTreeMap::new(),
             show_headerbar: true,
             show_pane_borders: false,
