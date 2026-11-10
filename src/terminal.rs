@@ -162,13 +162,20 @@ pub struct TerminalPaneGrid {
 impl TerminalPaneGrid {
     pub fn new(model: TabModel) -> Self {
         let (panes, pane) = pane_grid::State::new(model);
-        let mut terminal_ids = HashMap::new();
-        terminal_ids.insert(pane, cosmic::widget::Id::unique());
 
         Self {
             panes,
             panes_created: 1,
             focus: pane,
+        }
+    }
+
+    pub fn from_panes(panes: pane_grid::State<TabModel>, focus: pane_grid::Pane) -> Self {
+        let panes_created = panes.panes.len();
+        Self {
+            panes,
+            panes_created,
+            focus,
         }
     }
     pub fn active(&self) -> Option<&TabModel> {
