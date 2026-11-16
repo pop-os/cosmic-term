@@ -396,11 +396,15 @@ impl Config {
 
         static NUM_TO_TYPED_MAP: OnceLock<BTreeMap<u16, Stretch>> = OnceLock::new();
 
-        NUM_TO_TYPED_MAP.get_or_init(|| {
-            populate_num_typed_map! {
-                UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
-                Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
-            }
-        })[&self.font_stretch]
+        NUM_TO_TYPED_MAP
+            .get_or_init(|| {
+                populate_num_typed_map! {
+                    UltraCondensed, ExtraCondensed, Condensed, SemiCondensed,
+                    Normal, SemiExpanded, Expanded, ExtraExpanded, UltraExpanded,
+                }
+            })
+            .get(&self.font_stretch)
+            .copied()
+            .unwrap_or(Stretch::Normal)
     }
 }
