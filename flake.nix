@@ -36,6 +36,10 @@
               pkg-config
             ];
 
+            packages = [
+              just
+            ];
+
             RUSTFLAGS = map (a: "-C link-arg=${a}") [
               "-Wl,--push-state,--no-as-needed"
               "-lEGL"
