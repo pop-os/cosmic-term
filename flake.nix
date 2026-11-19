@@ -29,7 +29,7 @@
               libxkbcommon
               vulkan-loader
               wayland
-              xorg.libX11
+              libx11
             ];
 
             nativeBuildInputs = [
@@ -47,10 +47,10 @@
               libxkbcommon
               mesa
               vulkan-loader
-              xorg.libX11
-              xorg.libXcursor
-              xorg.libXi
-              xorg.libXrandr
+              libx11
+              libxcursor
+              libxi
+              libxrandr
             ];
           };
         }
