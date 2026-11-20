@@ -88,7 +88,7 @@ quit = Scoir
 
 ## Edit
 
-edit = Eagar
+edit = Cuir in eagar
 copy = Cóipeáil
 paste = Greamaigh
 select-all = Roghnaigh gach ceann

@@ -38,7 +38,7 @@ settings = Instellingen
 
 appearance = Uiterlijk
 theme = Thema
-match-desktop = Systeemstandaard
+match-desktop = Aan desktop aanpassen
 dark = Donker
 light = Licht
 syntax-dark = Donker kleurenpalet
@@ -135,3 +135,4 @@ shortcut-group-tabs = Tabs
 shortcut-group-window = Venster
 shortcut-group-zoom = Zoomen
 copy-link = Link kopiëren
+add-another-keybinding = Andere sneltoets toevoegen
