@@ -90,7 +90,7 @@ quit = Завершить
 
 ## Edit
 
-edit = Правка
+edit = Изменить
 copy = Копировать
 paste = Вставить
 select-all = Выбрать все
