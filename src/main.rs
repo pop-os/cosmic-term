@@ -405,6 +405,7 @@ pub enum Message {
     ShortcutSearch(String),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
+    Padding(u16),
     PaneClicked(pane_grid::Pane),
     PaneDragged(pane_grid::DragEvent),
     PaneFocusAdjacent(pane_grid::Direction),
@@ -1326,6 +1327,7 @@ impl App {
 
     fn settings(&self) -> Element<'_, Message> {
         let t = self.core().system_theme();
+        let cosmic_theme::Spacing { space_xxs, .. } = t.cosmic().spacing;
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1415,7 +1417,16 @@ impl App {
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
                     }))
-            }));
+            }))
+            .add(
+                widget::settings::item::builder(fl!("padding"))
+                    .description(format!("{}px", self.config.padding))
+                    .control(widget::slider(
+                        space_xxs..=100,
+                        self.config.padding,
+                        |padding| Message::Padding(padding),
+                    )),
+            );
 
         let mut font_section = widget::settings::section()
             .title(fl!("font"))
@@ -2575,6 +2586,9 @@ impl Application for App {
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
             }
+            Message::Padding(padding) => {
+                config_set!(padding, cmp::min(100, padding));
+            }
             Message::PaneClicked(pane) => {
                 self.pane_model.set_focus(pane);
                 let title_task = self.update_title(Some(pane));
@@ -3415,7 +3429,7 @@ impl Application for App {
                     } else {
                         self.config.opacity_ratio()
                     })
-                    .padding(space_xxs)
+                    .padding(self.config.padding_value(space_xxs))
                     .sharp_corners(self.core.window.sharp_corners)
                     .show_headerbar(self.config.show_headerbar)
                     .pane_border_radius(show_pane_borders.then_some(pane_corner_radius))
