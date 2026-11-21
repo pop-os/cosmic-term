@@ -1,4 +1,6 @@
 cosmic-terminal = COSMIC Terminal
+comment = Terminalemulator för skrivbordsmiljön COSMIC
+keywords = Kommando;Skal;Terminal;CLI;Konsol;
 new-terminal = Ny terminal
 
 # Context Pages
@@ -44,7 +46,7 @@ light = Ljust
 syntax-dark = Färgschema mörkt
 syntax-light = Färgschema ljust
 default-zoom-step = Zoom-steg
-opacity = Bakgrundens opacitet
+opacity = Bakgrundens ogenomskinlighet
 
 ### Teckensnitt
 
@@ -52,7 +54,7 @@ font = Teckensnitt
 advanced-font-settings = Avancerade teckensnittsinställningar
 default-font = Teckensnitt
 default-font-size = Teckenstorlek
-default-font-stretch = Teckenstretch
+default-font-stretch = Teckensnittsbredd
 default-font-weight = Normal teckensnittsvikt
 default-dim-font-weight = Dämpad teckensnittsvikt
 default-bold-font-weight = Fet teckensnittsvikt
@@ -67,7 +69,7 @@ focus-follow-mouse = Skrivfokus följer mus
 
 advanced = Avancerat
 show-headerbar = Visa rubrikrad
-show-header-description = Visa rubrikrad från högerklicksmenyn.
+show-header-description = Visa rubrikrad från högerklicksmenyn
 # Sök
 find-placeholder = Sök…
 find-previous = Sök föregående
@@ -91,7 +93,7 @@ quit = Avsluta
 edit = Redigera
 copy = Kopiera
 paste = Klistra in
-select-all = Välj alla
+select-all = Markera allt
 find = Sök
 
 ## Öppna
@@ -108,10 +110,10 @@ next-tab = Nästa flik
 previous-tab = Föregående flik
 split-horizontal = Dela horisontellt
 split-vertical = Dela vertikalt
-pane-toggle-maximize = Växla maximerad
+pane-toggle-maximize = Maximera eller återställ delfönster
 clear-scrollback = Töm tillbakarullning
 menu-color-schemes = Färgscheman…
-menu-settings = Inställningar…
+menu-settings = Inställningar...
 menu-about = Om COSMIC Terminal…
 repository = Källkod
 support = Support
@@ -121,3 +123,37 @@ passwords-title = Lösenord
 add-password = Lägg till lösenord
 password-input = Lösenord
 password-input-description = Beskrivning
+type-to-search = Skriv för att söka...
+cancel = Avbryt
+close-window = Stäng fönster
+copy-or-sigint = Kopiera eller SIGINT
+disable = Inaktivera
+password-manager = Lösenordshanterare
+replace = Ersätt
+shortcut-capture-hint = Tryck på tangentkombinationen
+shortcut-group-window = Fönster
+shortcut-replace-body = { $binding } har redan tilldelats till { $existing }. Ersätt den med { $new_action }?
+shortcut-replace-title = Ersätt genväg?
+tab-activate = Aktivera flik { $number }
+toggle-fullscreen = Växla helskärmsläge
+add-another-keybinding = Lägg till ytterligare tangentbindning
+focus-pane-down = Fokusera delfönstret nedanför
+focus-pane-left = Fokusera delfönstret till vänster
+focus-pane-right = Fokusera delfönstret till höger
+focus-pane-up = Fokusera delfönstret ovanför
+keyboard-shortcuts = Tangentbordsgenvägar
+menu-keyboard-shortcuts = Tangentbordsgenvägar...
+no-shortcuts = Inga genvägar
+paste-primary = Klistra in primär
+reset-to-default = Återställ till standard
+shortcut-group-clipboard = Urklipp
+shortcut-group-other = Andra
+shortcut-group-tabs = Flikar
+shortcut-group-zoom = Zooma
+copy-link = Kopiera länk
+tab-new-inherit-working-directory-description = Öppna nya flikar och fönster i den aktiva flikens arbetskatalog
+tab-new-inherit-working-directory = Nya flikar och fönster använder aktuell katalog
+show-pane-borders = Visa ram runt delfönster
+window-header = Fönstertitel
+move-tab-left = Flytta fliken åt vänster
+move-tab-right = Flytta fliken åt höger

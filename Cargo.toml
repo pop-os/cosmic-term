@@ -1,10 +1,10 @@
 [package]
 name = "cosmic-term"
-version = "0.1.0"
+version = "1.11.0"
 authors = ["Jeremy Soller <jeremy@system76.com>"]
 edition = "2024"
 license = "GPL-3.0-only"
-rust-version = "1.85"
+rust-version = "1.93"
 
 [dependencies]
 alacritty_terminal = "0.25.1"
@@ -12,8 +12,8 @@ hex_color = { version = "3", features = ["serde"] }
 indexmap = "2"
 log = "0.4"
 open = "5.3.2"
-palette = { version = "0.7", features = ["serde"] }
 paste = "1.0"
+regex = "1"
 ron = "0.11"
 serde = { version = "1", features = ["serde_derive"] }
 shlex = "1"
@@ -40,17 +40,27 @@ git = "https://github.com/pop-os/cosmic-files.git"
 default-features = false
 
 [dependencies.cosmic-text]
-git = "https://github.com/pop-os/cosmic-text.git"
+version = "0.19"
 features = ["monospace_fallback", "shape-run-cache"]
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic.git"
 default-features = false
 #TODO: a11y feature crashes file chooser dialog
-features = ["about", "multi-window", "tokio", "winit", "surface-message"]
+features = [
+    "about",
+    "autosize",
+    "multi-window",
+    "tokio",
+    "winit",
+    "surface-message",
+]
 
 [target.'cfg(unix)'.dependencies]
 fork = "0.4"
+
+[build-dependencies]
+xdgen = "0.1"
 
 [features]
 default = ["dbus-config", "wgpu", "wayland", "password_manager"]
@@ -63,8 +73,14 @@ password_manager = ["secret-service", "thiserror", "secstr"]
 inherits = "release"
 debug = true
 
-
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
 # cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+# iced_futures = { path = "../libcosmic/iced/futures" }
+# iced_winit = { path = "../libcosmic/iced/winit" }
+# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+# iced_futures = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+# iced_winit = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }

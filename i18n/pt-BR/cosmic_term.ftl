@@ -1,4 +1,6 @@
-cosmic-terminal = Terminal COSMIC
+cosmic-terminal = Terminal
+comment = Emulador de terminal do ambiente COSMIC
+keywords = Comando;Shell;Terminal;Console;CLI;
 new-terminal = Novo terminal
 
 # Context Pages
@@ -68,11 +70,11 @@ focus-follow-mouse = Foco de digitação segue o mouse
 ### Advanced
 
 advanced = Avançado
-show-headerbar = Mostrar a barra de título
-show-header-description = Mostrar a barra de título da janela no menu de contexto.
+show-headerbar = Mostrar cabeçalho
+show-header-description = Mostrar o cabeçalho ao clicar no menu com o botão direito do mouse
 # Find
 find-placeholder = Localizar...
-find-previous = Localizar anterior
+find-previous = Localizar o anterior
 find-next = Localizar o próximo
 
 # Menu
@@ -86,7 +88,7 @@ new-window = Nova janela
 profile = Perfil
 menu-profiles = Perfis...
 close-tab = Fechar aba
-quit = Sair
+quit = Encerrar
 
 ## Edit
 
@@ -107,13 +109,47 @@ next-tab = Próxima aba
 previous-tab = Aba anterior
 split-horizontal = Dividir horizontalmente
 split-vertical = Dividir verticalmente
-pane-toggle-maximize = Alternar maximização
+pane-toggle-maximize = Maximizar ou restaurar o quadro
 menu-color-schemes = Esquemas de cores...
 menu-settings = Configurações...
-menu-about = Sobre o Terminal COSMIC...
-open-link = Abrir Link
+menu-about = Sobre o Terminal...
+open-link = Abrir link
 menu-password-manager = Senhas...
 passwords-title = Senhas
-add-password = Adicionar Senha
+add-password = Adicionar senha
 password-input = Senha
 password-input-description = Descrição
+add-another-keybinding = Adicionar outra combinação de teclas
+cancel = Cancelar
+close-window = Fechar janela
+copy-or-sigint = Copiar ou SIGINT
+disable = Desabilitar
+focus-pane-down = Focar o quadro abaixo
+focus-pane-left = Focar o quadro à esquerda
+focus-pane-right = Focar o quadro à direita
+focus-pane-up = Focar o quadro acima
+keyboard-shortcuts = Atalhos de teclado
+menu-keyboard-shortcuts = Atalhos de teclado...
+no-shortcuts = Sem atalhos
+password-manager = Gerenciador de senhas
+paste-primary = Colar primário
+replace = Substituir
+reset-to-default = Restaurar padrão
+shortcut-capture-hint = Pressione a combinação de teclas
+shortcut-group-clipboard = Área de transferência
+shortcut-group-other = Outro
+shortcut-group-tabs = Abas
+shortcut-group-window = Janela
+shortcut-group-zoom = Zoom
+shortcut-replace-body = { $binding } já está atribuído a { $existing }. Substituir por { $new_action }?
+shortcut-replace-title = Substituir atalho?
+tab-activate = Ativar aba { $number }
+toggle-fullscreen = Alternar para tela cheia
+type-to-search = Digite para pesquisar...
+copy-link = Copiar link
+tab-new-inherit-working-directory = Novas abas e janelas usam o diretório atual
+tab-new-inherit-working-directory-description = Abrir novas abas e janelas no diretório de trabalho da aba ativa
+show-pane-borders = Mostrar bordas do quadro
+window-header = Cabeçalho da janela
+move-tab-left = Mover a aba para a esquerda
+move-tab-right = Mover a aba para a direita

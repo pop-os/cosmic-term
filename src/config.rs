@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
-use crate::{fl, localize::LANGUAGE_SORTER};
+use crate::{fl, localize::LANGUAGE_SORTER, shortcuts::Shortcuts};
 
 pub const CONFIG_VERSION: u64 = 1;
 pub const COSMIC_THEME_DARK: &str = "COSMIC Dark";
@@ -232,11 +232,16 @@ pub struct Config {
     pub padding: u16,
     pub profiles: BTreeMap<ProfileId, Profile>,
     pub show_headerbar: bool,
+    pub show_pane_borders: bool,
     pub use_bright_bold: bool,
     pub syntax_theme_dark: String,
     pub syntax_theme_light: String,
     pub focus_follow_mouse: bool,
+    #[serde(default)]
+    pub tab_new_inherit_working_directory: bool,
     pub default_profile: Option<ProfileId>,
+    #[serde(default)]
+    pub shortcuts_custom: Shortcuts,
 }
 
 impl Default for Config {
@@ -248,6 +253,7 @@ impl Default for Config {
             color_schemes_light: BTreeMap::new(),
             dim_font_weight: Weight::NORMAL.0,
             focus_follow_mouse: false,
+            tab_new_inherit_working_directory: false,
             font_name: "Noto Sans Mono".to_string(),
             font_size: 14,
             font_size_zoom_step_mul_100: 100,
@@ -257,10 +263,12 @@ impl Default for Config {
             padding: AppTheme::System.theme().cosmic().space_xxs(),
             profiles: BTreeMap::new(),
             show_headerbar: true,
+            show_pane_borders: false,
             syntax_theme_dark: COSMIC_THEME_DARK.to_string(),
             syntax_theme_light: COSMIC_THEME_LIGHT.to_string(),
             use_bright_bold: false,
             default_profile: None,
+            shortcuts_custom: Shortcuts::default(),
         }
     }
 }
@@ -286,11 +294,17 @@ impl Config {
         }
     }
 
-    pub fn color_scheme_kind(&self) -> ColorSchemeKind {
-        if self.app_theme.theme().theme_type.is_dark() {
-            ColorSchemeKind::Dark
-        } else {
-            ColorSchemeKind::Light
+    pub fn color_scheme_kind(&self, system_theme: &theme::Theme) -> ColorSchemeKind {
+        match self.app_theme {
+            AppTheme::Dark => ColorSchemeKind::Dark,
+            AppTheme::Light => ColorSchemeKind::Light,
+            AppTheme::System => {
+                if system_theme.theme_type.is_dark() {
+                    ColorSchemeKind::Dark
+                } else {
+                    ColorSchemeKind::Light
+                }
+            }
         }
     }
 
@@ -362,8 +376,11 @@ impl Config {
     }
 
     // Get current syntax theme based on dark mode
-    pub fn syntax_theme(&self, profile_id_opt: Option<ProfileId>) -> (String, ColorSchemeKind) {
-        let color_scheme_kind = self.color_scheme_kind();
+    pub fn syntax_theme(
+        &self,
+        color_scheme_kind: ColorSchemeKind,
+        profile_id_opt: Option<ProfileId>,
+    ) -> (String, ColorSchemeKind) {
         let theme_name = match profile_id_opt.and_then(|profile_id| self.profiles.get(&profile_id))
         {
             Some(profile) => match color_scheme_kind {

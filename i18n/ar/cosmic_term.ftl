@@ -1,4 +1,6 @@
 cosmic-terminal = طرفية COSMIC
+comment = محاكي طرفي لسطح مكتب COSMIC
+keywords = cli;طرفية;أوامر;صدفة;أمر;
 new-terminal = طرفية جديدة
 
 # Context Pages
@@ -13,7 +15,7 @@ support = الدعم
 
 color-schemes = مخططات الألوان
 rename = غيِّر الاسم
-export = تصدير
+export = صدِّر
 delete = احذف
 import = استورد
 import-errors = تعذَّر الاستيراد
@@ -28,7 +30,7 @@ tab-title-description = تجاوز عنوان اللسان المبدئي
 add-profile = أضف ملف تعريف
 new-profile = ملف تعريف جديد
 make-default = اجعله المبدئي
-working-directory = مجلد العمل
+working-directory = المجلَّد الحالي
 hold = التعليق
 remain-open = البقاء مفتوحًا بعد خروج العملية الفرعية.
 
@@ -39,7 +41,7 @@ settings = الإعدادات
 ### Appearance
 
 appearance = المظهر
-theme = النسق
+theme = السمة
 match-desktop = طابق سطح المكتب
 dark = داكن
 light = فاتح
@@ -69,7 +71,7 @@ focus-follow-mouse = تركيز الكتابة يتبع الفأرة
 
 advanced = متقدم
 show-headerbar = أظهِر الترويسة
-show-header-description = اكشف الترويسة من خلال قائمة النقر باليمنى.
+show-header-description = اكشف الترويسة من خلال قائمة النقر باليمنى
 # Find
 find-placeholder = ابحث عن...
 find-previous = ابحث عن السابق
@@ -86,7 +88,7 @@ new-window = نافذة جديدة
 profile = ملف التعريف
 menu-profiles = ملفات التعريف...
 close-tab = أغلق اللسان
-quit = أنهِ
+quit = إنهِ
 
 ## Edit
 
@@ -117,3 +119,31 @@ open-link = افتح الرابط
 menu-password-manager = كلمات السر...
 password-input = كلمة السر
 password-input-description = الوصف
+add-another-keybinding = أضِف ارتباطات مفاتيح أخرى
+cancel = ألغِ
+close-window = أغلِق النافذة
+disable = عطِّل
+focus-pane-left = تركيز على اللوحة الشِمالية
+focus-pane-right = تركيز على اللوحة اليمنى
+focus-pane-up = تركيز على اللوحة الفوقية
+keyboard-shortcuts = اختصارات لوحة المفاتيح
+menu-keyboard-shortcuts = اختصارات لوحة المفاتيح...
+no-shortcuts = لا اختصارات
+password-manager = مدير كلمات السر
+paste-primary = ألصِق الرئيسي
+replace = استبدل
+reset-to-default = صفّر إلى المبدئي
+shortcut-capture-hint = اضغط على تركيبة المفاتيح
+shortcut-group-clipboard = الحافظة
+shortcut-group-other = أخرى
+shortcut-group-tabs = ألسنة
+shortcut-group-window = نافذة
+shortcut-group-zoom = تكبير
+shortcut-replace-body = عُيِّن { $binding } بالفعل لـ { $existing }. أتريد استبداله بـ { $new_action }؟
+shortcut-replace-title = استبدل الاختصار؟
+tab-activate = نشّط لسان { $number }
+toggle-fullscreen = بدّل ملء الشاشة
+type-to-search = اكتب للبحث...
+copy-link = انسخ الرابط
+tab-new-inherit-working-directory = الألسنة الجديدة والنوافذ تستخدم المجلد الحالي
+tab-new-inherit-working-directory-description = افتح الألسنة الجديدة والنوافذ في مجلد العمل الخاص باللسان النشط

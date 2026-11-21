@@ -1,11 +1,14 @@
 // Copyright 2023 System76 <info@system76.com>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use alacritty_terminal::tty::Options;
 use alacritty_terminal::{event::Event as TermEvent, term, term::color::Colors as TermColors, tty};
 use cosmic::iced::clipboard::dnd::DndAction;
+use cosmic::iced::core::keyboard::key::Named;
+use cosmic::iced::keyboard::key::Physical;
 use cosmic::widget::menu::action::MenuAction;
 use cosmic::widget::menu::key_bind::KeyBind;
+use cosmic::widget::pane_grid::Pane;
+use cosmic::widget::segmented_button::{InsertPosition, ReorderEvent};
 use cosmic::{
     Application, ApplicationExt, Element, action,
     app::{Core, Settings, Task, context_drawer},
@@ -29,11 +32,15 @@ use cosmic_text::{Family, Stretch, Weight, fontdb::FaceInfo};
 use localize::LANGUAGE_SORTER;
 use std::{
     any::TypeId,
+    cell::Cell,
     cmp,
     collections::{BTreeMap, BTreeSet, HashMap},
     env,
     error::Error,
-    fs, process,
+    fs,
+    io::IsTerminal,
+    path::PathBuf,
+    process,
     rc::Rc,
     sync::{LazyLock, Mutex, atomic::Ordering},
 };
@@ -51,6 +58,8 @@ mod icon_cache;
 
 use key_bind::key_binds;
 mod key_bind;
+
+mod shortcuts;
 
 mod localize;
 
@@ -89,7 +98,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut shell_program_opt = None;
     let mut shell_args = Vec::new();
-    let mut daemonize = true;
+    let mut daemonize = std::io::stdin().is_terminal();
+    let mut working_directory = None;
     // Parse the arguments using clap_lex
     while let Some(arg) = raw_args.next_os(&mut cursor) {
         match arg.to_str() {
@@ -103,6 +113,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                     env!("CARGO_PKG_VERSION"),
                 );
                 return Ok(());
+            }
+            Some(arg_str @ "--working-directory") | Some(arg_str @ "-w") => {
+                if let Some(dir_arg) = raw_args.next_os(&mut cursor) {
+                    working_directory = Some(PathBuf::from(dir_arg));
+                } else {
+                    eprintln!("Missing argument for {arg_str}");
+                    process::exit(1);
+                }
             }
             Some("--no-daemon") => {
                 daemonize = false;
@@ -159,18 +177,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let startup_options = if let Some(shell_program) = shell_program_opt {
-        let options = tty::Options {
-            shell: Some(tty::Shell::new(shell_program, shell_args)),
-            ..tty::Options::default()
-        };
-        Some(options)
-    } else {
-        None
-    };
+    let shortcuts_config = shortcuts::ShortcutsConfig::new(config.shortcuts_custom.clone());
+
+    let shell = shell_program_opt.map(|shell_program| tty::Shell::new(shell_program, shell_args));
+    let startup_options = Some(tty::Options {
+        shell,
+        working_directory,
+        ..tty::Options::default()
+    });
 
     // Terminal config setup
-    let term_config = term::Config::default();
+    let term_config = term::Config {
+        scrolling_history: 100_000,
+        ..term::Config::default()
+    };
     // Set up environmental variables for terminal
     tty::setup_env();
     // Override TERM for better compatibility
@@ -187,6 +207,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let flags = Flags {
         config_handler,
         config,
+        shortcuts_config,
         startup_options,
         term_config,
     };
@@ -204,8 +225,9 @@ Designed for the COSMIC™ desktop environment, cosmic-term is a libcosmic-based
 
 Project home page: https://github.com/pop-os/cosmic-term
 Options:
-  --help     Show this message
-  --version  Show the version of cosmic-term"#
+  --help                          Show this message
+  --version                       Show the version of cosmic-term
+  -w, --working-directory <dir>   Set the working directory for the terminal"#
     );
 }
 
@@ -213,6 +235,7 @@ Options:
 pub struct Flags {
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    shortcuts_config: shortcuts::ShortcutsConfig,
     startup_options: Option<tty::Options>,
     term_config: term::Config,
 }
@@ -223,9 +246,11 @@ pub enum Action {
     ClearScrollback,
     ColorSchemes(ColorSchemeKind),
     Copy,
+    CopyUrlByMenu,
     CopyOrSigint,
     CopyPrimary,
     Find,
+    KeyboardShortcuts,
     LaunchUrlByMenu,
     PaneFocusDown,
     PaneFocusLeft,
@@ -257,6 +282,8 @@ pub enum Action {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    TabMoveLeft,
+    TabMoveRight,
     ToggleFullscreen,
     WindowClose,
     WindowNew,
@@ -274,9 +301,11 @@ impl Action {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(*color_scheme_kind))
             }
             Self::Copy => Message::Copy(entity_opt),
+            Self::CopyUrlByMenu => Message::CopyUrlByMenu,
             Self::CopyOrSigint => Message::CopyOrSigint(entity_opt),
             Self::CopyPrimary => Message::CopyPrimary(entity_opt),
             Self::Find => Message::Find(true),
+            Self::KeyboardShortcuts => Message::ToggleContextPage(ContextPage::KeyboardShortcuts),
             Self::LaunchUrlByMenu => Message::LaunchUrlByMenu,
             Self::PaneFocusDown => Message::PaneFocusAdjacent(pane_grid::Direction::Down),
             Self::PaneFocusLeft => Message::PaneFocusAdjacent(pane_grid::Direction::Left),
@@ -308,6 +337,8 @@ impl Action {
             Self::TabNewNoProfile => Message::TabNewNoProfile,
             Self::TabNext => Message::TabNext,
             Self::TabPrev => Message::TabPrev,
+            Self::TabMoveLeft => Message::TabMoveLeft,
+            Self::TabMoveRight => Message::TabMoveRight,
             Self::ToggleFullscreen => Message::ToggleFullscreen,
             Self::WindowClose => Message::WindowClose,
             Self::WindowNew => Message::WindowNew,
@@ -341,10 +372,11 @@ pub enum Message {
     ColorSchemeRename(ColorSchemeKind, ColorSchemeId, String),
     ColorSchemeRenameSubmit,
     ColorSchemeTabActivate(widget::segmented_button::Entity),
-    Config(Config),
+    Config(Box<Config>),
     Copy(Option<segmented_button::Entity>),
     CopyOrSigint(Option<segmented_button::Entity>),
     CopyPrimary(Option<segmented_button::Entity>),
+    CopyUrlByMenu,
     DefaultBoldFontWeight(usize),
     DefaultDimFontWeight(usize),
     DefaultFont(usize),
@@ -352,7 +384,7 @@ pub enum Message {
     DefaultFontStretch(usize),
     DefaultFontWeight(usize),
     DefaultZoomStep(usize),
-    DialogMessage(DialogMessage),
+    DialogMessage(Box<DialogMessage>), // DialogMessage is huge, so we use a box to make the size of this enum smaller on the stack
     Drop(Option<(pane_grid::Pane, segmented_button::Entity, DndDrop)>),
     Find(bool),
     FindNext,
@@ -360,10 +392,17 @@ pub enum Message {
     FindSearchValueChanged(String),
     MiddleClick(pane_grid::Pane, Option<segmented_button::Entity>),
     FocusFollowMouse(bool),
-    Key(Modifiers, Key),
+    Key(Modifiers, Physical, Key),
     LaunchUrl(String),
     LaunchUrlByMenu,
     Modifiers(Modifiers),
+    ShortcutCaptureCancel,
+    ShortcutCaptureStart(shortcuts::KeyBindAction),
+    ShortcutConflictCancel,
+    ShortcutConflictReplace,
+    ShortcutRemove(shortcuts::Binding, shortcuts::BindingSource),
+    ShortcutReset(shortcuts::KeyBindAction),
+    ShortcutSearch(String),
     MouseEnter(pane_grid::Pane),
     Opacity(u8),
     Padding(u16),
@@ -391,12 +430,15 @@ pub enum Message {
     ProfileRemove(ProfileId),
     ProfileSyntaxTheme(ProfileId, ColorSchemeKind, usize),
     ProfileTabTitle(ProfileId, String),
-    Surface(surface::Action),
+    ReorderTab(Pane, ReorderEvent),
+    Surface(surface::Action<Message>),
     SelectAll(Option<segmented_button::Entity>),
     ShowAdvancedFontSettings(bool),
     ShowHeaderBar(bool),
+    ShowPaneBorders(bool),
     SyntaxTheme(ColorSchemeKind, usize),
     SystemThemeChange,
+    TabNewInheritWorkingDirectory(bool),
     TabActivate(segmented_button::Entity),
     TabActivateJump(usize),
     TabClose(Option<segmented_button::Entity>),
@@ -406,6 +448,8 @@ pub enum Message {
     TabNewNoProfile,
     TabNext,
     TabPrev,
+    TabMoveLeft,
+    TabMoveRight,
     TermEvent(pane_grid::Pane, segmented_button::Entity, TermEvent),
     TermEventTx(mpsc::UnboundedSender<(pane_grid::Pane, segmented_button::Entity, TermEvent)>),
     ToggleFullscreen,
@@ -425,10 +469,18 @@ pub enum Message {
 pub enum ContextPage {
     About,
     ColorSchemes(ColorSchemeKind),
+    KeyboardShortcuts,
     Profiles,
     Settings,
     #[cfg(feature = "password_manager")]
     PasswordManager,
+}
+
+#[derive(Clone, Debug)]
+struct ShortcutConflict {
+    binding: shortcuts::Binding,
+    existing_action: shortcuts::KeyBindAction,
+    new_action: shortcuts::KeyBindAction,
 }
 
 /// The [`App`] stores application-specific state.
@@ -438,6 +490,7 @@ pub struct App {
     pane_model: TerminalPaneGrid,
     config_handler: Option<cosmic_config::Config>,
     config: Config,
+    shortcuts_config: shortcuts::ShortcutsConfig,
     key_binds: HashMap<KeyBind, Action>,
     app_themes: Vec<String>,
     font_names: Vec<String>,
@@ -472,6 +525,13 @@ pub struct App {
     color_scheme_tab_model: widget::segmented_button::SingleSelectModel,
     profile_expanded: Option<ProfileId>,
     show_advanced_font_settings: bool,
+    shortcut_capture: Option<shortcuts::KeyBindAction>,
+    shortcut_conflict: Option<ShortcutConflict>,
+    shortcut_conflict_overlay_restore: Option<bool>,
+    shortcut_search_focus: Cell<bool>,
+    shortcut_search_id: widget::Id,
+    shortcut_search_regex: Option<regex::Regex>,
+    shortcut_search_value: String,
     modifiers: Modifiers,
     #[cfg(feature = "password_manager")]
     password_mgr: password_manager::PasswordManager,
@@ -495,21 +555,19 @@ impl App {
                     .config
                     .color_schemes(color_scheme_kind)
                     .get(&color_scheme_id)
-                {
-                    if self
+                    && self
                         .themes
                         .insert(
                             (color_scheme_name.clone(), color_scheme_kind),
                             color_scheme.into(),
                         )
                         .is_some()
-                    {
-                        log::warn!(
-                            "custom {:?} color scheme {:?} replaces builtin one",
-                            color_scheme_kind,
-                            color_scheme_name
-                        );
-                    }
+                {
+                    log::warn!(
+                        "custom {:?} color scheme {:?} replaces builtin one",
+                        color_scheme_kind,
+                        color_scheme_name
+                    );
                 }
             }
         }
@@ -543,6 +601,75 @@ impl App {
         }
     }
 
+    fn reset_active_pane_zoom(&mut self) {
+        if let Some(tab_model) = self.pane_model.active() {
+            for entity in tab_model.iter() {
+                if tab_model.is_active(entity)
+                    && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                {
+                    terminal.lock().unwrap().set_zoom_adj(0);
+                }
+            }
+        }
+    }
+
+    fn save_shortcuts_custom(&mut self) {
+        self.config.shortcuts_custom = self.shortcuts_config.custom.clone();
+        match &self.config_handler {
+            Some(config_handler) => {
+                if let Err(err) =
+                    config_handler.set("shortcuts_custom", &self.config.shortcuts_custom)
+                {
+                    log::warn!("failed to save shortcuts custom config: {}", err);
+                }
+            }
+            None => {
+                log::warn!("failed to save shortcuts custom config: no config handler");
+            }
+        }
+        self.key_binds = key_binds(&self.shortcuts_config);
+    }
+
+    fn apply_shortcut_binding(
+        &mut self,
+        binding: shortcuts::Binding,
+        action: shortcuts::KeyBindAction,
+    ) {
+        self.shortcuts_config.custom.0.insert(binding, action);
+        self.save_shortcuts_custom();
+    }
+
+    fn set_context_overlay(&mut self, overlay: bool) {
+        if self.core.window.context_is_overlay != overlay {
+            self.core.window.context_is_overlay = overlay;
+            self.core.set_show_context(self.core.window.show_context);
+        }
+    }
+
+    fn begin_shortcut_conflict(&mut self, conflict: ShortcutConflict) {
+        if self.shortcut_conflict.is_none() {
+            self.shortcut_conflict_overlay_restore = Some(self.core.window.context_is_overlay);
+            self.set_context_overlay(false);
+        }
+        self.shortcut_conflict = Some(conflict);
+    }
+
+    fn clear_shortcut_conflict(&mut self) {
+        self.shortcut_conflict = None;
+        if let Some(overlay) = self.shortcut_conflict_overlay_restore.take() {
+            self.set_context_overlay(overlay);
+        }
+    }
+
+    fn shortcut_page_toggle(&mut self) {
+        self.shortcut_capture = None;
+        self.clear_shortcut_conflict();
+        self.shortcut_search_focus
+            .set(self.core.window.show_context);
+        self.shortcut_search_regex = None;
+        self.shortcut_search_value.clear();
+    }
+
     fn update_config(&mut self) -> Task<Message> {
         let theme = self.config.app_theme.theme();
 
@@ -551,7 +678,7 @@ impl App {
 
         // Update terminal window background color
         {
-            let color = Color::from(theme.cosmic().background.base);
+            let color = Color::from(theme.cosmic().background(theme.transparent).base);
             let bytes = color.into_rgba8();
             let data = u32::from(bytes[2])
                 | (u32::from(bytes[1]) << 8)
@@ -561,11 +688,12 @@ impl App {
         }
 
         // Set config of all tabs
+        let color_scheme_kind = self.config.color_scheme_kind(&theme);
         for (_pane, tab_model) in self.pane_model.panes.iter() {
             for entity in tab_model.iter() {
                 if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                     let mut terminal = terminal.lock().unwrap();
-                    terminal.set_config(&self.config, &self.themes);
+                    terminal.set_config(&self.config, color_scheme_kind, &self.themes);
                 }
             }
         }
@@ -581,23 +709,24 @@ impl App {
         // skip writing config to fs when zoom in/ out
         // recalculate the pane due to the changes of zoom_adj value
         // but only for the active pane/tab
+        let color_scheme_kind = self.config.color_scheme_kind(self.core.system_theme());
         if let Some(tab_model) = self.pane_model.active() {
             for entity in tab_model.iter() {
-                if tab_model.is_active(entity) {
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        let current_zoom_adj = terminal.zoom_adj();
-                        match zoom_message {
-                            Message::ZoomIn => {
-                                terminal.set_zoom_adj(current_zoom_adj.saturating_add(1))
-                            }
-                            Message::ZoomOut => {
-                                terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1))
-                            }
-                            _ => {}
+                if tab_model.is_active(entity)
+                    && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                {
+                    let mut terminal = terminal.lock().unwrap();
+                    let current_zoom_adj = terminal.zoom_adj();
+                    match zoom_message {
+                        Message::ZoomIn => {
+                            terminal.set_zoom_adj(current_zoom_adj.saturating_add(1))
                         }
-                        terminal.set_config(&self.config, &self.themes);
+                        Message::ZoomOut => {
+                            terminal.set_zoom_adj(current_zoom_adj.saturating_sub(1))
+                        }
+                        _ => {}
                     }
+                    terminal.set_config(&self.config, color_scheme_kind, &self.themes);
                 }
             }
         }
@@ -606,16 +735,16 @@ impl App {
 
     fn save_color_schemes(&mut self, color_scheme_kind: ColorSchemeKind) -> Task<Message> {
         // Optimized for just saving color_schemes
-        if let Some(ref config_handler) = self.config_handler {
-            if let Err(err) = config_handler.set(
+        if let Some(ref config_handler) = self.config_handler
+            && let Err(err) = config_handler.set(
                 match color_scheme_kind {
                     ColorSchemeKind::Dark => "color_schemes_dark",
                     ColorSchemeKind::Light => "color_schemes_light",
                 },
                 self.config.color_schemes(color_scheme_kind),
-            ) {
-                log::error!("failed to save config: {}", err);
-            }
+            )
+        {
+            log::error!("failed to save config: {}", err);
         }
         self.update_color_schemes();
         Task::none()
@@ -638,7 +767,16 @@ impl App {
         if self.find {
             widget::text_input::focus(self.find_search_id.clone())
         } else if self.core.window.show_context {
-            // TODO focus the context page?
+            // Right now we only care about the KeyboardShortcuts context page, so we use a simple if.
+            // In the future if we are to care about other conext pages, we could switch this to a match
+            // statement instead to be cleaner.
+            if self.context_page == ContextPage::KeyboardShortcuts
+                && self.shortcut_search_focus.get()
+            {
+                self.shortcut_search_focus.set(false);
+                return widget::text_input::focus(self.shortcut_search_id.clone());
+            }
+
             Task::none()
         } else if let Some(terminal_id) = self.terminal_ids.get(&self.pane_model.focused()).cloned()
         {
@@ -754,7 +892,7 @@ impl App {
             .curr_font_weights
             .contains(&self.config.bold_font_weight)
         {
-            self.config.bold_font_weight = Weight::BOLD.0;
+            self.config.bold_font_weight = Weight::NORMAL.0;
         }
     }
 
@@ -833,7 +971,7 @@ impl App {
 
         sections.push(
             widget::row::with_children(vec![
-                widget::horizontal_space().into(),
+                widget::space::horizontal().into(),
                 widget::button::standard(fl!("import"))
                     .on_press(Message::ColorSchemeImport(color_scheme_kind))
                     .into(),
@@ -858,6 +996,7 @@ impl App {
                             //TODO: re-export in libcosmic
                             iced::widget::text::Style {
                                 color: Some(cosmic.destructive_text_color().into()),
+                                ..Default::default()
                             }
                         }))
                         .into(),
@@ -868,6 +1007,126 @@ impl App {
         }
 
         widget::settings::view_column(sections).into()
+    }
+
+    fn keyboard_shortcuts(&self) -> Element<'_, Message> {
+        let cosmic_theme::Spacing {
+            space_xxs,
+            space_s,
+            space_m,
+            space_l,
+            space_xl,
+            ..
+        } = self.core().system_theme().cosmic().spacing;
+
+        let pad_action = [space_xxs, space_m];
+        let div_action = space_s;
+        let pad_binding = [space_xxs, space_xl];
+        let div_binding = space_l;
+
+        let mut groups = Vec::new();
+        //TODO: fix text input focus going outside bounds
+        groups.push(widget::space::horizontal().into());
+        groups.push(
+            widget::text_input::search_input(fl!("type-to-search"), &self.shortcut_search_value)
+                .id(self.shortcut_search_id.clone())
+                .on_input(Message::ShortcutSearch)
+                .into(),
+        );
+
+        for group in shortcuts::shortcut_groups() {
+            let mut list = widget::list::list_column();
+
+            let mut found_actions = false;
+            for action in group.actions {
+                let action_label = shortcuts::action_label(action);
+                if let Some(regex) = &self.shortcut_search_regex
+                    && regex.find(&action_label).is_none()
+                {
+                    continue;
+                }
+                found_actions = true;
+
+                let (bindings, changed) = self.shortcuts_config.bindings_for_action(action);
+
+                let mut buttons = widget::row::with_capacity(2);
+                if changed {
+                    buttons = buttons.push(widget::tooltip(
+                        widget::button::custom(icon_cache_get("edit-undo-symbolic", 16))
+                            .class(style::Button::Icon)
+                            .on_press(Message::ShortcutReset(action)),
+                        widget::text::body(fl!("reset-to-default")),
+                        widget::tooltip::Position::Top,
+                    ));
+                }
+                buttons = buttons.push(widget::tooltip(
+                    widget::button::custom(icon_cache_get("list-add-symbolic", 16))
+                        .class(style::Button::Icon)
+                        .on_press(Message::ShortcutCaptureStart(action)),
+                    widget::text::body(fl!("add-another-keybinding")),
+                    widget::tooltip::Position::Top,
+                ));
+
+                list = list.list_item_padding(pad_action);
+                list = list.divider_padding(div_action);
+                list = list.add(widget::settings::item_row(vec![
+                    widget::text::heading(action_label)
+                        .width(Length::Fill)
+                        .into(),
+                    buttons.into(),
+                ]));
+
+                if bindings.is_empty() {
+                    list = list.list_item_padding(pad_binding);
+                    list = list.add(widget::text::body(fl!("no-shortcuts")));
+                    list = list.divider_padding(div_binding);
+                } else {
+                    for resolved in bindings {
+                        list = list.list_item_padding(pad_binding);
+                        list = list.add(
+                            widget::settings::item::builder(shortcuts::binding_display(
+                                &resolved.binding,
+                            ))
+                            .control(
+                                widget::button::custom(icon_cache_get("edit-delete-symbolic", 16))
+                                    .class(style::Button::Icon)
+                                    .on_press(Message::ShortcutRemove(
+                                        resolved.binding.clone(),
+                                        resolved.source,
+                                    )),
+                            ),
+                        );
+                        list = list.divider_padding(div_binding);
+                    }
+                }
+
+                if self.shortcut_capture == Some(action) {
+                    list = list.list_item_padding(pad_binding);
+                    list = list.add(
+                        widget::settings::item_row(vec![
+                            widget::text::body(fl!("shortcut-capture-hint"))
+                                .width(Length::Fill)
+                                .into(),
+                            widget::button::text(fl!("cancel"))
+                                .on_press(Message::ShortcutCaptureCancel)
+                                .into(),
+                        ])
+                        .spacing(space_xxs),
+                    );
+                    list = list.divider_padding(div_binding);
+                }
+            }
+
+            if found_actions {
+                groups.push(
+                    widget::settings::section::with_column(list)
+                        .title(group.title)
+                        .into(),
+                );
+            }
+        }
+
+        widget::settings::view_column(groups).into()
     }
 
     fn profiles(&self) -> Element<'_, Message> {
@@ -1033,7 +1292,7 @@ impl App {
                                 ])
                                 .spacing(space_xxxs)
                                 .into(),
-                                widget::horizontal_space().into(),
+                                widget::space::horizontal().into(),
                                 widget::toggler(profile.drain_on_exit)
                                     .on_toggle(move |t| Message::ProfileHold(profile_id, t))
                                     .into(),
@@ -1056,7 +1315,7 @@ impl App {
         }
 
         let add_profile = widget::row::with_children(vec![
-            widget::horizontal_space().into(),
+            widget::space::horizontal().into(),
             widget::button::standard(fl!("add-profile"))
                 .on_press(Message::ProfileNew)
                 .into(),
@@ -1067,7 +1326,8 @@ impl App {
     }
 
     fn settings(&self) -> Element<'_, Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let t = self.core().system_theme();
+        let cosmic_theme::Spacing { space_xxs, .. } = t.cosmic().spacing;
         let app_theme_selected = match self.config.app_theme {
             AppTheme::Dark => 1,
             AppTheme::Light => 2,
@@ -1151,13 +1411,13 @@ impl App {
                     }),
                 ),
             )
-            .add(
+            .add_maybe((!t.transparent).then(|| {
                 widget::settings::item::builder(fl!("opacity"))
                     .description(format!("{}%", self.config.opacity))
                     .control(widget::slider(0..=100, self.config.opacity, |opacity| {
                         Message::Opacity(opacity)
-                    })),
-            )
+                    }))
+            }))
             .add(
                 widget::settings::item::builder(fl!("padding"))
                     .description(format!("{}px", self.config.padding))
@@ -1252,16 +1512,32 @@ impl App {
             font_section = font_section.add(advanced_font_settings());
         }
 
-        let splits_section = widget::settings::section().title(fl!("splits")).add(
-            widget::settings::item::builder(fl!("focus-follow-mouse"))
-                .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
-        );
+        let splits_section = widget::settings::section()
+            .title(fl!("splits"))
+            .add(
+                widget::settings::item::builder(fl!("focus-follow-mouse"))
+                    .toggler(self.config.focus_follow_mouse, Message::FocusFollowMouse),
+            )
+            .add(
+                widget::settings::item::builder(fl!("show-pane-borders"))
+                    .toggler(self.config.show_pane_borders, Message::ShowPaneBorders),
+            );
 
-        let advanced_section = widget::settings::section().title(fl!("advanced")).add(
-            widget::settings::item::builder(fl!("show-headerbar"))
-                .description(fl!("show-header-description"))
-                .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
-        );
+        let advanced_section = widget::settings::section()
+            .title(fl!("advanced"))
+            .add(
+                widget::settings::item::builder(fl!("show-headerbar"))
+                    .description(fl!("show-header-description"))
+                    .toggler(self.config.show_headerbar, Message::ShowHeaderBar),
+            )
+            .add(
+                widget::settings::item::builder(fl!("tab-new-inherit-working-directory"))
+                    .description(fl!("tab-new-inherit-working-directory-description"))
+                    .toggler(
+                        self.config.tab_new_inherit_working_directory,
+                        Message::TabNewInheritWorkingDirectory,
+                    ),
+            );
 
         widget::settings::view_column(vec![
             appearance_section.into(),
@@ -1275,18 +1551,31 @@ impl App {
         self.config.default_profile
     }
 
+    fn active_terminal_working_directory(&self) -> Option<PathBuf> {
+        let tab_model = self.pane_model.active()?;
+        let entity = tab_model.active();
+        let terminal = tab_model.data::<Mutex<Terminal>>(entity)?;
+        let terminal = terminal.lock().unwrap();
+        terminal.working_directory()
+    }
+
     fn create_and_focus_new_terminal(
         &mut self,
         pane: pane_grid::Pane,
         profile_id_opt: Option<ProfileId>,
+        inherit_working_directory: bool,
     ) -> Task<Message> {
+        let inherited_working_directory = inherit_working_directory
+            .then(|| self.active_terminal_working_directory())
+            .flatten();
         self.pane_model.set_focus(pane);
         match &self.term_event_tx_opt {
             Some(term_event_tx) => {
+                let color_scheme_kind = self.config.color_scheme_kind(self.core.system_theme());
                 let colors = self
                     .themes
-                    .get(&self.config.syntax_theme(profile_id_opt))
-                    .or_else(|| match self.config.color_scheme_kind() {
+                    .get(&self.config.syntax_theme(color_scheme_kind, profile_id_opt))
+                    .or_else(|| match color_scheme_kind {
                         ColorSchemeKind::Dark => self
                             .themes
                             .get(&(config::COSMIC_THEME_DARK.to_string(), ColorSchemeKind::Dark)),
@@ -1299,40 +1588,48 @@ impl App {
                     Some(colors) => {
                         let current_pane = self.pane_model.focused();
                         if let Some(tab_model) = self.pane_model.active_mut() {
-                            // Use the startup options, profile options, or defaults
-                            let (options, tab_title_override) = match self.startup_options.take() {
-                                Some(options) => (options, None),
-                                None => match profile_id_opt
+                            let (options, tab_title_override) = if let Some(profile) =
+                                profile_id_opt
                                     .and_then(|profile_id| self.config.profiles.get(&profile_id))
-                                {
-                                    Some(profile) => {
-                                        let mut shell = None;
-                                        if let Some(mut args) = shlex::split(&profile.command) {
-                                            if !args.is_empty() {
-                                                let command = args.remove(0);
-                                                shell = Some(tty::Shell::new(command, args));
-                                            }
+                            {
+                                // Merge profile and startup options, preferring startup options
+                                let startup_options =
+                                    self.startup_options.take().unwrap_or_default();
+                                let options = tty::Options {
+                                    shell: startup_options.shell.or_else(|| {
+                                        if let Some(mut args) = shlex::split(&profile.command)
+                                            && !args.is_empty()
+                                        {
+                                            let command = args.remove(0);
+                                            return Some(tty::Shell::new(command, args));
                                         }
-                                        let working_directory =
+                                        None
+                                    }),
+                                    working_directory: startup_options
+                                        .working_directory
+                                        .or_else(|| inherited_working_directory.clone())
+                                        .or_else(|| {
                                             (!profile.working_directory.is_empty())
-                                                .then(|| profile.working_directory.clone().into());
-
-                                        let options = tty::Options {
-                                            shell,
-                                            working_directory,
-                                            drain_on_exit: profile.drain_on_exit,
-                                            env: HashMap::new(),
-                                        };
-                                        let tab_title_override = if profile.tab_title.is_empty() {
-                                            None
-                                        } else {
-                                            Some(profile.tab_title.clone())
-                                        };
-                                        (options, tab_title_override)
-                                    }
-                                    None => (Options::default(), None),
-                                },
+                                                .then(|| profile.working_directory.clone().into())
+                                        }),
+                                    drain_on_exit: startup_options.drain_on_exit
+                                        || profile.drain_on_exit,
+                                    ..startup_options
+                                };
+                                let tab_title_override = if profile.tab_title.is_empty() {
+                                    None
+                                } else {
+                                    Some(profile.tab_title.clone())
+                                };
+                                (options, tab_title_override)
+                            } else {
+                                let mut options = self.startup_options.take().unwrap_or_default();
+                                if options.working_directory.is_none() {
+                                    options.working_directory = inherited_working_directory.clone();
+                                }
+                                (options, None)
                             };
+
                             let entity = tab_model
                                 .insert()
                                 .text(
@@ -1355,7 +1652,11 @@ impl App {
                                 tab_title_override,
                             ) {
                                 Ok(mut terminal) => {
-                                    terminal.set_config(&self.config, &self.themes);
+                                    terminal.set_config(
+                                        &self.config,
+                                        color_scheme_kind,
+                                        &self.themes,
+                                    );
                                     tab_model
                                         .data_set::<Mutex<Terminal>>(entity, Mutex::new(terminal));
                                 }
@@ -1394,7 +1695,7 @@ impl App {
                     None => {
                         log::error!(
                             "failed to find terminal theme {:?}",
-                            self.config.syntax_theme(profile_id_opt)
+                            self.config.syntax_theme(color_scheme_kind, profile_id_opt)
                         );
                         //TODO: fall back to known good theme
                     }
@@ -1466,18 +1767,6 @@ impl Application for App {
                 }
             }
 
-            // only keep fonts that have both NORMAL and BOLD weights with both having
-            // a `Stretch::Normal` face.
-            // This is important for fallbacks.
-            font_name_faces_map.retain(|_, v| {
-                let has_normal = v
-                    .iter()
-                    .any(|face| face.weight == Weight::NORMAL && face.stretch == Stretch::Normal);
-                let has_bold = v
-                    .iter()
-                    .any(|face| face.weight == Weight::BOLD && face.stretch == Stretch::Normal);
-                has_normal && has_bold
-            });
             font_name_faces_map
         };
 
@@ -1550,9 +1839,10 @@ impl Application for App {
             .icon(widget::icon::from_name(Self::APP_ID))
             .version(env!("CARGO_PKG_VERSION"))
             .author("System76")
+            .comments(fl!("comment"))
             .license("GPL-3.0-only")
             .license_url("https://spdx.org/licenses/GPL-3.0-only")
-            .developers([("Jeremy Soller", "jeremy@system76.com")])
+            .developers([("System76", "info@system76.com")])
             .links([
                 (fl!("repository"), "https://github.com/pop-os/cosmic-term"),
                 (
@@ -1561,13 +1851,15 @@ impl Application for App {
                 ),
             ]);
 
+        let key_binds = key_binds(&flags.shortcuts_config);
         let mut app = Self {
             core,
             about,
             pane_model,
             config_handler: flags.config_handler,
             config: flags.config,
-            key_binds: key_binds(),
+            shortcuts_config: flags.shortcuts_config,
+            key_binds,
             app_themes,
             font_names,
             font_size_names,
@@ -1600,6 +1892,13 @@ impl Application for App {
             color_scheme_tab_model: widget::segmented_button::Model::default(),
             profile_expanded: None,
             show_advanced_font_settings: false,
+            shortcut_capture: None,
+            shortcut_conflict: None,
+            shortcut_conflict_overlay_restore: None,
+            shortcut_search_focus: Cell::new(true),
+            shortcut_search_id: widget::Id::unique(),
+            shortcut_search_regex: None,
+            shortcut_search_value: String::new(),
             modifiers: Modifiers::empty(),
             #[cfg(feature = "password_manager")]
             password_mgr: Default::default(),
@@ -1614,12 +1913,20 @@ impl Application for App {
     //TODO: currently the first escape unfocuses, and the second calls this function
     fn on_escape(&mut self) -> Task<Message> {
         if self.core.window.show_context {
-            // Close context drawer if open
-            self.core.window.show_context = false;
-            #[cfg(feature = "password_manager")]
-            if self.context_page == ContextPage::PasswordManager {
-                self.password_mgr.clear();
+            // Handle keyboard shortcut page escape
+            if let ContextPage::KeyboardShortcuts = self.context_page {
+                // Cancel shortcut capture
+                if self.shortcut_capture.take().is_some() {
+                    return Task::none();
+                }
+
+                // Cancel shortcut conflict dialog
+                if self.shortcut_conflict.take().is_some() {
+                    return Task::none();
+                }
             }
+
+            return self.update(Message::ToggleContextPage(self.context_page));
         } else if self.find {
             // Close find if open
             self.find = false;
@@ -1699,24 +2006,23 @@ impl Application for App {
                         .get(&color_scheme_id)
                         .map(|color_scheme| color_scheme.name.clone()),
                     None => Some(format!("COSMIC {:?}", color_scheme_kind)),
-                } {
-                    if self.dialog_opt.is_none() {
-                        let (dialog, command) = Dialog::new(
-                            DialogSettings::new().kind(DialogKind::SaveFile {
-                                filename: format!("{}.ron", color_scheme_name),
-                            }),
-                            Message::DialogMessage,
-                            move |result| {
-                                Message::ColorSchemeExportResult(
-                                    color_scheme_kind,
-                                    color_scheme_id_opt,
-                                    result,
-                                )
-                            },
-                        );
-                        self.dialog_opt = Some(dialog);
-                        return command;
-                    }
+                } && self.dialog_opt.is_none()
+                {
+                    let (dialog, command) = Dialog::new(
+                        DialogSettings::new().kind(DialogKind::SaveFile {
+                            filename: format!("{}.ron", color_scheme_name),
+                        }),
+                        |msg| Message::DialogMessage(Box::new(msg)),
+                        move |result| {
+                            Message::ColorSchemeExportResult(
+                                color_scheme_kind,
+                                color_scheme_id_opt,
+                                result,
+                            )
+                        },
+                    );
+                    self.dialog_opt = Some(dialog);
+                    return command;
                 }
             }
             Message::ColorSchemeExportResult(color_scheme_kind, color_scheme_id_opt, result) => {
@@ -1804,7 +2110,7 @@ impl Application for App {
                     self.color_scheme_errors.clear();
                     let (dialog, command) = Dialog::new(
                         DialogSettings::new().kind(DialogKind::OpenMultipleFiles),
-                        Message::DialogMessage,
+                        |msg| Message::DialogMessage(Box::new(msg)),
                         move |result| Message::ColorSchemeImportResult(color_scheme_kind, result),
                     );
                     self.dialog_opt = Some(dialog);
@@ -1858,15 +2164,13 @@ impl Application for App {
             Message::ColorSchemeRenameSubmit => {
                 if let Some((color_scheme_kind, color_scheme_id, color_scheme_name)) =
                     self.color_scheme_renaming.take()
-                {
-                    if let Some(color_scheme) = self
+                    && let Some(color_scheme) = self
                         .config
                         .color_schemes_mut(color_scheme_kind)
                         .get_mut(&color_scheme_id)
-                    {
-                        color_scheme.name = color_scheme_name;
-                        return self.save_color_schemes(color_scheme_kind);
-                    }
+                {
+                    color_scheme.name = color_scheme_name;
+                    return self.save_color_schemes(color_scheme_kind);
                 }
             }
             Message::ColorSchemeTabActivate(entity) => {
@@ -1880,10 +2184,17 @@ impl Application for App {
                 }
             }
             Message::Config(config) => {
-                if config != self.config {
+                if *config != self.config {
+                    let shortcuts_changed = config.shortcuts_custom != self.config.shortcuts_custom;
                     log::info!("update config");
                     //TODO: update syntax theme by clearing tabs, only if needed
-                    self.config = config;
+                    self.config = *config;
+                    if shortcuts_changed {
+                        self.shortcuts_config =
+                            shortcuts::ShortcutsConfig::new(self.config.shortcuts_custom.clone());
+                        self.key_binds = key_binds(&self.shortcuts_config);
+                    }
+                    self.set_curr_font_weights_and_stretches();
                     return self.update_config();
                 }
             }
@@ -1951,6 +2262,7 @@ impl Application for App {
                 }
             }
             Message::DefaultFont(index) => {
+                font_system().write().unwrap().raw().shape_run_cache.trim(0);
                 match self.font_names.get(index) {
                     Some(font_name) => {
                         if font_name != &self.config.font_name {
@@ -1973,6 +2285,7 @@ impl Application for App {
                             }
 
                             config_set!(font_name, font_name.to_string());
+                            config_set!(font_weight, self.config.font_weight);
                             self.set_curr_font_weights_and_stretches();
 
                             return self.update_config();
@@ -2042,7 +2355,8 @@ impl Application for App {
             },
             Message::DialogMessage(dialog_message) => {
                 if let Some(dialog) = &mut self.dialog_opt {
-                    return dialog.update(dialog_message);
+                    // DialogMessage is boxed, so we need to dereference it before updating
+                    return dialog.update(*dialog_message);
                 }
             }
             Message::Drop(Some((pane, entity, data))) => {
@@ -2081,13 +2395,13 @@ impl Application for App {
                 return self.update_focus();
             }
             Message::FindNext => {
-                if !self.find_search_value.is_empty() {
-                    if let Some(tab_model) = self.pane_model.active() {
-                        let entity = tab_model.active();
-                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, true);
-                        }
+                if !self.find_search_value.is_empty()
+                    && let Some(tab_model) = self.pane_model.active()
+                {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, true);
                     }
                 }
 
@@ -2095,13 +2409,13 @@ impl Application for App {
                 return self.update_focus();
             }
             Message::FindPrevious => {
-                if !self.find_search_value.is_empty() {
-                    if let Some(tab_model) = self.pane_model.active() {
-                        let entity = tab_model.active();
-                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                            let mut terminal = terminal.lock().unwrap();
-                            terminal.search(&self.find_search_value, false);
-                        }
+                if !self.find_search_value.is_empty()
+                    && let Some(tab_model) = self.pane_model.active()
+                {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        terminal.search(&self.find_search_value, false);
                     }
                 }
 
@@ -2124,9 +2438,47 @@ impl Application for App {
             Message::FocusFollowMouse(focus_follow_mouse) => {
                 config_set!(focus_follow_mouse, focus_follow_mouse);
             }
-            Message::Key(modifiers, key) => {
+            Message::Key(modifiers, physical, key) => {
+                // Hard-coded keys
+                match key {
+                    Key::Named(Named::Copy) => {
+                        return self.update(Message::Copy(None));
+                    }
+                    Key::Named(Named::Paste) => {
+                        return self.update(Message::Paste(None));
+                    }
+                    Key::Named(Named::Escape) => {
+                        // Handled by on_escape
+                        return Task::none();
+                    }
+                    _ => {}
+                }
+
+                // Handle shortcut capture
+                if let Some(action) = self.shortcut_capture {
+                    if let Some(binding) = shortcuts::binding_from_key(modifiers, key) {
+                        self.shortcut_capture = None;
+                        if let Some(existing_action) =
+                            self.shortcuts_config.action_for_binding(&binding)
+                        {
+                            if existing_action != action {
+                                self.begin_shortcut_conflict(ShortcutConflict {
+                                    binding,
+                                    existing_action,
+                                    new_action: action,
+                                });
+                                return Task::none();
+                            }
+                            return Task::none();
+                        }
+                        self.apply_shortcut_binding(binding, action);
+                    }
+                    return Task::none();
+                }
+
+                // Handle configurable keys
                 for (key_bind, action) in &self.key_binds {
-                    if key_bind.matches(modifiers, &key) {
+                    if key_bind.matches(modifiers, &key, Some(&physical)) {
                         return self.update(action.message(None));
                     }
                 }
@@ -2136,20 +2488,38 @@ impl Application for App {
                     log::warn!("failed to open {:?}: {}", url, err);
                 }
             }
-            Message::LaunchUrlByMenu => {
+            Message::CopyUrlByMenu => {
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
                         let mut terminal = terminal.lock().unwrap();
                         if let Some(url) =
                             terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
                         {
-                            if let Err(err) = open::that_detached(url) {
-                                log::warn!("failed to open {:?}: {}", url, err);
-                            }
+                            let url = url.to_owned();
+                            terminal.context_menu = None;
+                            terminal.active_regex_match = None;
+                            terminal.needs_update = true;
+
+                            return Task::batch([clipboard::write(url), self.update_focus()]);
+                        }
+                    }
+                }
+            }
+            Message::LaunchUrlByMenu => {
+                if let Some(tab_model) = self.pane_model.active() {
+                    let entity = tab_model.active();
+                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                        let mut terminal = terminal.lock().unwrap();
+                        if let Some(url) =
+                            terminal.context_menu.as_ref().and_then(|m| m.link.as_ref())
+                            && let Err(err) = open::that_detached(url)
+                        {
+                            log::warn!("failed to open {:?}: {}", url, err);
                         }
                         terminal.context_menu = None;
+                        terminal.active_regex_match = None;
+                        terminal.needs_update = true;
                     }
                 }
             }
@@ -2160,6 +2530,59 @@ impl Application for App {
                 self.pane_model.set_focus(pane);
                 return self.update_focus();
             }
+            Message::ShortcutCaptureCancel => {
+                self.shortcut_capture = None;
+            }
+            Message::ShortcutCaptureStart(action) => {
+                self.shortcut_capture = Some(action);
+            }
+            Message::ShortcutConflictCancel => {
+                self.clear_shortcut_conflict();
+            }
+            Message::ShortcutConflictReplace => {
+                if let Some(conflict) = self.shortcut_conflict.clone() {
+                    self.apply_shortcut_binding(conflict.binding, conflict.new_action);
+                }
+                self.clear_shortcut_conflict();
+            }
+            Message::ShortcutRemove(binding, source) => {
+                match source {
+                    shortcuts::BindingSource::Default => {
+                        self.shortcuts_config
+                            .custom
+                            .0
+                            .insert(binding, shortcuts::KeyBindAction::Disable);
+                    }
+                    shortcuts::BindingSource::Custom => {
+                        self.shortcuts_config.custom.0.remove(&binding);
+                    }
+                }
+                self.save_shortcuts_custom();
+            }
+            Message::ShortcutReset(reset_action) => {
+                self.shortcuts_config.reset_action(reset_action);
+                self.save_shortcuts_custom();
+            }
+            Message::ShortcutSearch(search) => {
+                self.shortcut_search_focus.set(true);
+                self.shortcut_search_regex = None;
+                if !search.is_empty() {
+                    let pattern = regex::escape(&search);
+                    match regex::RegexBuilder::new(&pattern)
+                        .case_insensitive(true)
+                        .build()
+                    {
+                        Ok(regex) => {
+                            self.shortcut_search_regex = Some(regex);
+                        }
+                        Err(err) => {
+                            log::warn!("failed to parse regex {:?}: {}", pattern, err);
+                        }
+                    };
+                }
+                self.shortcut_search_value = search;
+                return self.update_focus();
+            }
             Message::Opacity(opacity) => {
                 config_set!(opacity, cmp::min(100, opacity));
             }
@@ -2168,7 +2591,8 @@ impl Application for App {
             }
             Message::PaneClicked(pane) => {
                 self.pane_model.set_focus(pane);
-                return self.update_title(Some(pane));
+                let title_task = self.update_title(Some(pane));
+                return Task::batch([self.update_focus(), title_task]);
             }
             Message::PaneSplit(axis) => {
                 let result = self.pane_model.panes.split(
@@ -2179,7 +2603,7 @@ impl Application for App {
                 if let Some((pane, _)) = result {
                     self.terminal_ids.insert(pane, widget::Id::unique());
                     let command =
-                        self.create_and_focus_new_terminal(pane, self.get_default_profile());
+                        self.create_and_focus_new_terminal(pane, self.get_default_profile(), false);
                     self.pane_model.panes_created += 1;
                     return command;
                 }
@@ -2239,6 +2663,9 @@ impl Application for App {
                 });
             }
             Message::PasteValue(entity_opt, value) => {
+                if self.find || self.core.window.show_context {
+                    return Task::none();
+                }
                 if let Some(tab_model) = self.pane_model.active() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
@@ -2291,8 +2718,11 @@ impl Application for App {
                 return self.save_profiles();
             }
             Message::ProfileOpen(profile_id) => {
-                return self
-                    .create_and_focus_new_terminal(self.pane_model.focused(), Some(profile_id));
+                return self.create_and_focus_new_terminal(
+                    self.pane_model.focused(),
+                    Some(profile_id),
+                    false,
+                );
             }
             Message::ProfileRemove(profile_id) => {
                 // Reset matching terminals to default profile
@@ -2358,6 +2788,17 @@ impl Application for App {
                     return self.update_config();
                 }
             }
+            Message::TabNewInheritWorkingDirectory(tab_new_inherit_working_directory) => {
+                config_set!(
+                    tab_new_inherit_working_directory,
+                    tab_new_inherit_working_directory
+                );
+            }
+            Message::ShowPaneBorders(show_pane_borders) => {
+                if show_pane_borders != self.config.show_pane_borders {
+                    config_set!(show_pane_borders, show_pane_borders);
+                }
+            }
             Message::UseBrightBold(use_bright_bold) => {
                 if use_bright_bold != self.config.use_bright_bold {
                     config_set!(use_bright_bold, use_bright_bold);
@@ -2415,8 +2856,10 @@ impl Application for App {
                 if let Some(tab_model) = self.pane_model.active_mut() {
                     let entity = entity_opt.unwrap_or_else(|| tab_model.active());
 
-                    // Activate closest item
-                    if let Some(position) = tab_model.position(entity) {
+                    // Activate closest item if closing active tab
+                    if entity == tab_model.active()
+                        && let Some(position) = tab_model.position(entity)
+                    {
                         if position > 0 {
                             tab_model.activate_position(position - 1);
                         } else {
@@ -2446,63 +2889,63 @@ impl Application for App {
                 return self.update_title(None);
             }
             Message::TabContextAction(entity, action) => {
-                if let Some(tab_model) = self.pane_model.active() {
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Close context menu
-                        {
-                            let mut terminal = terminal.lock().unwrap();
-                            //Some actions need the menu_state,
-                            //so only clear the position for them.
-                            match action {
-                                Action::LaunchUrlByMenu => {
-                                    if let Some(context_menu) = terminal.context_menu.as_mut() {
-                                        context_menu.position = None;
-                                    }
-                                }
-                                _ => {
-                                    terminal.context_menu = None;
-                                }
-                            }
+                let mut tasks = Vec::new();
+                // Close terminal context menu state
+                if let Some(tab_model) = self.pane_model.active()
+                    && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                {
+                    let mut terminal = terminal.lock().unwrap();
+                    //Some actions need the menu_state,
+                    //so only clear the position for them.
+                    match action {
+                        // these read the link from the menu state and clear it themselves
+                        Action::LaunchUrlByMenu | Action::CopyUrlByMenu => {}
+                        _ => {
+                            terminal.context_menu = None;
                         }
-                        // Run action's message
-                        return self.update(action.message(Some(entity)));
                     }
                 }
+                tasks.push(self.update(action.message(Some(entity))));
+                return cosmic::Task::batch(tasks);
             }
             Message::TabContextMenu(pane, menu_state) => {
-                // Close any existing context menues
-                let panes: Vec<_> = self.pane_model.panes.iter().collect();
-                for (_pane, tab_model) in panes {
-                    let entity = tab_model.active();
-                    if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = None;
+                // Clear all terminal context_menu state
+                for (_, tab_model) in self.pane_model.panes.iter() {
+                    for entity in tab_model.iter() {
+                        if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
+                            let mut terminal = terminal.lock().unwrap();
+                            if terminal.context_menu.take().is_some() {
+                                terminal.active_regex_match = None;
+                                terminal.needs_update = true;
+                            }
+                        }
                     }
                 }
 
-                // Show the context menu on the correct pane / terminal
-                if let Some(tab_model) = self.pane_model.panes.get(pane) {
+                // A right press records what is under the cursor
+                if let Some(menu_state) = menu_state
+                    && let Some(tab_model) = self.pane_model.panes.get(pane)
+                {
                     let entity = tab_model.active();
                     if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                        // Update context menu position
-                        let mut terminal = terminal.lock().unwrap();
-                        terminal.context_menu = menu_state;
+                        terminal.lock().unwrap().context_menu = Some(menu_state);
                     }
+                    self.pane_model.set_focus(pane);
                 }
-
-                // Shift focus to the pane / terminal
-                // with the context menu
-                self.pane_model.set_focus(pane);
-                return self.update_title(Some(pane));
             }
             Message::TabNew => {
                 return self.create_and_focus_new_terminal(
                     self.pane_model.focused(),
                     self.get_default_profile(),
+                    self.config.tab_new_inherit_working_directory,
                 );
             }
             Message::TabNewNoProfile => {
-                return self.create_and_focus_new_terminal(self.pane_model.focused(), None);
+                return self.create_and_focus_new_terminal(
+                    self.pane_model.focused(),
+                    None,
+                    self.config.tab_new_inherit_working_directory,
+                );
             }
             Message::TabNext => {
                 if let Some(tab_model) = self.pane_model.active() {
@@ -2524,13 +2967,38 @@ impl Application for App {
                     let pos = tab_model
                         .position(tab_model.active())
                         .and_then(|i| (i as usize).checked_sub(1))
-                        .unwrap_or_else(|| {
-                            tab_model.iter().count().checked_sub(1).unwrap_or_default()
-                        });
+                        .unwrap_or_else(|| tab_model.iter().count().saturating_sub(1));
 
                     let entity = tab_model.iter().nth(pos);
                     if let Some(entity) = entity {
                         return self.update(Message::TabActivate(entity));
+                    }
+                }
+            }
+            Message::TabMoveLeft => {
+                if let Some(tab_model) = self.pane_model.active_mut() {
+                    let pos: usize = tab_model
+                        .position(tab_model.active())
+                        .expect("at least one tab is always open")
+                        .into();
+                    if pos > 0 {
+                        let dragged = tab_model.iter().nth(pos).expect("tab unavailable");
+                        let target = tab_model.iter().nth(pos - 1).expect("previous tab missing");
+                        tab_model.reorder(dragged, target, InsertPosition::Before);
+                    }
+                }
+            }
+            Message::TabMoveRight => {
+                if let Some(tab_model) = self.pane_model.active_mut() {
+                    let len = tab_model.iter().count();
+                    let pos: usize = tab_model
+                        .position(tab_model.active())
+                        .expect("at least one tab is always open")
+                        .into();
+                    if pos < len - 1 && len > 1 {
+                        let dragged = tab_model.iter().nth(pos).expect("tab unavailable");
+                        let target = tab_model.iter().nth(pos + 1).expect("next tab missing");
+                        tab_model.reorder(dragged, target, InsertPosition::After);
                     }
                 }
             }
@@ -2565,13 +3033,13 @@ impl Application for App {
                         }
                     },
                     TermEvent::ColorRequest(index, f) => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let terminal = terminal.lock().unwrap();
-                                let rgb = terminal.colors()[index].unwrap_or_default();
-                                let text = f(rgb);
-                                terminal.input_no_scroll(text.into_bytes());
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let terminal = terminal.lock().unwrap();
+                            let rgb = terminal.effective_color(index);
+                            let text = f(rgb);
+                            terminal.input_no_scroll(text.into_bytes());
                         }
                     }
                     TermEvent::CursorBlinkingChange => {
@@ -2581,11 +3049,11 @@ impl Application for App {
                         return self.update(Message::TabClose(Some(entity)));
                     }
                     TermEvent::PtyWrite(text) => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let terminal = terminal.lock().unwrap();
-                                terminal.input_no_scroll(text.into_bytes());
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let terminal = terminal.lock().unwrap();
+                            terminal.input_no_scroll(text.into_bytes());
                         }
                     }
                     TermEvent::ResetTitle => {
@@ -2605,12 +3073,12 @@ impl Application for App {
                         return self.update_title(Some(pane));
                     }
                     TermEvent::TextAreaSizeRequest(f) => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let terminal = terminal.lock().unwrap();
-                                let text = f(terminal.size().into());
-                                terminal.input_no_scroll(text.into_bytes());
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let terminal = terminal.lock().unwrap();
+                            let text = f(terminal.size().into());
+                            terminal.input_no_scroll(text.into_bytes());
                         }
                     }
                     TermEvent::Title(title) => {
@@ -2629,11 +3097,11 @@ impl Application for App {
                         return self.update_title(Some(pane));
                     }
                     TermEvent::MouseCursorDirty | TermEvent::Wakeup => {
-                        if let Some(tab_model) = self.pane_model.panes.get(pane) {
-                            if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                                let mut terminal = terminal.lock().unwrap();
-                                terminal.needs_update = true;
-                            }
+                        if let Some(tab_model) = self.pane_model.panes.get(pane)
+                            && let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity)
+                        {
+                            let mut terminal = terminal.lock().unwrap();
+                            terminal.needs_update = true;
                         }
                     }
                     TermEvent::ChildExit(_error_code) => {
@@ -2674,6 +3142,10 @@ impl Application for App {
                 if self.context_page == context_page {
                     self.core.window.show_context = !self.core.window.show_context;
                     self.pane_model.update_terminal_focus();
+
+                    if let ContextPage::KeyboardShortcuts = context_page {
+                        self.shortcut_page_toggle();
+                    }
 
                     #[cfg(feature = "password_manager")]
                     if ContextPage::PasswordManager == context_page {
@@ -2716,6 +3188,11 @@ impl Application for App {
                         });
                 }
 
+                if let ContextPage::KeyboardShortcuts = context_page {
+                    self.shortcut_page_toggle();
+                    return self.update_focus();
+                }
+
                 #[cfg(feature = "password_manager")]
                 if ContextPage::PasswordManager == context_page {
                     self.password_mgr.pane = Some(self.pane_model.focused());
@@ -2731,12 +3208,21 @@ impl Application for App {
                 }
             }
             Message::WindowNew => match env::current_exe() {
-                Ok(exe) => match process::Command::new(&exe).spawn() {
-                    Ok(_child) => {}
-                    Err(err) => {
-                        log::error!("failed to execute {:?}: {}", exe, err);
+                Ok(exe) => {
+                    let mut command = process::Command::new(&exe);
+                    if self.config.tab_new_inherit_working_directory
+                        && let Some(dir) = self.active_terminal_working_directory()
+                    {
+                        command.arg("--working-directory");
+                        command.arg(dir);
                     }
-                },
+                    match command.spawn() {
+                        Ok(_child) => {}
+                        Err(err) => {
+                            log::error!("failed to execute {:?}: {}", exe, err);
+                        }
+                    }
+                }
                 Err(err) => {
                     log::error!("failed to get current executable path: {}", err);
                 }
@@ -2757,13 +3243,25 @@ impl Application for App {
                 return self.update_render_active_pane_zoom(message);
             }
             Message::ZoomReset => {
-                self.reset_terminal_panes_zoom();
+                self.reset_active_pane_zoom();
                 return self.update_config();
             }
             Message::Surface(a) => {
-                return cosmic::task::message(cosmic::Action::Cosmic(
-                    cosmic::app::Action::Surface(a),
-                ));
+                return cosmic::task::message(cosmic::Action::Surface(a));
+            }
+            Message::ReorderTab(
+                pane,
+                ReorderEvent {
+                    dragged,
+                    target,
+                    position,
+                },
+            ) => {
+                let Some(p) = self.pane_model.panes.get_mut(pane) else {
+                    log::error!("Failed to find reordered tab model.");
+                    return Task::none();
+                };
+                _ = p.reorder(dragged, target, position);
             }
         }
 
@@ -2786,6 +3284,11 @@ impl Application for App {
                 Message::ToggleContextPage(ContextPage::ColorSchemes(color_scheme_kind)),
             )
             .title(fl!("color-schemes")),
+            ContextPage::KeyboardShortcuts => context_drawer::context_drawer(
+                self.keyboard_shortcuts(),
+                Message::ToggleContextPage(ContextPage::KeyboardShortcuts),
+            )
+            .title(fl!("keyboard-shortcuts")),
             ContextPage::Profiles => context_drawer::context_drawer(
                 self.profiles(),
                 Message::ToggleContextPage(ContextPage::Profiles),
@@ -2803,6 +3306,34 @@ impl Application for App {
             )
             .title(fl!("passwords-title")),
         })
+    }
+
+    fn dialog(&self) -> Option<Element<'_, Message>> {
+        let conflict = self.shortcut_conflict.as_ref()?;
+        let binding = shortcuts::binding_display(&conflict.binding);
+        let existing = shortcuts::action_label(conflict.existing_action);
+        let new_action = shortcuts::action_label(conflict.new_action);
+        let body = fl!(
+            "shortcut-replace-body",
+            binding = binding.as_str(),
+            existing = existing.as_str(),
+            new_action = new_action.as_str()
+        );
+
+        Some(
+            widget::dialog()
+                .title(fl!("shortcut-replace-title"))
+                .body(body)
+                .primary_action(
+                    widget::button::suggested(fl!("replace"))
+                        .on_press(Message::ShortcutConflictReplace),
+                )
+                .secondary_action(
+                    widget::button::standard(fl!("cancel"))
+                        .on_press(Message::ShortcutConflictCancel),
+                )
+                .into(),
+        )
     }
 
     fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
@@ -2828,8 +3359,23 @@ impl Application for App {
 
     /// Creates a view after each update.
     fn view(&self) -> Element<'_, Self::Message> {
-        let cosmic_theme::Spacing { space_xxs, .. } = self.core().system_theme().cosmic().spacing;
+        let t = self.core().system_theme();
+        let cosmic = t.cosmic();
+        let cosmic_theme::Spacing {
+            space_xxxs,
+            space_xxs,
+            ..
+        } = cosmic.spacing;
 
+        let show_pane_borders =
+            self.config.show_pane_borders && self.pane_model.panes.panes.len() > 1;
+        let pane_corner_radius: iced::border::Radius = {
+            let pad = f32::from(space_xxxs) / 2.0;
+            cosmic
+                .radius_s()
+                .map(|r| if r > 0.0 { r + pad } else { 0.0 })
+                .into()
+        };
         let pane_grid = PaneGrid::new(&self.pane_model.panes, |pane, tab_model, _is_maximized| {
             let mut tab_column = widget::column::with_capacity(1);
 
@@ -2837,12 +3383,27 @@ impl Application for App {
                 tab_column = tab_column.push(
                     widget::container(
                         widget::tab_bar::horizontal(tab_model)
+                            .enable_tab_drag(String::from("x-cosmic-term/tab"))
+                            .on_reorder(move |event| Message::ReorderTab(pane, event))
+                            .tab_drag_threshold(25.)
                             .button_height(32)
                             .button_spacing(space_xxs)
                             .on_activate(Message::TabActivate)
                             .on_close(|entity| Message::TabClose(Some(entity))),
                     )
-                    .class(style::Container::Background)
+                    .class(style::Container::Custom(Box::new(|theme| {
+                        let cosmic = theme.cosmic();
+                        cosmic::iced::widget::container::Style {
+                            icon_color: Some(Color::from(cosmic.background(theme.transparent).on)),
+                            text_color: Some(Color::from(cosmic.background(theme.transparent).on)),
+                            background: Some(iced::Background::Color(
+                                cosmic.background(theme.transparent).base.into(),
+                            )),
+                            border: iced::Border::default(),
+                            shadow: iced::Shadow::default(),
+                            snap: true,
+                        }
+                    })))
                     .width(Length::Fill),
                 );
             }
@@ -2855,7 +3416,7 @@ impl Application for App {
                 .cloned()
                 .unwrap_or_else(widget::Id::unique);
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
-                let mut terminal_box = terminal_box(terminal)
+                let mut terminal_box = terminal_box(terminal, &self.key_binds)
                     .id(terminal_id)
                     .disabled(self.core.window.show_context)
                     .on_context_menu(move |menu_state| Message::TabContextMenu(pane, menu_state))
@@ -2863,36 +3424,45 @@ impl Application for App {
                     .on_open_hyperlink(Some(Box::new(Message::LaunchUrl)))
                     .on_window_focused(|| Message::WindowFocused)
                     .on_window_unfocused(|| Message::WindowUnfocused)
-                    .opacity(self.config.opacity_ratio())
+                    .opacity(if t.transparent {
+                        t.cosmic().alpha_map.blurred_alpha(t.cosmic().frosted)
+                    } else {
+                        self.config.opacity_ratio()
+                    })
                     .padding(self.config.padding_value(space_xxs))
                     .sharp_corners(self.core.window.sharp_corners)
-                    .show_headerbar(self.config.show_headerbar);
+                    .show_headerbar(self.config.show_headerbar)
+                    .pane_border_radius(show_pane_borders.then_some(pane_corner_radius))
+                    .border(pane_border(cosmic, t.transparent, show_pane_borders));
 
                 if self.config.focus_follow_mouse {
                     terminal_box = terminal_box.on_mouse_enter(move || Message::MouseEnter(pane));
                 }
 
-                let context_menu = {
-                    let terminal = terminal.lock().unwrap();
-                    terminal.context_menu.clone()
-                };
-
-                let tab_element: Element<'_, Message> = match context_menu {
-                    Some(menu_state) => match menu_state.position {
-                        Some(point) => widget::popover(terminal_box.context_menu(point))
-                            .popup(menu::context_menu(
-                                &self.config,
-                                &self.key_binds,
-                                entity,
-                                menu_state.link,
-                            ))
-                            .position(widget::popover::Position::Point(point))
-                            .into(),
-                        None => terminal_box.into(),
-                    },
-                    None => terminal_box.into(),
-                };
-                tab_column = tab_column.push(tab_element);
+                // The terminal records what was under the right press; the widget opens the
+                // menu on release, so build it from that state
+                let context_link = terminal
+                    .lock()
+                    .unwrap()
+                    .context_menu
+                    .as_ref()
+                    .map(|menu_state| menu_state.link.clone());
+                if context_link.is_some() {
+                    terminal_box = terminal_box.context_menu_open(true);
+                }
+                let mut context_menu = widget::context_menu(
+                    terminal_box,
+                    context_link.map(|link| {
+                        menu::context_menu(&self.config, &self.key_binds, entity, link)
+                    }),
+                )
+                .item_width(widget::menu::ItemWidth::Uniform(360))
+                .on_close(Message::TabContextMenu(pane, None))
+                .on_surface_action(Message::Surface);
+                if let Some(window_id) = self.core.main_window_id() {
+                    context_menu = context_menu.window_id(window_id);
+                }
+                tab_column = tab_column.push(context_menu);
             }
 
             //Only draw find in the currently focused pane
@@ -2939,7 +3509,7 @@ impl Application for App {
                         widget::tooltip::Position::Top,
                     )
                     .into(),
-                    widget::horizontal_space().into(),
+                    widget::space::horizontal().into(),
                     button::custom(icon_cache_get("window-close-symbolic", 16))
                         .on_press(Message::Find(false))
                         .padding(space_xxs)
@@ -2977,7 +3547,14 @@ impl Application for App {
         .on_drag(Message::PaneDragged);
 
         //TODO: apply window border radius xs at bottom of window
-        pane_grid.into()
+        if show_pane_borders {
+            // Each pane draws its own border stroke. Painting a filled
+            // container behind the grid instead would stack its alpha with the
+            // translucent panes and wash out the blurred backdrop.
+            pane_grid.spacing(space_xxxs).into()
+        } else {
+            pane_grid.into()
+        }
     }
 
     fn system_theme_update(
@@ -2994,9 +3571,12 @@ impl Application for App {
 
         Subscription::batch([
             event::listen_with(|event, _status, _window_id| match event {
-                Event::Keyboard(KeyEvent::KeyPressed { key, modifiers, .. }) => {
-                    Some(Message::Key(modifiers, key))
-                }
+                Event::Keyboard(KeyEvent::KeyPressed {
+                    key,
+                    physical_key,
+                    modifiers,
+                    ..
+                }) => Some(Message::Key(modifiers, physical_key, key)),
                 Event::Keyboard(KeyEvent::ModifiersChanged(modifiers)) => {
                     Some(Message::Modifiers(modifiers))
                 }
@@ -3005,22 +3585,24 @@ impl Application for App {
                 }
                 _ => None,
             }),
-            Subscription::run_with_id(
-                TypeId::of::<TerminalEventSubscription>(),
-                stream::channel(100, |mut output| async move {
-                    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-                    output.send(Message::TermEventTx(event_tx)).await.unwrap();
+            Subscription::run_with(TypeId::of::<TerminalEventSubscription>(), |_| {
+                stream::channel(
+                    100,
+                    |mut output: iced::futures::channel::mpsc::Sender<Message>| async move {
+                        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+                        output.send(Message::TermEventTx(event_tx)).await.unwrap();
 
-                    while let Some((pane, entity, event)) = event_rx.recv().await {
-                        output
-                            .send(Message::TermEvent(pane, entity, event))
-                            .await
-                            .unwrap();
-                    }
+                        while let Some((pane, entity, event)) = event_rx.recv().await {
+                            output
+                                .send(Message::TermEvent(pane, entity, event))
+                                .await
+                                .unwrap();
+                        }
 
-                    panic!("terminal event channel closed");
-                }),
-            ),
+                        panic!("terminal event channel closed");
+                    },
+                )
+            }),
             cosmic_config::config_subscription(
                 TypeId::of::<ConfigSubscription>(),
                 Self::APP_ID.into(),
@@ -3034,12 +3616,89 @@ impl Application for App {
                         update.errors
                     );
                 }
-                Message::Config(update.config)
+                Message::Config(Box::new(update.config))
             }),
             match &self.dialog_opt {
                 Some(dialog) => dialog.subscription(),
                 None => Subscription::none(),
             },
         ])
+    }
+}
+
+/// Divider color painted behind the pane grid to form pane borders.
+///
+/// When blur is active the transparent container must be used, otherwise the
+/// fill is opaque and hides the blurred desktop behind the window.
+fn pane_divider_color(
+    cosmic: &cosmic_theme::Theme,
+    transparent: bool,
+) -> cosmic::cosmic_theme::palette::Srgba {
+    cosmic.background(transparent).divider
+}
+
+/// Border stroke drawn around each terminal pane.
+///
+/// The stroke sits on the pane edge rather than behind it, so the pane
+/// interior keeps its own opacity and the blurred desktop stays visible.
+fn pane_border(cosmic: &cosmic_theme::Theme, transparent: bool, show: bool) -> iced::Border {
+    if show {
+        iced::Border {
+            color: Color::from(pane_divider_color(cosmic, transparent)),
+            width: 1.0,
+            ..Default::default()
+        }
+    } else {
+        iced::Border::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pane_border, pane_divider_color};
+
+    #[test]
+    fn pane_border_is_drawn_only_when_enabled() {
+        // With borders off the pane must render exactly as before, so the
+        // stroke has to be zero width rather than a transparent hairline.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        assert_eq!(pane_border(&theme, true, false).width, 0.0);
+        assert!(pane_border(&theme, true, true).width > 0.0);
+    }
+
+    #[test]
+    fn pane_border_uses_the_divider_color() {
+        // The stroke is the only thing marking the pane edge now that nothing
+        // is painted behind the grid, so it must match the theme divider.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        let expected = cosmic::iced::Color::from(pane_divider_color(&theme, true));
+        assert_eq!(pane_border(&theme, true, true).color, expected);
+    }
+
+    #[test]
+    fn pane_divider_is_translucent_when_blur_is_active() {
+        // The divider is painted as a full-window container behind the pane
+        // grid. With blur active it must keep alpha < 1 so the frosted
+        // backdrop still shows through instead of a flat opaque fill.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        let color = pane_divider_color(&theme, true);
+        assert!(
+            color.alpha < 1.0,
+            "expected translucent divider, got alpha {}",
+            color.alpha
+        );
+    }
+
+    #[test]
+    fn pane_divider_is_opaque_without_blur() {
+        // Without blur there is nothing to show through, so the divider keeps
+        // the fully opaque background color.
+        let theme = cosmic::cosmic_theme::Theme::dark_default();
+        let color = pane_divider_color(&theme, false);
+        assert!(
+            (color.alpha - 1.0).abs() < f32::EPSILON,
+            "expected opaque divider, got alpha {}",
+            color.alpha
+        );
     }
 }

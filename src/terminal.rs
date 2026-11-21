@@ -21,14 +21,14 @@ use cosmic::{
     widget::{pane_grid, segmented_button},
 };
 use cosmic_text::{
-    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, LineEnding, Metrics, Shaping,
-    Weight, Wrap,
+    Attrs, AttrsList, Buffer, BufferLine, CacheKeyFlags, Family, LineEnding, Shaping, Weight, Wrap,
 };
 use indexmap::IndexSet;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    io, mem,
+    fs, io, mem,
+    path::PathBuf,
     sync::{
         Arc, Mutex, Weak,
         atomic::{AtomicU32, Ordering},
@@ -190,17 +190,17 @@ impl TerminalPaneGrid {
             let entity = tab_model.active();
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
-                terminal.is_focused = self.focus == *pane;
+                terminal.set_focused(self.focus == *pane);
                 terminal.update();
             }
         }
     }
     pub fn unfocus_all_terminals(&self) {
-        for (_pane, tab_model) in self.panes.panes.iter() {
+        for tab_model in self.panes.panes.values() {
             let entity = tab_model.active();
             if let Some(terminal) = tab_model.data::<Mutex<Terminal>>(entity) {
                 let mut terminal = terminal.lock().unwrap();
-                terminal.is_focused = false;
+                terminal.set_focused(false);
                 terminal.update();
             }
         }
@@ -257,6 +257,7 @@ pub struct Terminal {
     notifier: Notifier,
     search_regex_opt: Option<RegexSearch>,
     search_value: String,
+    shell_pid: Option<u32>,
     size: Size,
     use_bright_bold: bool,
     zoom_adj: i8,
@@ -264,6 +265,7 @@ pub struct Terminal {
 
 impl Terminal {
     //TODO: error handling
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pane: pane_grid::Pane,
         entity: segmented_button::Entity,
@@ -281,7 +283,7 @@ impl Terminal {
         let bold_font_weight = app_config.bold_font_weight;
         let use_bright_bold = app_config.use_bright_bold;
 
-        let metrics = Metrics::new(14.0, 21.0);
+        let metrics = app_config.metrics(0);
 
         let default_bg = convert_color(&colors, Color::Named(NamedColor::Background));
         let default_fg = convert_color(&colors, Color::Named(NamedColor::Foreground));
@@ -303,13 +305,13 @@ impl Terminal {
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
             let font_system = font_system.raw();
-            buffer.set_wrap(font_system, Wrap::None);
+            buffer.set_wrap(Wrap::None);
 
             // Use size of space to determine cell size
-            buffer.set_text(font_system, " ", &default_attrs, Shaping::Advanced, None);
+            buffer.set_text(" ", &default_attrs, Shaping::Advanced, None);
             let layout = buffer.line_layout(font_system, 0).unwrap();
             let w = layout[0].w;
-            buffer.set_monospace_width(font_system, Some(w));
+            buffer.set_monospace_width(Some(w));
             (w, metrics.line_height)
         };
 
@@ -328,6 +330,10 @@ impl Terminal {
 
         let window_id = 0;
         let pty = tty::new(&options, size.into(), window_id)?;
+        #[cfg(not(windows))]
+        let shell_pid = Some(pty.child().id());
+        #[cfg(windows)]
+        let shell_pid = pty.child_watcher().pid().map(|pid| pid.get());
 
         let pty_event_loop =
             EventLoop::new(term.clone(), event_proxy, pty, options.drain_on_exit, false)?;
@@ -352,6 +358,7 @@ impl Terminal {
             profile_id_opt,
             search_regex_opt: None,
             search_value: String::new(),
+            shell_pid,
             size,
             tab_title_override,
             term,
@@ -379,6 +386,19 @@ impl Terminal {
         &self.colors
     }
 
+    pub fn effective_color(&self, index: usize) -> Rgb {
+        if index == NamedColor::Background as usize {
+            self.colors[index].unwrap_or_else(|| {
+                // Allow using an unset background
+                let [r, g, b, _] =
+                    cosmic_text::Color(WINDOW_BG_COLOR.load(Ordering::SeqCst)).as_rgba();
+                Rgb { r, g, b }
+            })
+        } else {
+            self.colors[index].unwrap_or_default()
+        }
+    }
+
     pub fn default_attrs(&self) -> &Attrs<'static> {
         &self.default_attrs
     }
@@ -395,6 +415,22 @@ impl Terminal {
         self.zoom_adj = value;
     }
 
+    fn set_focused(&mut self, is_focused: bool) {
+        let focus_changed = self.is_focused != is_focused;
+        self.is_focused = is_focused;
+
+        if focus_changed {
+            let report_focus = self.term.lock().mode().contains(TermMode::FOCUS_IN_OUT);
+            if report_focus {
+                const FOCUS_IN: &[u8] = b"\x1b[I";
+                const FOCUS_OUT: &[u8] = b"\x1b[O";
+
+                let input = if is_focused { FOCUS_IN } else { FOCUS_OUT };
+                self.input_no_scroll(input);
+            }
+        }
+    }
+
     pub fn redraw(&self) -> bool {
         self.buffer.redraw()
     }
@@ -405,6 +441,19 @@ impl Terminal {
 
     pub fn input_no_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
         self.notifier.notify(input);
+    }
+
+    pub fn working_directory(&self) -> Option<PathBuf> {
+        #[cfg(target_os = "linux")]
+        {
+            let shell_pid = self.shell_pid?;
+            fs::read_link(format!("/proc/{shell_pid}/cwd")).ok()
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            None
+        }
     }
 
     pub fn input_scroll<I: Into<Cow<'static, [u8]>>>(&self, input: I) {
@@ -437,15 +486,18 @@ impl Terminal {
         if width != self.size.width || height != self.size.height {
             let instant = Instant::now();
 
-            self.size.width = width;
-            self.size.height = height;
+            // Clamp dimensions to ensure at least 1 row and 1 column,
+            // preventing index-out-of-bounds panics in alacritty_terminal.
+            let min_width = self.size.cell_width.ceil() as u32;
+            let min_height = self.size.cell_height.ceil() as u32;
+            self.size.width = width.max(min_width);
+            self.size.height = height.max(min_height);
 
             self.notifier.on_resize(self.size.into());
             self.term.lock().resize(self.size);
 
             self.with_buffer_mut(|buffer| {
-                let mut font_system = font_system().write().unwrap();
-                buffer.set_size(font_system.raw(), Some(width as f32), Some(height as f32));
+                buffer.set_size(Some(width as f32), Some(height as f32));
             });
 
             self.needs_update = true;
@@ -590,6 +642,7 @@ impl Terminal {
     pub fn set_config(
         &mut self,
         config: &AppConfig,
+        color_scheme_kind: ColorSchemeKind,
         themes: &HashMap<(String, ColorSchemeKind), Colors>,
     ) {
         let mut update_cell_size = false;
@@ -616,7 +669,7 @@ impl Terminal {
             update_cell_size = true;
         }
 
-        if self.bold_font_weight.0 != config.font_weight {
+        if self.bold_font_weight.0 != config.bold_font_weight {
             self.bold_font_weight = Weight(config.bold_font_weight);
             update_cell_size = true;
         }
@@ -628,14 +681,13 @@ impl Terminal {
 
         let metrics = config.metrics(zoom_adj);
         if metrics != self.buffer.metrics() {
-            {
-                let mut font_system = font_system().write().unwrap();
-                self.with_buffer_mut(|buffer| buffer.set_metrics(font_system.raw(), metrics));
-            }
+            self.with_buffer_mut(|buffer| buffer.set_metrics(metrics));
             update_cell_size = true;
         }
 
-        if let Some(colors) = themes.get(&config.syntax_theme(self.profile_id_opt)) {
+        if let Some(colors) =
+            themes.get(&config.syntax_theme(color_scheme_kind, self.profile_id_opt))
+        {
             let mut changed = false;
             for i in 0..color::COUNT {
                 if self.colors[i] != colors[i] {
@@ -688,19 +740,13 @@ impl Terminal {
         let (cell_width, cell_height) = {
             let mut font_system = font_system().write().unwrap();
             self.with_buffer_mut(|buffer| {
-                buffer.set_wrap(font_system.raw(), Wrap::None);
+                buffer.set_wrap(Wrap::None);
 
                 // Use size of space to determine cell size
-                buffer.set_text(
-                    font_system.raw(),
-                    " ",
-                    &default_attrs,
-                    Shaping::Advanced,
-                    None,
-                );
+                buffer.set_text(" ", &default_attrs, Shaping::Advanced, None);
                 let layout = buffer.line_layout(font_system.raw(), 0).unwrap();
                 let w = layout[0].w;
-                buffer.set_monospace_width(font_system.raw(), Some(w));
+                buffer.set_monospace_width(Some(w));
                 (w, buffer.metrics().line_height)
             })
         };
@@ -864,13 +910,12 @@ impl Terminal {
                     }
 
                     // Change color if selected
-                    if let Some(selection) = &term.selection {
-                        if let Some(range) = selection.to_range(&term) {
-                            if range.contains(indexed.point) {
-                                //TODO: better handling of selection
-                                mem::swap(&mut fg, &mut bg);
-                            }
-                        }
+                    if let Some(selection) = &term.selection
+                        && let Some(range) = selection.to_range(&term)
+                        && range.contains(indexed.point)
+                    {
+                        //TODO: better handling of selection
+                        mem::swap(&mut fg, &mut bg);
                     }
 
                     // Convert foreground to linear
@@ -884,10 +929,10 @@ impl Terminal {
 
                     let mut flags = indexed.cell.flags;
 
-                    if let Some(active_match) = &self.active_regex_match {
-                        if active_match.contains(&indexed.point) {
-                            flags |= Flags::UNDERLINE;
-                        }
+                    if let Some(active_match) = &self.active_regex_match
+                        && active_match.contains(&indexed.point)
+                    {
+                        flags |= Flags::UNDERLINE;
                     }
                     if let Some(active_id) = &self.active_hyperlink_id {
                         let mut matches_active = indexed
@@ -1011,10 +1056,9 @@ impl Terminal {
         x: u32,
         y: u32,
     ) {
-        let term_lock = self.term.lock();
-        let mode = term_lock.mode();
+        let is_sgr = self.term.lock().mode().contains(TermMode::SGR_MOUSE);
 
-        if mode.contains(TermMode::SGR_MOUSE) {
+        if is_sgr {
             let codes = self.mouse_reporter.sgr_mouse_wheel_scroll(
                 self.size().cell_width,
                 self.size().cell_height,
@@ -1028,12 +1072,29 @@ impl Terminal {
                 self.notifier.notify(code);
             }
         } else {
-            MouseReporter::report_mouse_wheel_as_arrows(
-                self,
-                self.size().cell_width,
-                self.size().cell_height,
-                delta,
-            );
+            self.scroll_as_arrows(delta);
+        }
+    }
+
+    pub fn scroll_as_arrows(&mut self, delta: ScrollDelta) {
+        let cell_width = self.size().cell_width;
+        let cell_height = self.size().cell_height;
+        let (_, lines_y) = self
+            .mouse_reporter
+            .accumulate_scroll(delta, cell_width, cell_height);
+        let is_app_cursor = self.term.lock().mode().contains(TermMode::APP_CURSOR);
+        let (up, down) = if is_app_cursor {
+            (&b"\x1BOA"[..], &b"\x1BOB"[..])
+        } else {
+            (&b"\x1B[A"[..], &b"\x1B[B"[..])
+        };
+        const SCROLL_SPEED: u32 = 3;
+        for _ in 0..(lines_y.unsigned_abs() * SCROLL_SPEED) {
+            if lines_y > 0 {
+                self.input_no_scroll(up)
+            } else if lines_y < 0 {
+                self.input_no_scroll(down)
+            }
         }
     }
 }
@@ -1196,13 +1257,12 @@ impl<'a, T> Iterator for HintPostProcessor<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let next_match = self.next_match.take()?;
 
-        if self.start <= self.end {
-            if let Some(rm) = self
+        if self.start <= self.end
+            && let Some(rm) = self
                 .term
                 .regex_search_right(self.regex, self.start, self.end)
-            {
-                self.next_processed_match(rm);
-            }
+        {
+            self.next_processed_match(rm);
         }
 
         Some(next_match)

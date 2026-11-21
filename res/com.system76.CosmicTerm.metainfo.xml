@@ -9,27 +9,7 @@
   <url type="homepage">https://github.com/pop-os/cosmic-term</url>
   <url type="bugtracker">https://github.com/pop-os/cosmic-term</url>
   <name>COSMIC Terminal</name>
-  <name xml:lang="ar">طرفية COSMIC</name>
-  <name xml:lang="cs">Terminál COSMIC</name>
-  <name xml:lang="pl">Terminal COSMIC</name>
-  <name xml:lang="hu">COSMIC Terminál</name>
-  <name xml:lang="pt_BR">Terminal</name>
-  <name xml:lang="pt">Terminal</name>
-  <name xml:lang="sk">Terminál COSMIC</name>
-  <name xml:lang="es">Terminal COSMIC</name>
-  <name xml:lang="it">Terminale di COSMIC</name>
-  <name xml:lang="sv">COSMIC Terminal</name>
   <summary>Terminal emulator for the COSMIC desktop</summary>
-  <summary xml:lang="ar">محاكي طرفي لسطح مكتب COSMIC</summary>
-  <summary xml:lang="cs">Emulátor terminálu pro pracovní prostředí COSMIC</summary>
-  <summary xml:lang="pl">Emulator terminala dla pulpitu COSMIC</summary>
-  <summary xml:lang="hu">Terminálemulátor a COSMIC asztali környezethez</summary>
-  <summary xml:lang="pt_BR">Emulador de terminal do desktop COSMIC</summary>
-  <summary xml:lang="pt">Emulador de terminal do desktop COSMIC</summary>
-  <summary xml:lang="sk">Emulátor terminálu pre pracovné prostredie COSMIC</summary>
-  <summary xml:lang="es">Emulador de terminal de escritorio COSMIC</summary>
-  <summary xml:lang="it">Emulatore di terminale di COSMIC</summary>
-  <summary xml:lang="sv">Terminalemulator för skrivbordsmiljön COSMIC</summary>
   <description>
     <p>Terminal emulator for the COSMIC desktop</p>
     <p xml:lang="ar">محاكي طرفي لسطح مكتب COSMIC</p>
@@ -43,6 +23,12 @@
     <p xml:lang="it">Emulatore di terminale di COSMIC</p>
     <p xml:lang="sv">Terminalemulator för skrivbordsmiljön COSMIC</p>
   </description>
+  <keywords>
+    <keyword>Command</keyword>
+    <keyword>Shell</keyword>
+    <keyword>Terminal</keyword>
+    <keyword>CLI</keyword>
+  </keywords>
   <launchable type="desktop-id">com.system76.CosmicTerm.desktop</launchable>
   <icon type="remote" height="256" width="256">
     https://raw.githubusercontent.com/pop-os/cosmic-term/master/res/icons/hicolor/256x256/apps/com.system76.CosmicTerm.svg</icon>

@@ -1,4 +1,6 @@
 cosmic-terminal = COSMIC Terminal
+comment = Terminal emulator for the COSMIC desktop
+keywords = Command;Shell;Terminal;CLI;
 new-terminal = New terminal
 
 # Context Pages
@@ -57,11 +59,44 @@ use-bright-bold = Make bold text brighter
 ### Splits
 splits = Splits
 focus-follow-mouse = Typing focus follows mouse
+show-pane-borders = Show pane borders
 
 ### Advanced
 advanced = Advanced
 show-headerbar = Show header
-show-header-description = Reveal the header from the right-click menu.
+window-header = Window header
+show-header-description = Reveal the header from the right-click menu
+tab-new-inherit-working-directory = New tabs and windows use current directory
+tab-new-inherit-working-directory-description = Open new tabs and windows in the active tab's working directory
+
+### Keyboard shortcuts
+add-another-keybinding = Add another keybinding
+cancel = Cancel
+close-window = Close window
+copy-or-sigint = Copy or SIGINT
+disable = Disable
+focus-pane-down = Focus pane down
+focus-pane-left = Focus pane left
+focus-pane-right = Focus pane right
+focus-pane-up = Focus pane up
+keyboard-shortcuts = Keyboard shortcuts
+menu-keyboard-shortcuts = Keyboard shortcuts...
+no-shortcuts = No shortcuts
+password-manager = Password manager
+paste-primary = Paste primary
+replace = Replace
+reset-to-default = Reset to default
+shortcut-capture-hint = Press the key combination
+shortcut-group-clipboard = Clipboard
+shortcut-group-other = Other
+shortcut-group-tabs = Tabs
+shortcut-group-window = Window
+shortcut-group-zoom = Zoom
+shortcut-replace-body = { $binding } is already assigned to { $existing }. Replace it with { $new_action }?
+shortcut-replace-title = Replace shortcut?
+tab-activate = Activate tab { $number }
+toggle-fullscreen = Toggle fullscreen
+type-to-search = Type to search...
 
 # Find
 find-placeholder = Find...
@@ -89,6 +124,7 @@ clear-scrollback = Clear scrollback
 
 ## Open
 open-link = Open Link
+copy-link = Copy Link
 
 ## View
 view = View
@@ -97,9 +133,11 @@ zoom-reset = Default text size
 zoom-out = Smaller text
 next-tab = Next tab
 previous-tab = Previous tab
+move-tab-left = Move tab left
+move-tab-right = Move tab right
 split-horizontal = Split horizontal
 split-vertical = Split vertical
-pane-toggle-maximize = Toggle maximized
+pane-toggle-maximize = Maximize or restore pane
 menu-color-schemes = Color schemes...
 menu-settings = Settings...
 menu-about = About COSMIC Terminal...

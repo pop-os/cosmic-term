@@ -29,18 +29,18 @@ remain-open = चाइल्ड प्रोसेस के निकलने
 
 ## Settings
 
-settings = सेटिंग
+settings = सेटिंग्स
 
 ### Appearance
 
-appearance = दिखावट
-theme = थीम
-match-desktop = डेस्कटॉप से मिलाएं
+appearance = रुप-रंग
+theme = प्रसंग
+match-desktop = डेस्कटॉप से मेल खाएँ
 dark = डार्क
 light = लाइट
 syntax-dark = रंग योजना डार्क
 syntax-light = रंग योजना लाइट
-default-zoom-step = ज़ूम स्तर
+default-zoom-step = ज़ूम चरण
 opacity = पृष्ठभूमि अपारदर्शिता
 
 ### Font
@@ -66,7 +66,7 @@ advanced = एडवांस
 show-headerbar = हैडर दिखाएं
 show-header-description = हैडर को राइट-क्लिक मेन्यू से दिखाएं।
 # Find
-find-placeholder = खोजें...
+find-placeholder = खोजें..।
 find-previous = पिछला खोजें
 find-next = अगला खोजें
 
@@ -81,13 +81,13 @@ new-window = नई विंडो
 profile = प्रोफाइल
 menu-profiles = प्रोफाइल्स...
 close-tab = टैब बंद करें
-quit = बंद करें
+quit = बाहर जाएँ
 
 ### Edit
 
-edit = संपादित करें
+edit = संपादन
 copy = कॉपी करें
-paste = पेस्ट करें
+paste = चिपकाएँ
 select-all = सभी चुनें
 find = खोजें
 clear-scrollback = स्क्रॉलबैक साफ़ करें
@@ -104,7 +104,11 @@ split-horizontal = क्षैतिज विभाजन
 split-vertical = लंबवत विभाजन
 pane-toggle-maximize = अधिकतम करें
 menu-color-schemes = रंग योजनाएँ...
-menu-settings = सेटिंग्स...
+menu-settings = सेटिंग्स..।
 menu-about = कॉस्मिक टर्मिनल के बारे में...
 repository = रिपॉजिटरी
-support = सहायता
+support = समर्थन
+cancel = रद्द करें
+keyboard-shortcuts = कीबोर्ड शॉर्टकट्स
+replace = बदलें
+menu-keyboard-shortcuts = कीबोर्ड शॉर्टकट्स..।

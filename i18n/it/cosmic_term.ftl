@@ -1,4 +1,6 @@
 cosmic-terminal = Terminale COSMIC
+comment = Emulatore di terminale di COSMIC
+keywords = Comando;Shell;Terminale;Console;
 new-terminal = Nuovo terminale
 
 # Context Pages
@@ -38,7 +40,7 @@ settings = Impostazioni
 
 appearance = Aspetto
 theme = Tema
-match-desktop = Sistema
+match-desktop = Abbina al desktop
 dark = Scuro
 light = Chiaro
 syntax-dark = Schema colori scuro
@@ -68,6 +70,8 @@ focus-follow-mouse = Il focus di scrittura segue il mouse
 advanced = Avanzate
 show-headerbar = Mostra intestazione
 show-header-description = Mostra intestazione dal menu click destro.
+tab-new-inherit-working-directory = Le nuove schede usano la cartella corrente
+tab-new-inherit-working-directory-description = Apri nuove schede nella directory di lavoro della scheda attiva
 # Find
 find-placeholder = Trova...
 find-previous = Trova precedente
@@ -111,3 +115,7 @@ menu-settings = Impostazioni...
 menu-about = Informazioni su COSMIC Terminal...
 support = Supporto
 repository = Repository
+cancel = Annulla
+keyboard-shortcuts = Scorciatoie da tastiera
+replace = Sostituisci
+menu-keyboard-shortcuts = Scorciatoie da tastiera...

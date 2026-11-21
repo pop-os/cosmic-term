@@ -1,4 +1,6 @@
 cosmic-terminal = Terminal COSMIC
+comment = Emulator terminala dla środowiska COSMIC
+keywords = Cli;WierszPoleceń;Powłoka;Terminal;
 new-terminal = Nowy terminal
 
 # Context Pages
@@ -69,9 +71,9 @@ focus-follow-mouse = Aktywne okno pisania odpowiada położeniu myszki
 
 advanced = Zaawansowane
 show-headerbar = Pokaż pasek nagłówka
-show-header-description = Ukazuje pasek nagłówka z menu wybieranego prawym przyciskiem myszki.
+show-header-description = Ukazuje pasek nagłówka z menu wybieranego prawym przyciskiem myszki
 # Find
-find-placeholder = Szukaj…
+find-placeholder = Wyszukaj…
 find-previous = Znajdź poprzedni
 find-next = Znajdź następny
 
@@ -86,7 +88,7 @@ new-window = Nowe okno
 profile = Profil
 menu-profiles = Profile...
 close-tab = Zamknij kartę
-quit = Zamknij
+quit = Zakończ
 
 ## Edit
 
@@ -94,7 +96,7 @@ edit = Edytuj
 copy = Kopiuj
 paste = Wklej
 select-all = Zaznacz wszystko
-find = Szukaj
+find = Wyszukaj
 clear-scrollback = Wyczyść przewijanie
 
 ## View
@@ -107,7 +109,7 @@ next-tab = Następna karta
 previous-tab = Poprzednia karta
 split-horizontal = Podziel w poziomie
 split-vertical = Podziel w pionie
-pane-toggle-maximize = Przełącznik maksymalizacji
+pane-toggle-maximize = Maksymalizuj lub przywróć panel
 menu-color-schemes = Schemat kolorów...
 menu-settings = Ustawienia…
 menu-about = O Terminalu COSMIC...
@@ -117,3 +119,37 @@ add-password = Dodaj Hasło
 password-input = Hasło
 password-input-description = Opis
 open-link = Otwórz Odnośnik
+add-another-keybinding = Dodaj kolejny skrót klawiszowy
+cancel = Anuluj
+close-window = Zamknij okno
+copy-or-sigint = Kopiuj lub SIGINT
+disable = Wyłącz
+keyboard-shortcuts = Skróty klawiszowe
+menu-keyboard-shortcuts = Skróty klawiszowe…
+no-shortcuts = Brak skrótów
+password-manager = Menedżer haseł
+paste-primary = Wklej główne
+replace = Zastąp
+reset-to-default = Przywróć domyślne
+shortcut-capture-hint = Naciśnij kombinację klawiszy
+shortcut-group-clipboard = Schowek
+shortcut-group-other = Inne
+shortcut-group-tabs = Karty
+shortcut-group-window = Okno
+shortcut-group-zoom = Przybliżenie
+shortcut-replace-body = { $binding } jest już przypisany do { $existing }. Zastąpć je przez { $new_action }?
+shortcut-replace-title = Zastąpić skrót klawiszowy?
+tab-activate = Aktywuj kartę { $number }
+toggle-fullscreen = Przełącznik pełnego ekranu
+type-to-search = Zacznij pisać by wyszukać…
+focus-pane-down = Aktywuj panel niżej
+focus-pane-left = Aktywuj lewy panel
+focus-pane-right = Aktywuj prawy panel
+focus-pane-up = Aktywuj panel wyżej
+copy-link = Skopiuj Odnośnik
+tab-new-inherit-working-directory = Nowe karty i okna użyją obecnego katalogu
+tab-new-inherit-working-directory-description = Otwieraj nowe karty i okna w katalogu roboczym aktywnej karty
+show-pane-borders = Pokaż obramowania paneli
+window-header = Nagłówek okna
+move-tab-left = Przesuń kartę w lewo
+move-tab-right = Przesuń kartę w prawo
