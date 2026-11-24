@@ -1344,8 +1344,8 @@ dependencies = [
 
 [[package]]
 name = "cosmic-files"
-version = "1.11.0"
-source = "git+https://github.com/pop-os/cosmic-files.git#84a32e1eed33b1e017c8a653bfe1c2d5a13a711a"
+version = "1.12.0"
+source = "git+https://github.com/pop-os/cosmic-files.git#3165e0f7e46da0cbc852d729af99eaa3a3fead37"
 dependencies = [
  "anyhow",
  "atomic_float",
@@ -4273,9 +4273,9 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "litrs"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4744e383959f0db86ede514b809b1c53251889093803c05267acc7d4e7030d70"
+checksum = "02b614978e47ce529faee66579f2b2fe19c94aa96d910a6a9a8043b2b02d8175"
 
 [[package]]
 name = "local-event"
