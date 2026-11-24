@@ -1,4 +1,4 @@
-rename = Navê biguhêrîne
+rename = Navî biguhêrîne
 cancel = Têk bibe
 name = Nav
 delete = Jê bibe
