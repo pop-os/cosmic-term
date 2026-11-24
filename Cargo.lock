@@ -144,9 +144,9 @@ dependencies = [
 
 [[package]]
 name = "alacritty_terminal"
-version = "0.25.1"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46319972e74179d707445f64aaa2893bbf6a111de3a9af29b7eb382f8b39e282"
+checksum = "bda177466b9524d59f1b12f0dd30b68696788e9992a7e959021c4a0ed96fcf59"
 dependencies = [
  "base64 0.22.1",
  "bitflags 2.13.2",
@@ -881,7 +881,7 @@ dependencies = [
  "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex 2.0.1",
+ "shlex",
 ]
 
 [[package]]
@@ -944,9 +944,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.7"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
+checksum = "e0921b3876b3a1df8a1c9f912e7f94342458022c2e84288015893d83c4d62a79"
 
 [[package]]
 name = "clipboard-win"
@@ -1325,7 +1325,7 @@ dependencies = [
  "iced_futures",
  "known-folders",
  "notify",
- "ron 0.12.3",
+ "ron",
  "serde",
  "tokio",
  "tracing",
@@ -1384,7 +1384,7 @@ dependencies = [
  "rustc-hash 2.1.3",
  "serde",
  "sha2",
- "shlex 2.0.1",
+ "shlex",
  "slotmap",
  "tar",
  "tempfile",
@@ -1427,7 +1427,7 @@ dependencies = [
  "libc",
  "rand 0.10.4",
  "rustix 1.1.6",
- "shlex 2.0.1",
+ "shlex",
  "switcheroo-control-zbus",
  "tokio",
  "tracing",
@@ -1455,7 +1455,7 @@ version = "1.11.0"
 source = "git+https://github.com/pop-os/cosmic-settings-daemon#212f39a25fde26b53edde98446ec8de5e52c8e31"
 dependencies = [
  "cosmic-config",
- "ron 0.12.3",
+ "ron",
  "serde",
  "serde_with",
  "tracing",
@@ -1478,7 +1478,7 @@ dependencies = [
  "clap_lex",
  "cosmic-files",
  "cosmic-text",
- "fork 0.4.0",
+ "fork 0.12.0",
  "hex_color",
  "i18n-embed",
  "i18n-embed-fl",
@@ -1489,12 +1489,12 @@ dependencies = [
  "open",
  "paste",
  "regex",
- "ron 0.11.0",
+ "ron",
  "rust-embed",
  "secret-service",
  "secstr",
  "serde",
- "shlex 1.3.0",
+ "shlex",
  "thiserror 2.0.21",
  "tokio",
  "url",
@@ -1537,7 +1537,7 @@ dependencies = [
  "hex_color",
  "iced_core",
  "palette",
- "ron 0.12.3",
+ "ron",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -2330,18 +2330,18 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
 name = "fork"
-version = "0.4.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30268f1eefccc9d72f43692e8b89e659aeb52e84016c3b32b6e7e9f1c8f38f94"
+checksum = "9b8b9dc1312e1668be5ffa350e3c0adc9b501b2eeebb1b31206477240cc96554"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "fork"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b8b9dc1312e1668be5ffa350e3c0adc9b501b2eeebb1b31206477240cc96554"
+checksum = "5d11ade641d9b2dee55b7704802a27aa5208d968165355a281fc72ab2e9b2f01"
 dependencies = [
  "libc",
 ]
@@ -5989,19 +5989,6 @@ dependencies = [
 
 [[package]]
 name = "ron"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db09040cc89e461f1a265139777a2bde7f8d8c67c4936f700c63ce3e2904d468"
-dependencies = [
- "base64 0.22.1",
- "bitflags 2.13.2",
- "serde",
- "serde_derive",
- "unicode-ident",
-]
-
-[[package]]
-name = "ron"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b3fe97c18ff24299ea56f802c5693eb34266fb0bc8317f4e101debc8a3ceaf"
@@ -6205,9 +6192,9 @@ dependencies = [
 
 [[package]]
 name = "secret-service"
-version = "5.2.0"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5107b24b91445dd2aa449a258a1807b63240942157292354dc5bfdbeb8bc6db8"
+checksum = "02ce5a46d499a2841b922de2d0f11f190efe0013dbd3b9d0fd0fc2bf5a0c24d8"
 dependencies = [
  "aes",
  "cbc",
@@ -6216,10 +6203,10 @@ dependencies = [
  "hkdf",
  "hybrid-array",
  "num",
- "once_cell",
  "serde",
  "sha2",
- "zbus 5.19.0",
+ "zbus 6.5.0",
+ "zruntime",
 ]
 
 [[package]]
@@ -6366,21 +6353,15 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
-
-[[package]]
-name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.18"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d881a16cf4426aa584979d30bd82cb33429027e42122b169753d6ef1085ed6e2"
+checksum = "49f7447afd772ca79ad17ae0a3972a6b0df0cb4b80990fd82707593e9e012a74"
 dependencies = [
  "libc",
  "signal-hook-registry",
@@ -8719,7 +8700,6 @@ dependencies = [
  "rustix 1.1.6",
  "serde",
  "serde_repr",
- "tokio",
  "tracing",
  "uds_windows",
  "uuid",
