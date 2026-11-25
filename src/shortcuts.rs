@@ -89,6 +89,7 @@ pub enum KeyBindAction {
     TabPrev,
     TabMoveLeft,
     TabMoveRight,
+    TabRename,
     ToggleFullscreen,
     WindowClose,
     WindowNew,
@@ -131,6 +132,7 @@ impl KeyBindAction {
             Self::TabPrev => Some(Action::TabPrev),
             Self::TabMoveLeft => Some(Action::TabMoveLeft),
             Self::TabMoveRight => Some(Action::TabMoveRight),
+            Self::TabRename => Some(Action::TabRename),
             Self::ToggleFullscreen => Some(Action::ToggleFullscreen),
             Self::WindowClose => Some(Action::WindowClose),
             Self::WindowNew => Some(Action::WindowNew),
@@ -294,6 +296,7 @@ pub fn action_label(action: KeyBindAction) -> String {
         KeyBindAction::TabPrev => fl!("previous-tab"),
         KeyBindAction::TabMoveLeft => fl!("move-tab-left"),
         KeyBindAction::TabMoveRight => fl!("move-tab-right"),
+        KeyBindAction::TabRename => fl!("rename-tab"),
         KeyBindAction::ToggleFullscreen => fl!("toggle-fullscreen"),
         KeyBindAction::WindowClose => fl!("close-window"),
         KeyBindAction::WindowNew => fl!("new-window"),
@@ -481,6 +484,9 @@ fn fallback_shortcuts() -> Shortcuts {
     // Ctrl+Shift+PageUp/Down move tabs left and right
     bind!([Ctrl, Shift], "PageUp", TabMoveLeft);
     bind!([Ctrl, Shift], "PageDown", TabMoveRight);
+
+    // Ctrl+Shirt+R rename tab
+    bind!([Ctrl, Shift], "R", TabRename);
 
     // Ctrl+Shift+# activates tabs by index
     bind!([Ctrl, Shift], "1", TabActivate0);
