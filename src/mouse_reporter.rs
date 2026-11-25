@@ -42,6 +42,9 @@ impl MouseReporter {
             Button::Left => Some(0),
             Button::Middle => Some(1),
             Button::Right => Some(2),
+            // Xterm buttons 8 and 9 (Neovim's X1Mouse and X2Mouse).
+            Button::Back => Some(128),
+            Button::Forward => Some(129),
             _ => None,
         }
     }
