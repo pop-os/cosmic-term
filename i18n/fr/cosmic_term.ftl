@@ -88,7 +88,7 @@ quit = Quitter
 
 ## Edit
 
-edit = Édition
+edit = Modifier
 copy = Copier
 paste = Coller
 select-all = Sélectionner tout
